@@ -158,9 +158,14 @@ exports.handler = async (event) => {
     const siteUrl = process.env.SITE_URL || 'https://mellifluous-peony-a229d6.netlify.app'
     const resetUrl = `${siteUrl}/reset-password?token=${token}`
 
-    await sendResetEmail({ name: user.name, email: user.email, resetUrl })
+    const emailResult = await sendResetEmail({ name: user.name, email: user.email, resetUrl })
 
-    return successResponse
+    // Temporary debug — will remove after diagnosing
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({ success: true, _debug: emailResult }),
+    }
   } catch (err) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) }
   }
