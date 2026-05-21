@@ -56,9 +56,6 @@ exports.handler = async (event) => {
 
     const user = users[0]
 
-    // Invalidate previous tokens
-    await sql`UPDATE password_reset_tokens SET used = true WHERE user_id = ${user.id} AND used = false`
-
     // Generate secure token
     const token = crypto.randomBytes(40).toString('hex')
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000) // 1 hour
