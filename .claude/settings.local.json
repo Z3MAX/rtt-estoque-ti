@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Alexandre Amorim\\\\AppData\\\\Local\\\\Temp\" -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.Extension -match \"\\\\.\\(jpg|jpeg|png|webp\\)\" -and $_.LastWriteTime -gt \\(Get-Date\\).AddHours\\(-2\\) } | Sort-Object LastWriteTime -Descending | Select-Object FullName, Length, LastWriteTime | Format-List)"
+    ]
+  }
+}
