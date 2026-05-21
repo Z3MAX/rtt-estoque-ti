@@ -37,14 +37,14 @@ export default function LoginPage() {
 
         {/* Top: logo + tagline */}
         <div className="relative z-10 px-12 pt-10">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 bg-primary-500 rounded-xl flex items-center justify-center shadow-lg shadow-primary-500/30">
-              <Server size={20} className="text-white" />
-            </div>
-            <div>
-              <p className="text-white font-bold text-lg leading-none">RTT</p>
-              <p className="text-primary-300 text-xs">Controle de Estoque TI</p>
-            </div>
+          {/* Logo */}
+          <div className="mb-10">
+            <img
+              src="/rema-logo.png"
+              alt="Rema Tip Top"
+              className="h-14 w-auto object-contain select-none brightness-0 invert"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+            />
           </div>
 
           <h1 className="text-4xl font-bold text-white leading-tight">
@@ -52,7 +52,7 @@ export default function LoginPage() {
             <span className="text-primary-400">de TI simplificada</span>
           </h1>
           <p className="text-slate-400 mt-3 text-sm leading-relaxed max-w-sm">
-            A solução da <span className="text-white font-medium">RTT</span> para controlar todo o inventário
+            A solução da <span className="text-white font-medium">Rema Tip Top</span> para controlar todo o inventário
             de equipamentos em um só lugar.
           </p>
 
@@ -76,7 +76,7 @@ export default function LoginPage() {
         <div className="relative z-10 flex items-end justify-center flex-1 overflow-hidden">
           <img
             src="/rtt-hero.png"
-            alt="RTT — Gestão de TI"
+            alt="Rema Tip Top — Gestão de TI"
             className="w-full object-contain object-bottom drop-shadow-2xl select-none"
             style={{ maxHeight: '520px' }}
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
@@ -85,20 +85,18 @@ export default function LoginPage() {
 
         {/* Bottom note */}
         <p className="text-slate-600 text-xs relative z-10 px-12 pb-6">
-          © 2025 RTT · Todos os direitos reservados
+          © 2025 Rema Tip Top · Todos os direitos reservados
         </p>
       </div>
 
       {/* ── Right panel ── */}
-      <div className="flex-1 flex items-center justify-center p-6 bg-slate-50">
+      <div className="flex-1 flex items-center justify-center p-6 bg-white">
         <div className="w-full max-w-md">
 
           {/* Mobile logo */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <div className="w-9 h-9 bg-primary-500 rounded-xl flex items-center justify-center">
-              <Server size={18} className="text-white" />
-            </div>
-            <p className="text-slate-900 font-bold text-lg">RTT</p>
+            <img src="/rema-logo.png" alt="Rema Tip Top" className="h-8 w-auto object-contain select-none"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
           </div>
 
           <div className="card p-8">
