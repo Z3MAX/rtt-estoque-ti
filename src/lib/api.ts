@@ -166,6 +166,32 @@ export const api = {
     },
   },
 
+  users: {
+    list: async () => {
+      if (MOCK) {
+        await delay(200)
+        return [
+          { id: 1, name: 'Alexandre Amorim', email: 'alexandre.amorim@rttshop.com.br', role: 'Administrador de TI', active: true, created_at: new Date().toISOString() },
+          { id: 2, name: 'Administrador',    email: 'admin@rtt.com',                   role: 'Administrador de TI', active: true, created_at: new Date().toISOString() },
+          { id: 3, name: 'Equipe TI',        email: 'ti@rtt.com',                      role: 'Técnico de TI',       active: true, created_at: new Date().toISOString() },
+        ]
+      }
+      return request(`${BASE}/users`)
+    },
+    create: async (data: any) => {
+      if (MOCK) { await delay(400); return { id: _nextId++, ...data, active: true, created_at: new Date().toISOString() } }
+      return request(`${BASE}/users`, { method: 'POST', body: JSON.stringify(data) })
+    },
+    update: async (id: number, data: any) => {
+      if (MOCK) { await delay(400); return { id, ...data } }
+      return request(`${BASE}/users?id=${id}`, { method: 'PUT', body: JSON.stringify(data) })
+    },
+    deactivate: async (id: number) => {
+      if (MOCK) { await delay(300); return { success: true } }
+      return request(`${BASE}/users?id=${id}`, { method: 'DELETE' })
+    },
+  },
+
   locations: {
     list: async () => {
       if (MOCK) { await delay(200); return [..._locs] }

@@ -6,6 +6,7 @@ import Dashboard from './components/pages/Dashboard'
 import EquipmentPage from './components/pages/Equipment'
 import CategoriesPage from './components/pages/Categories'
 import LocationsPage from './components/pages/Locations'
+import UsersPage from './components/pages/Users'
 
 function ProtectedRoutes() {
   const { user, loading } = useAuth()
@@ -36,6 +37,7 @@ function ProtectedRoutes() {
         <Route path="/equipamentos" element={<EquipmentPage />} />
         <Route path="/categorias" element={<CategoriesPage />} />
         <Route path="/locais" element={<LocationsPage />} />
+        <Route path="/usuarios" element={<UsersPage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>
