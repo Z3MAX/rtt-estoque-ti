@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/auth'
 import LoginPage from './components/LoginPage'
+import ForgotPasswordPage from './components/ForgotPasswordPage'
+import ResetPasswordPage from './components/ResetPasswordPage'
 import Layout from './components/Layout'
 import Dashboard from './components/pages/Dashboard'
 import EquipmentPage from './components/pages/Equipment'
@@ -47,7 +49,11 @@ function ProtectedRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <ProtectedRoutes />
+      <Routes>
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="*" element={<ProtectedRoutes />} />
+      </Routes>
     </AuthProvider>
   )
 }

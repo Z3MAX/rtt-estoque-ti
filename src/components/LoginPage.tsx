@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { Server, Monitor, Tag, MapPin, Eye, EyeOff, LogIn, Shield } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 
@@ -150,9 +151,15 @@ export default function LoginPage() {
                 </div>
               )}
 
+              <div className="flex justify-end">
+                <Link to="/forgot-password" className="text-xs text-primary-600 hover:text-primary-700 font-medium transition-colors">
+                  Esqueceu a senha?
+                </Link>
+              </div>
+
               <button
                 type="submit"
-                className="btn-primary w-full justify-center py-2.5 text-base mt-2"
+                className="btn-primary w-full justify-center py-2.5 text-base"
                 disabled={loading}
               >
                 {loading ? (
