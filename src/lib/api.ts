@@ -55,12 +55,13 @@ export const api = {
   },
 
   equipment: {
-    list: async (params?: { search?: string; status?: string; category?: number }) => {
+    list: async (params?: { search?: string; status?: string; category?: number; location?: number }) => {
       if (MOCK) { await delay(300); return filterEquipment(params) }
       const qs = new URLSearchParams()
-      if (params?.search) qs.set('search', params.search)
-      if (params?.status) qs.set('status', params.status)
+      if (params?.search)   qs.set('search', params.search)
+      if (params?.status)   qs.set('status', params.status)
       if (params?.category) qs.set('category', String(params.category))
+      if (params?.location) qs.set('location', String(params.location))
       return request(`${BASE}/equipment${qs.toString() ? '?' + qs.toString() : ''}`)
     },
     get: async (id: number) => {

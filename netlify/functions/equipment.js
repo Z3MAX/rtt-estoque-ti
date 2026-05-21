@@ -38,6 +38,21 @@ exports.handler = async (event) => {
       const search = params.search || ''
       const status = params.status || ''
       const category = params.category ? parseInt(params.category) : null
+      const location = params.location ? parseInt(params.location) : null
+
+      // Location drill-down: simple filter by location_id, ignores other filters
+      if (location) {
+        const rows = await sql`
+          SELECT e.*, c.name as category_name, c.color as category_color, c.icon as category_icon,
+                 l.name as location_name
+          FROM equipment e
+          LEFT JOIN categories c ON e.category_id = c.id
+          LEFT JOIN locations l ON e.location_id = l.id
+          WHERE e.location_id = ${location}
+          ORDER BY e.name ASC
+        `
+        return { statusCode: 200, headers, body: JSON.stringify(rows) }
+      }
 
       let rows
       if (search && status && category) {
