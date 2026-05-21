@@ -2,11 +2,6 @@ import { useState, type FormEvent } from 'react'
 import { Server, Monitor, Tag, MapPin, Eye, EyeOff, LogIn, Shield } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 
-const DEMO_ACCOUNTS = [
-  { email: 'admin@rtt.com', password: 'admin123', label: 'Administrador' },
-  { email: 'ti@rtt.com',    password: 'ti1234',   label: 'Técnico de TI' },
-]
-
 export default function LoginPage() {
   const { login } = useAuth()
   const [email, setEmail]       = useState('')
@@ -27,12 +22,6 @@ export default function LoginPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  function fillDemo(acc: typeof DEMO_ACCOUNTS[0]) {
-    setEmail(acc.email)
-    setPassword(acc.password)
-    setError('')
   }
 
   return (
@@ -183,23 +172,6 @@ export default function LoginPage() {
               </button>
             </form>
 
-            {/* Demo accounts */}
-            <div className="mt-6 pt-5 border-t border-slate-100">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Contas de demonstração</p>
-              <div className="grid grid-cols-2 gap-2">
-                {DEMO_ACCOUNTS.map((acc) => (
-                  <button
-                    key={acc.email}
-                    onClick={() => fillDemo(acc)}
-                    className="flex flex-col items-start px-3 py-2.5 rounded-xl border border-slate-200 hover:border-primary-300 hover:bg-primary-50 transition-all text-left group"
-                    disabled={loading}
-                  >
-                    <span className="text-xs font-semibold text-slate-700 group-hover:text-primary-700">{acc.label}</span>
-                    <span className="text-xs text-slate-400 mt-0.5 truncate w-full">{acc.email}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
       </div>
