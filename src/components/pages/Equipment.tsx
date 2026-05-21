@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Plus, Search, Filter, Pencil, Trash2, Monitor, RefreshCw } from 'lucide-react'
+import { Plus, Search, Filter, Pencil, Trash2, Monitor, RefreshCw, FileSpreadsheet } from 'lucide-react'
 import { api } from '../../lib/api'
 import type { Equipment, Category, Location, EquipmentStatus } from '../../lib/types'
 import { StatusBadge } from '../ui/Badge'
 import EquipmentModal from '../modals/EquipmentModal'
 import ConfirmDialog from '../ui/ConfirmDialog'
+import ImportModal from '../modals/ImportModal'
 
 const statusOptions: { value: EquipmentStatus | ''; label: string }[] = [
   { value: '', label: 'Todos os status' },
@@ -27,6 +28,7 @@ export default function EquipmentPage() {
   const [deleting, setDeleting] = useState<Equipment | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [error, setError] = useState('')
+  const [importOpen, setImportOpen] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -81,10 +83,16 @@ export default function EquipmentPage() {
           <h1 className="text-2xl font-bold text-slate-900">Equipamentos</h1>
           <p className="text-slate-500 text-sm mt-0.5">{items.length} {items.length === 1 ? 'item' : 'itens'}</p>
         </div>
-        <button className="btn-primary" onClick={openCreate}>
-          <Plus size={16} />
-          Novo equipamento
-        </button>
+        <div className="flex items-center gap-2">
+          <button className="btn-secondary" onClick={() => setImportOpen(true)}>
+            <FileSpreadsheet size={16} />
+            Importar Excel
+          </button>
+          <button className="btn-primary" onClick={openCreate}>
+            <Plus size={16} />
+            Novo equipamento
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -240,6 +248,13 @@ export default function EquipmentPage() {
         categories={categories}
         locations={locations}
       />
+
+      {importOpen && (
+        <ImportModal
+          onClose={() => setImportOpen(false)}
+          onImported={load}
+        />
+      )}
 
       <ConfirmDialog
         open={!!deleting}
