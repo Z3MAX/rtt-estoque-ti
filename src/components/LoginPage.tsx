@@ -78,7 +78,7 @@ export default function LoginPage() {
             src="/rtt-hero.png"
             alt="Rema Tip Top — Gestão de TI"
             className="w-full object-contain object-bottom drop-shadow-2xl select-none"
-            style={{ maxHeight: '520px' }}
+            style={{ maxHeight: '520px', transform: 'translateX(-10%)' }}
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
           />
         </div>
