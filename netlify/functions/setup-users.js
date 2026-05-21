@@ -32,18 +32,24 @@ exports.handler = async (event) => {
         password_hash VARCHAR(64) NOT NULL,
         role VARCHAR(50) DEFAULT 'Técnico de TI',
         active BOOLEAN DEFAULT true,
+        must_change_password BOOLEAN DEFAULT false,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `
 
+    // Add must_change_password column if upgrading from older schema
+    await sql`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false
+    `
+
     const count = await sql`SELECT COUNT(*) as count FROM users`
     if (parseInt(count[0].count) === 0) {
       await sql`
-        INSERT INTO users (name, email, password_hash, role) VALUES
-        ('Alexandre Amorim', 'alexandre.amorim@rttshop.com.br', ${hashPassword('alexandre123')}, 'Administrador de TI'),
-        ('Administrador', 'admin@rtt.com', ${hashPassword('admin123')}, 'Administrador de TI'),
-        ('Equipe TI', 'ti@rtt.com', ${hashPassword('ti1234')}, 'Técnico de TI')
+        INSERT INTO users (name, email, password_hash, role, must_change_password) VALUES
+        ('Alexandre Amorim', 'alexandre.amorim@rttshop.com.br', ${hashPassword('alexandre123')}, 'Administrador de TI', false),
+        ('Administrador', 'admin@rtt.com', ${hashPassword('admin123')}, 'Administrador de TI', false),
+        ('Equipe TI', 'ti@rtt.com', ${hashPassword('ti1234')}, 'Técnico de TI', false)
       `
     }
 

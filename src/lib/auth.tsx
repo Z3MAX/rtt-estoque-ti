@@ -7,12 +7,14 @@ export interface User {
   name: string
   email: string
   role: string
+  mustChangePassword?: boolean
 }
 
 interface AuthContextType {
   user: User | null
   login: (email: string, password: string) => Promise<void>
   logout: () => void
+  updateUser: (updates: Partial<User>) => void
   loading: boolean
 }
 
@@ -63,8 +65,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('osiris_user')
   }
 
+  function updateUser(updates: Partial<User>) {
+    setUser((prev) => {
+      if (!prev) return prev
+      const updated = { ...prev, ...updates }
+      localStorage.setItem('osiris_user', JSON.stringify(updated))
+      return updated
+    })
+  }
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, updateUser, loading }}>
       {children}
     </AuthContext.Provider>
   )

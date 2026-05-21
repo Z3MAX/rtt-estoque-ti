@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './lib/auth'
 import LoginPage from './components/LoginPage'
 import ForgotPasswordPage from './components/ForgotPasswordPage'
 import ResetPasswordPage from './components/ResetPasswordPage'
+import ChangePasswordPage from './components/ChangePasswordPage'
 import Layout from './components/Layout'
 import Dashboard from './components/pages/Dashboard'
 import EquipmentPage from './components/pages/Equipment'
@@ -30,6 +31,9 @@ function ProtectedRoutes() {
   }
 
   if (!user) return <LoginPage />
+
+  // First login — force password change before anything else
+  if (user.mustChangePassword) return <ChangePasswordPage />
 
   return (
     <Routes>

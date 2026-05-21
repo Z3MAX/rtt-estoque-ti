@@ -173,9 +173,9 @@ exports.handler = async (event) => {
 
       const passwordHash = hashPassword(password)
       const rows = await sql`
-        INSERT INTO users (name, email, password_hash, role)
-        VALUES (${name}, ${email.toLowerCase()}, ${passwordHash}, ${role || 'Técnico de TI'})
-        RETURNING id, name, email, role, active, created_at, updated_at
+        INSERT INTO users (name, email, password_hash, role, must_change_password)
+        VALUES (${name}, ${email.toLowerCase()}, ${passwordHash}, ${role || 'Técnico de TI'}, true)
+        RETURNING id, name, email, role, active, must_change_password, created_at, updated_at
       `
 
       // Send welcome email (non-blocking — if it fails, user is still created)

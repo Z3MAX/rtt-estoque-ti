@@ -21,51 +21,43 @@ exports.handler = async (event) => {
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'DATABASE_URL not configured' }) }
   }
 
-  let email, password
+  let userId, newPassword
   try {
     const body = JSON.parse(event.body || '{}')
-    email = body.email
-    password = body.password
+    userId = body.userId
+    newPassword = body.newPassword
   } catch {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Body inválido' }) }
   }
 
-  if (!email || !password) {
-    return { statusCode: 400, headers, body: JSON.stringify({ error: 'E-mail e senha obrigatórios' }) }
+  if (!userId || !newPassword) {
+    return { statusCode: 400, headers, body: JSON.stringify({ error: 'userId e newPassword são obrigatórios' }) }
+  }
+
+  if (newPassword.length < 6) {
+    return { statusCode: 400, headers, body: JSON.stringify({ error: 'A senha deve ter no mínimo 6 caracteres' }) }
   }
 
   const sql = neon(process.env.DATABASE_URL)
 
   try {
-    const passwordHash = hashPassword(password)
     const rows = await sql`
-      SELECT id, name, email, role, active, must_change_password
-      FROM users
-      WHERE email = ${email.toLowerCase()} AND password_hash = ${passwordHash}
+      UPDATE users
+      SET password_hash = ${hashPassword(newPassword)},
+          must_change_password = false,
+          updated_at = NOW()
+      WHERE id = ${userId} AND must_change_password = true
+      RETURNING id, name, email, role, active
     `
 
     if (rows.length === 0) {
-      return { statusCode: 401, headers, body: JSON.stringify({ error: 'E-mail ou senha incorretos' }) }
-    }
-
-    const user = rows[0]
-
-    if (!user.active) {
-      return { statusCode: 403, headers, body: JSON.stringify({ error: 'Usuário desativado. Contate o administrador.' }) }
+      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Usuário não encontrado ou senha já definida.' }) }
     }
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          mustChangePassword: user.must_change_password ?? false,
-        },
-      }),
+      body: JSON.stringify({ success: true, user: rows[0] }),
     }
   } catch (err) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) }
