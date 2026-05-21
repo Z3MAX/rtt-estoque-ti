@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Plus, Search, Filter, Pencil, Trash2, Monitor, RefreshCw, FileSpreadsheet } from 'lucide-react'
+import { Plus, Search, Filter, Pencil, Trash2, Monitor, RefreshCw, FileSpreadsheet, Download } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import { api } from '../../lib/api'
 import type { Equipment, Category, Location, EquipmentStatus } from '../../lib/types'
-import { StatusBadge } from '../ui/Badge'
+import { StatusBadge, statusConfig } from '../ui/Badge'
 import EquipmentModal from '../modals/EquipmentModal'
 import ConfirmDialog from '../ui/ConfirmDialog'
 import ImportModal from '../modals/ImportModal'
@@ -75,6 +76,38 @@ export default function EquipmentPage() {
   function openCreate() { setEditing(null); setModalOpen(true) }
   function openEdit(eq: Equipment) { setEditing(eq); setModalOpen(true) }
 
+  function exportToExcel() {
+    const rows = items.map((eq) => ({
+      'Nome':           eq.name,
+      'Marca':          eq.brand        ?? '',
+      'Modelo':         eq.model        ?? '',
+      'Categoria':      eq.category_name ?? '',
+      'Status':         statusConfig[eq.status]?.label ?? eq.status,
+      'Local':          eq.location_name ?? '',
+      'Responsável':    eq.assigned_to  ?? '',
+      'Nº de Série':    eq.serial_number ?? '',
+      'Patrimônio':     eq.asset_tag    ?? '',
+      'Data de Compra': eq.purchase_date ? new Date(eq.purchase_date).toLocaleDateString('pt-BR') : '',
+      'Valor (R$)':     eq.purchase_price ?? '',
+      'Observações':    eq.notes        ?? '',
+    }))
+
+    const ws = XLSX.utils.json_to_sheet(rows)
+
+    // Column widths
+    ws['!cols'] = [
+      { wch: 32 }, { wch: 16 }, { wch: 20 }, { wch: 18 },
+      { wch: 14 }, { wch: 20 }, { wch: 22 }, { wch: 20 },
+      { wch: 14 }, { wch: 16 }, { wch: 12 }, { wch: 30 },
+    ]
+
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Equipamentos')
+
+    const filename = `equipamentos_rtt_${new Date().toISOString().slice(0, 10)}.xlsx`
+    XLSX.writeFile(wb, filename)
+  }
+
   return (
     <div className="p-8 space-y-6 animate-fade-in">
       {/* Header */}
@@ -84,6 +117,15 @@ export default function EquipmentPage() {
           <p className="text-slate-500 text-sm mt-0.5">{items.length} {items.length === 1 ? 'item' : 'itens'}</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            className="btn-secondary"
+            onClick={exportToExcel}
+            disabled={items.length === 0}
+            title="Exportar lista atual para Excel"
+          >
+            <Download size={16} />
+            Exportar Excel
+          </button>
           <button className="btn-secondary" onClick={() => setImportOpen(true)}>
             <FileSpreadsheet size={16} />
             Importar Excel
