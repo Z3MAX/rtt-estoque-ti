@@ -1,24 +1,17 @@
 const { neon } = require('@neondatabase/serverless')
-
-const headers = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-}
+const { requireAuth, makeHeaders, errorResponse } = require('./_auth')
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers, body: '' }
-  }
-
+  const headers = makeHeaders(event, 'GET, OPTIONS')
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers, body: '' }
   if (!process.env.DATABASE_URL) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'DATABASE_URL not configured' }) }
   }
 
-  const sql = neon(process.env.DATABASE_URL)
-
   try {
+    requireAuth(event)
+    const sql = neon(process.env.DATABASE_URL)
+
     const [totals, byStatus, byCategory, recent, recentMovements] = await Promise.all([
       sql`SELECT COUNT(*)::int as total FROM equipment`,
 
@@ -75,6 +68,6 @@ exports.handler = async (event) => {
       }),
     }
   } catch (err) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) }
+    return errorResponse(headers, err)
   }
 }

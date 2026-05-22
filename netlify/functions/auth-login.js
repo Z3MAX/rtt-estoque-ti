@@ -1,18 +1,10 @@
 const { neon } = require('@neondatabase/serverless')
 const crypto = require('crypto')
-
-const headers = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
-function hashPassword(password) {
-  return crypto.createHash('sha256').update(password).digest('hex')
-}
+const { hashPassword, comparePassword } = require('./_hash')
+const { signToken, makeHeaders, errorResponse } = require('./_auth')
 
 exports.handler = async (event) => {
+  const headers = makeHeaders(event, 'POST, OPTIONS')
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers, body: '' }
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) }
@@ -37,12 +29,15 @@ exports.handler = async (event) => {
   const sql = neon(process.env.DATABASE_URL)
 
   try {
-    const passwordHash = hashPassword(password)
+    // Busca por e-mail (sem conferir senha no SQL para evitar timing attacks)
     const rows = await sql`
-      SELECT id, name, email, role, active, must_change_password
+      SELECT id, name, email, role, active, must_change_password, password_hash
       FROM users
-      WHERE email = ${email.toLowerCase()} AND password_hash = ${passwordHash}
+      WHERE email = ${email.toLowerCase()}
     `
+
+    // Delay fixo para prevenir enumeração de usuários via timing
+    await new Promise((r) => setTimeout(r, 400))
 
     if (rows.length === 0) {
       return { statusCode: 401, headers, body: JSON.stringify({ error: 'E-mail ou senha incorretos' }) }
@@ -50,14 +45,45 @@ exports.handler = async (event) => {
 
     const user = rows[0]
 
+    // Migração transparente: SHA-256 → bcrypt
+    const isBcrypt = user.password_hash.startsWith('$2b$') || user.password_hash.startsWith('$2a$')
+    let valid = false
+
+    if (isBcrypt) {
+      valid = await comparePassword(password, user.password_hash)
+    } else {
+      // Legado: SHA-256 sem salt
+      const sha256Hash = crypto.createHash('sha256').update(password).digest('hex')
+      valid = sha256Hash === user.password_hash
+      if (valid) {
+        // Faz upgrade automático para bcrypt na primeira autenticação bem-sucedida
+        const newHash = await hashPassword(password)
+        await sql`UPDATE users SET password_hash = ${newHash}, updated_at = NOW() WHERE id = ${user.id}`
+      }
+    }
+
+    if (!valid) {
+      return { statusCode: 401, headers, body: JSON.stringify({ error: 'E-mail ou senha incorretos' }) }
+    }
+
     if (!user.active) {
       return { statusCode: 403, headers, body: JSON.stringify({ error: 'Usuário desativado. Contate o administrador.' }) }
     }
+
+    const tokenPayload = {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      mustChangePassword: user.must_change_password ?? false,
+    }
+
+    const token = signToken(tokenPayload)
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
+        token,
         user: {
           id: user.id,
           name: user.name,
@@ -68,6 +94,6 @@ exports.handler = async (event) => {
       }),
     }
   } catch (err) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) }
+    return errorResponse(headers, err)
   }
 }

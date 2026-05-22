@@ -12,8 +12,18 @@ function createTransporter() {
 
 const FROM = () =>
   process.env.GMAIL_USER
-    ? `RTT TI <${process.env.GMAIL_USER}>`
-    : 'RTT TI <noreply@rtt.com>'
+    ? `Rema Tip Top TI <${process.env.GMAIL_USER}>`
+    : 'Rema Tip Top TI <noreply@rtt.com>'
+
+/** Escapa caracteres especiais HTML para prevenir injeção em templates de e-mail. */
+function esc(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+}
 
 async function sendMail({ to, subject, html }) {
   if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
@@ -24,13 +34,19 @@ async function sendMail({ to, subject, html }) {
     const info = await transporter.sendMail({ from: FROM(), to, subject, html })
     return { sent: true, messageId: info.messageId }
   } catch (err) {
+    console.error('[email] falha ao enviar:', err.message)
     return { sent: false, error: err.message }
   }
 }
 
-async function sendWelcomeEmail({ name, email, password, role, loginUrl }) {
+/**
+ * E-mail de convite para novo usuário.
+ * Envia um link para definição de senha — nunca envia a senha em texto.
+ */
+async function sendInviteEmail({ name, email, inviteUrl, role }) {
   const roleLabel = role === 'Administrador de TI' ? 'Administrador de TI' : 'Técnico de TI'
-  const roleColor = role === 'Administrador de TI' ? '#6366f1' : '#10b981'
+  const roleColor = role === 'Administrador de TI' ? '#e30613' : '#10b981'
+  const siteUrl = process.env.SITE_URL || ''
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -39,34 +55,29 @@ async function sendWelcomeEmail({ name, email, password, role, loginUrl }) {
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 20px">
     <tr><td align="center">
       <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%">
-        <tr><td style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border-radius:16px 16px 0 0;padding:32px 40px;text-align:center">
-          <p style="margin:0;color:#fff;font-size:22px;font-weight:700">RTT</p>
+        <tr><td style="background:linear-gradient(135deg,#0f172a 0%,#7f0008 100%);border-radius:16px 16px 0 0;padding:32px 40px;text-align:center">
+          <p style="margin:0;color:#fff;font-size:22px;font-weight:700">Rema Tip Top</p>
           <p style="margin:4px 0 0;color:#94a3b8;font-size:12px">Controle de Estoque TI</p>
-          <p style="margin:20px 0 0;color:#fff;font-size:22px;font-weight:700">Bem-vindo à plataforma!</p>
+          <p style="margin:20px 0 0;color:#fff;font-size:22px;font-weight:700">Você foi convidado!</p>
         </td></tr>
         <tr><td style="background:#fff;padding:36px 40px">
-          <p style="margin:0 0 20px;color:#0f172a;font-size:20px;font-weight:700">Olá, ${name} 👋</p>
+          <p style="margin:0 0 20px;color:#0f172a;font-size:20px;font-weight:700">Olá, ${esc(name)} 👋</p>
           <p style="margin:0 0 24px;color:#475569;font-size:14px;line-height:1.6">
-            Seu acesso ao sistema de controle de estoque de TI da <strong>RTT</strong> foi criado. Use as credenciais abaixo para entrar na plataforma.
+            Seu acesso ao sistema de controle de estoque de TI da <strong>Rema Tip Top</strong> foi criado.
+            Clique no botão abaixo para definir sua senha e ativar sua conta.
           </p>
           <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:24px">
-            <tr><td style="padding:20px 24px">
-              <p style="margin:0 0 14px;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em">Suas credenciais</p>
+            <tr><td style="padding:16px 24px">
+              <p style="margin:0 0 8px;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em">Seu perfil</p>
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td style="padding:6px 0;color:#94a3b8;font-size:13px;width:80px">E-mail</td>
-                  <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:600">${email}</td>
+                  <td style="padding:4px 0;color:#94a3b8;font-size:13px;width:60px">E-mail</td>
+                  <td style="padding:4px 0;color:#0f172a;font-size:13px;font-weight:600">${esc(email)}</td>
                 </tr>
                 <tr>
-                  <td style="padding:6px 0;color:#94a3b8;font-size:13px">Senha</td>
-                  <td style="padding:6px 0">
-                    <span style="background:#0f172a;color:#e2e8f0;font-family:monospace;font-size:14px;font-weight:600;padding:3px 10px;border-radius:6px">${password}</span>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:6px 0;color:#94a3b8;font-size:13px">Perfil</td>
-                  <td style="padding:6px 0">
-                    <span style="background:${roleColor}20;color:${roleColor};font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px">${roleLabel}</span>
+                  <td style="padding:4px 0;color:#94a3b8;font-size:13px">Perfil</td>
+                  <td style="padding:4px 0">
+                    <span style="background:${esc(roleColor)}20;color:${esc(roleColor)};font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px">${esc(roleLabel)}</span>
                   </td>
                 </tr>
               </table>
@@ -74,18 +85,21 @@ async function sendWelcomeEmail({ name, email, password, role, loginUrl }) {
           </table>
           <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px">
             <tr><td align="center">
-              <a href="${loginUrl}" style="display:inline-block;background:#6366f1;color:#fff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:12px">
-                Acessar a Plataforma →
+              <a href="${esc(inviteUrl)}" style="display:inline-block;background:#e30613;color:#fff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:12px">
+                Definir minha senha →
               </a>
             </td></tr>
           </table>
+          <p style="margin:0 0 8px;color:#94a3b8;font-size:12px;text-align:center">
+            Este link é válido por <strong>7 dias</strong>.
+          </p>
           <p style="margin:0;color:#94a3b8;font-size:12px;line-height:1.6;text-align:center">
-            No primeiro acesso você será solicitado a definir uma senha pessoal.<br>
-            Em caso de dúvidas, contate o administrador do sistema.
+            Se você não esperava este convite, ignore este e-mail.
           </p>
         </td></tr>
         <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;border-radius:0 0 16px 16px;padding:20px 40px;text-align:center">
-          <p style="margin:0;color:#94a3b8;font-size:12px">© 2025 RTT · Todos os direitos reservados</p>
+          <p style="margin:0;color:#94a3b8;font-size:12px">© 2025 Rema Tip Top · Todos os direitos reservados</p>
+          ${siteUrl ? `<p style="margin:6px 0 0;color:#cbd5e1;font-size:11px"><a href="${esc(siteUrl)}" style="color:#cbd5e1">${esc(siteUrl)}</a></p>` : ''}
         </td></tr>
       </table>
     </td></tr>
@@ -93,7 +107,7 @@ async function sendWelcomeEmail({ name, email, password, role, loginUrl }) {
 </body>
 </html>`
 
-  return sendMail({ to: email, subject: '🔐 Seu acesso à plataforma RTT foi criado', html })
+  return sendMail({ to: email, subject: '🔐 Seu convite para a plataforma Rema Tip Top', html })
 }
 
 async function sendResetEmail({ name, email, resetUrl }) {
@@ -104,33 +118,33 @@ async function sendResetEmail({ name, email, resetUrl }) {
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 20px">
     <tr><td align="center">
       <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%">
-        <tr><td style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border-radius:16px 16px 0 0;padding:32px 40px;text-align:center">
-          <p style="margin:0;color:#fff;font-size:22px;font-weight:700">RTT</p>
+        <tr><td style="background:linear-gradient(135deg,#0f172a 0%,#7f0008 100%);border-radius:16px 16px 0 0;padding:32px 40px;text-align:center">
+          <p style="margin:0;color:#fff;font-size:22px;font-weight:700">Rema Tip Top</p>
           <p style="margin:4px 0 0;color:#94a3b8;font-size:12px">Controle de Estoque TI</p>
           <p style="margin:20px 0 0;color:#fff;font-size:22px;font-weight:700">Redefinição de senha</p>
         </td></tr>
         <tr><td style="background:#fff;padding:36px 40px">
-          <p style="margin:0 0 20px;color:#0f172a;font-size:20px;font-weight:700">Olá, ${name} 👋</p>
+          <p style="margin:0 0 20px;color:#0f172a;font-size:20px;font-weight:700">Olá, ${esc(name)} 👋</p>
           <p style="margin:0 0 24px;color:#475569;font-size:14px;line-height:1.6">
             Recebemos uma solicitação para redefinir sua senha. Clique no botão abaixo para criar uma nova senha. Este link é válido por <strong>1 hora</strong>.
           </p>
           <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px">
             <tr><td align="center">
-              <a href="${resetUrl}" style="display:inline-block;background:#6366f1;color:#fff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 40px;border-radius:12px">
+              <a href="${esc(resetUrl)}" style="display:inline-block;background:#e30613;color:#fff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 40px;border-radius:12px">
                 Redefinir minha senha →
               </a>
             </td></tr>
           </table>
           <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px 20px;margin-bottom:20px">
             <p style="margin:0 0 6px;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase">Ou copie o link</p>
-            <p style="margin:0;color:#6366f1;font-size:12px;word-break:break-all">${resetUrl}</p>
+            <p style="margin:0;color:#e30613;font-size:12px;word-break:break-all">${esc(resetUrl)}</p>
           </div>
           <p style="margin:0;color:#94a3b8;font-size:12px;line-height:1.6;text-align:center">
             Se você não solicitou a redefinição, ignore este e-mail.
           </p>
         </td></tr>
         <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;border-radius:0 0 16px 16px;padding:20px 40px;text-align:center">
-          <p style="margin:0;color:#94a3b8;font-size:12px">© 2025 RTT · Todos os direitos reservados</p>
+          <p style="margin:0;color:#94a3b8;font-size:12px">© 2025 Rema Tip Top · Todos os direitos reservados</p>
         </td></tr>
       </table>
     </td></tr>
@@ -138,7 +152,7 @@ async function sendResetEmail({ name, email, resetUrl }) {
 </body>
 </html>`
 
-  return sendMail({ to: email, subject: '🔐 Redefinição de senha — RTT', html })
+  return sendMail({ to: email, subject: '🔐 Redefinição de senha — Rema Tip Top', html })
 }
 
-module.exports = { sendWelcomeEmail, sendResetEmail }
+module.exports = { sendInviteEmail, sendResetEmail }

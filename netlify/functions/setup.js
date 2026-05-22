@@ -1,23 +1,24 @@
 const { neon } = require('@neondatabase/serverless')
-
-const headers = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-}
+const { makeHeaders, errorResponse } = require('./_auth')
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers, body: '' }
-  }
-
+  const headers = makeHeaders(event, 'POST, OPTIONS')
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers, body: '' }
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) }
   }
-
   if (!process.env.DATABASE_URL) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'DATABASE_URL not configured' }) }
+  }
+
+  // Protege o endpoint de setup com segredo — configure SETUP_SECRET no Netlify
+  const setupSecret = process.env.SETUP_SECRET
+  if (!setupSecret) {
+    return { statusCode: 503, headers, body: JSON.stringify({ error: 'Endpoint de setup não disponível' }) }
+  }
+  const providedSecret = (event.headers && (event.headers['x-setup-secret'] || event.headers['X-Setup-Secret'])) || ''
+  if (providedSecret !== setupSecret) {
+    return { statusCode: 401, headers, body: JSON.stringify({ error: 'Não autorizado' }) }
   }
 
   const sql = neon(process.env.DATABASE_URL)
@@ -74,7 +75,7 @@ exports.handler = async (event) => {
       )
     `
 
-    // Seed default categories if empty
+    // Seed categorias padrão
     const cats = await sql`SELECT COUNT(*) as count FROM categories`
     if (parseInt(cats[0].count) === 0) {
       await sql`
@@ -90,7 +91,7 @@ exports.handler = async (event) => {
       `
     }
 
-    // Seed default locations if empty
+    // Seed locais padrão
     const locs = await sql`SELECT COUNT(*) as count FROM locations`
     if (parseInt(locs[0].count) === 0) {
       await sql`
@@ -112,10 +113,6 @@ exports.handler = async (event) => {
       body: JSON.stringify({ success: true, message: 'Banco de dados configurado com sucesso!' }),
     }
   } catch (err) {
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: err.message }),
-    }
+    return errorResponse(headers, err)
   }
 }

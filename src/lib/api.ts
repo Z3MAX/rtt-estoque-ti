@@ -11,12 +11,24 @@ let _locs = [...mockLocations]
 let _nextId = 100
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const token = localStorage.getItem('osiris_token')
   const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    },
     ...options,
   })
   const data = await res.json()
-  if (!res.ok) throw new Error(data.error || 'Erro na requisição')
+  if (!res.ok) {
+    // Sessão expirada — limpa dados locais e recarrega para o login
+    if (res.status === 401) {
+      localStorage.removeItem('osiris_user')
+      localStorage.removeItem('osiris_token')
+      window.location.href = '/'
+    }
+    throw new Error(data.error || 'Erro na requisição')
+  }
   return data
 }
 

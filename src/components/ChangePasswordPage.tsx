@@ -3,7 +3,7 @@ import { KeyRound, Eye, EyeOff, CheckCircle2, LogOut, ShieldCheck } from 'lucide
 import { useAuth } from '../lib/auth'
 
 export default function ChangePasswordPage() {
-  const { user, logout, updateUser } = useAuth()
+  const { user, token, logout, updateUser } = useAuth()
 
   const [password, setPassword] = useState('')
   const [confirm, setConfirm]   = useState('')
@@ -23,8 +23,11 @@ export default function ChangePasswordPage() {
       setError('')
       const res = await fetch('/.netlify/functions/first-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user?.id, newPassword: password }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ newPassword: password }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erro ao salvar senha')

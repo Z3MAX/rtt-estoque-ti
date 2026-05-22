@@ -1,18 +1,9 @@
 const { neon } = require('@neondatabase/serverless')
-const crypto = require('crypto')
-
-const headers = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
-function hashPassword(password) {
-  return crypto.createHash('sha256').update(password).digest('hex')
-}
+const { hashPassword } = require('./_hash')
+const { requireAuth, makeHeaders, errorResponse } = require('./_auth')
 
 exports.handler = async (event) => {
+  const headers = makeHeaders(event, 'POST, OPTIONS')
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers, body: '' }
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) }
@@ -21,32 +12,36 @@ exports.handler = async (event) => {
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'DATABASE_URL not configured' }) }
   }
 
-  let userId, newPassword
   try {
-    const body = JSON.parse(event.body || '{}')
-    userId = body.userId
-    newPassword = body.newPassword
-  } catch {
-    return { statusCode: 400, headers, body: JSON.stringify({ error: 'Body inválido' }) }
-  }
+    // Requer JWT válido — userId vem do token, não do body (CRIT-6)
+    const payload = requireAuth(event)
 
-  if (!userId || !newPassword) {
-    return { statusCode: 400, headers, body: JSON.stringify({ error: 'userId e newPassword são obrigatórios' }) }
-  }
+    let newPassword
+    try {
+      newPassword = JSON.parse(event.body || '{}').newPassword
+    } catch {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Body inválido' }) }
+    }
 
-  if (newPassword.length < 6) {
-    return { statusCode: 400, headers, body: JSON.stringify({ error: 'A senha deve ter no mínimo 6 caracteres' }) }
-  }
+    if (!newPassword) {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Nova senha é obrigatória' }) }
+    }
+    if (newPassword.length < 8) {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: 'A senha deve ter no mínimo 8 caracteres' }) }
+    }
+    if (newPassword.length > 200) {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Senha muito longa' }) }
+    }
 
-  const sql = neon(process.env.DATABASE_URL)
+    const sql = neon(process.env.DATABASE_URL)
+    const hash = await hashPassword(newPassword)
 
-  try {
     const rows = await sql`
       UPDATE users
-      SET password_hash = ${hashPassword(newPassword)},
+      SET password_hash        = ${hash},
           must_change_password = false,
-          updated_at = NOW()
-      WHERE id = ${userId} AND must_change_password = true
+          updated_at           = NOW()
+      WHERE id = ${payload.userId} AND must_change_password = true
       RETURNING id, name, email, role, active
     `
 
@@ -60,6 +55,6 @@ exports.handler = async (event) => {
       body: JSON.stringify({ success: true, user: rows[0] }),
     }
   } catch (err) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) }
+    return errorResponse(headers, err)
   }
 }

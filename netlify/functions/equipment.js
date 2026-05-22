@@ -1,13 +1,10 @@
 const { neon } = require('@neondatabase/serverless')
+const { requireAuth, makeHeaders, errorResponse } = require('./_auth')
 
-const headers = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-}
+const VALID_STATUSES = ['disponivel', 'em_uso', 'manutencao', 'inativo']
 
 exports.handler = async (event) => {
+  const headers = makeHeaders(event)
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 204, headers, body: '' }
   }
@@ -21,6 +18,7 @@ exports.handler = async (event) => {
   const id = params.id ? parseInt(params.id) : null
 
   try {
+    requireAuth(event)
     if (event.httpMethod === 'GET') {
       if (id) {
         const rows = await sql`
@@ -160,6 +158,9 @@ exports.handler = async (event) => {
       } = body
 
       if (!name) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Nome é obrigatório' }) }
+      if (status && !VALID_STATUSES.includes(status)) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Status inválido' }) }
+      }
 
       const rows = await sql`
         INSERT INTO equipment (name, category_id, brand, model, serial_number, asset_tag,
@@ -242,6 +243,6 @@ exports.handler = async (event) => {
 
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) }
   } catch (err) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) }
+    return errorResponse(headers, err)
   }
 }

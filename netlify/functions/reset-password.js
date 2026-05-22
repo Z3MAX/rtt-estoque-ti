@@ -1,18 +1,9 @@
 const { neon } = require('@neondatabase/serverless')
-const crypto = require('crypto')
-
-const headers = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
-function hashPassword(password) {
-  return crypto.createHash('sha256').update(password).digest('hex')
-}
+const { hashPassword } = require('./_hash')
+const { makeHeaders, errorResponse } = require('./_auth')
 
 exports.handler = async (event) => {
+  const headers = makeHeaders(event, 'POST, OPTIONS')
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers, body: '' }
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) }
@@ -33,15 +24,16 @@ exports.handler = async (event) => {
   if (!token || !newPassword) {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Token e nova senha são obrigatórios' }) }
   }
-
-  if (newPassword.length < 6) {
-    return { statusCode: 400, headers, body: JSON.stringify({ error: 'A senha deve ter no mínimo 6 caracteres' }) }
+  if (newPassword.length < 8) {
+    return { statusCode: 400, headers, body: JSON.stringify({ error: 'A senha deve ter no mínimo 8 caracteres' }) }
+  }
+  if (newPassword.length > 200) {
+    return { statusCode: 400, headers, body: JSON.stringify({ error: 'Senha muito longa' }) }
   }
 
   const sql = neon(process.env.DATABASE_URL)
 
   try {
-    // Validate token
     const tokens = await sql`
       SELECT t.id, t.user_id, t.expires_at, t.used, u.name, u.email
       FROM password_reset_tokens t
@@ -63,13 +55,16 @@ exports.handler = async (event) => {
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'Link expirado. Solicite um novo link de redefinição.' }) }
     }
 
-    // Update password
+    const hash = await hashPassword(newPassword)
+
     await sql`
-      UPDATE users SET password_hash = ${hashPassword(newPassword)}, updated_at = NOW()
+      UPDATE users
+      SET password_hash = ${hash},
+          must_change_password = false,
+          updated_at = NOW()
       WHERE id = ${resetToken.user_id}
     `
 
-    // Mark token as used
     await sql`UPDATE password_reset_tokens SET used = true WHERE id = ${resetToken.id}`
 
     return {
@@ -78,6 +73,6 @@ exports.handler = async (event) => {
       body: JSON.stringify({ success: true, message: 'Senha redefinida com sucesso!' }),
     }
   } catch (err) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) }
+    return errorResponse(headers, err)
   }
 }

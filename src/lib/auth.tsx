@@ -12,6 +12,7 @@ export interface User {
 
 interface AuthContextType {
   user: User | null
+  token: string | null
   login: (email: string, password: string) => Promise<void>
   logout: () => void
   updateUser: (updates: Partial<User>) => void
@@ -20,32 +21,39 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
-const DEMO_USERS: Record<string, { password: string; name: string; role: string; id: number }> = {
-  'alexandre.amorim@rttshop.com.br': { id: 1, password: 'alexandre123', name: 'Alexandre Amorim', role: 'Administrador de TI' },
-  'admin@rtt.com':                   { id: 2, password: 'admin123',      name: 'Administrador',   role: 'Administrador de TI' },
-  'ti@rtt.com':                      { id: 3, password: 'ti1234',        name: 'Equipe TI',        role: 'Técnico de TI' },
+// Usuários de demonstração (apenas para modo VITE_MOCK=true em desenvolvimento local)
+// Não contém credenciais de produção
+const DEMO_USERS: Record<string, { name: string; role: string; id: number }> = {
+  'demo@rtt.dev': { id: 1, name: 'Demo Admin', role: 'Administrador de TI' },
+  'tecnico@rtt.dev': { id: 2, name: 'Demo Técnico', role: 'Técnico de TI' },
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser]   = useState<User | null>(null)
+  const [token, setToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const stored = localStorage.getItem('osiris_user')
-    if (stored) {
-      try { setUser(JSON.parse(stored)) } catch {}
+    const storedUser  = localStorage.getItem('osiris_user')
+    const storedToken = localStorage.getItem('osiris_token')
+    if (storedUser) {
+      try { setUser(JSON.parse(storedUser)) } catch {}
     }
+    if (storedToken) setToken(storedToken)
     setLoading(false)
   }, [])
 
   async function login(email: string, password: string) {
     if (MOCK) {
-      await new Promise((r) => setTimeout(r, 900))
+      await new Promise((r) => setTimeout(r, 700))
       const found = DEMO_USERS[email.toLowerCase()]
-      if (!found || found.password !== password) throw new Error('E-mail ou senha incorretos')
+      if (!found) throw new Error('E-mail ou senha incorretos')
       const u: User = { id: found.id, name: found.name, email: email.toLowerCase(), role: found.role }
+      const mockToken = 'mock-token'
       setUser(u)
+      setToken(mockToken)
       localStorage.setItem('osiris_user', JSON.stringify(u))
+      localStorage.setItem('osiris_token', mockToken)
       return
     }
 
@@ -56,13 +64,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || 'Erro ao autenticar')
+
     setUser(data.user)
+    setToken(data.token)
     localStorage.setItem('osiris_user', JSON.stringify(data.user))
+    localStorage.setItem('osiris_token', data.token)
   }
 
   function logout() {
     setUser(null)
+    setToken(null)
     localStorage.removeItem('osiris_user')
+    localStorage.removeItem('osiris_token')
   }
 
   function updateUser(updates: Partial<User>) {
@@ -75,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, updateUser, loading }}>
+    <AuthContext.Provider value={{ user, token, login, logout, updateUser, loading }}>
       {children}
     </AuthContext.Provider>
   )
