@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react'
-import { Users, Plus, Pencil, ShieldCheck, Wrench, ToggleLeft, ToggleRight, X, Eye, EyeOff, Search } from 'lucide-react'
+import { Users, Plus, Pencil, ShieldCheck, Wrench, ToggleLeft, ToggleRight, X, Eye, EyeOff, Search, Mail, AlertTriangle, CheckCircle2, Send } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 
@@ -9,6 +9,7 @@ interface AppUser {
   email: string
   role: string
   active: boolean
+  must_change_password?: boolean
   created_at: string
 }
 
@@ -47,6 +48,7 @@ function UserModal({ user, onClose, onSaved }: ModalProps) {
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
+  const [emailWarning, setEmailWarning] = useState<string | null>(null)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -54,15 +56,22 @@ function UserModal({ user, onClose, onSaved }: ModalProps) {
     if (!isEdit && !password) { setError('Senha obrigatória para novo usuário'); return }
 
     try {
-      setLoading(true); setError('')
+      setLoading(true); setError(''); setEmailWarning(null)
       if (isEdit) {
         const payload: Record<string, unknown> = { name, email, role }
         if (password) payload.password = password
         await api.users.update(user!.id, payload)
+        onSaved()
       } else {
-        await api.users.create({ name, email, password, role })
+        const result = await api.users.create({ name, email, password, role }) as { emailSent?: boolean; emailError?: string }
+        // Se a conta foi criada mas o e-mail não foi enviado, avisa sem fechar o modal
+        if (result.emailSent === false) {
+          setEmailWarning(result.emailError || 'E-mail de convite não pôde ser enviado')
+          onSaved() // recarrega a lista, mas não fecha o modal para mostrar o aviso
+        } else {
+          onSaved()
+        }
       }
-      onSaved()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar')
     } finally {
@@ -117,6 +126,26 @@ function UserModal({ user, onClose, onSaved }: ModalProps) {
             </select>
           </div>
 
+          {/* E-mail não enviado — aviso com motivo */}
+          {emailWarning && (
+            <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 space-y-2">
+              <div className="flex items-start gap-2">
+                <AlertTriangle size={15} className="text-amber-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Conta criada, mas e-mail não enviado</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-500 mt-0.5">{emailWarning}</p>
+                </div>
+              </div>
+              <p className="text-xs text-amber-600 dark:text-amber-500 pl-5">
+                Verifique as variáveis <code className="font-mono bg-amber-100 dark:bg-amber-900/40 px-1 rounded">SITE_URL</code>, <code className="font-mono bg-amber-100 dark:bg-amber-900/40 px-1 rounded">GMAIL_USER</code> e <code className="font-mono bg-amber-100 dark:bg-amber-900/40 px-1 rounded">GMAIL_APP_PASSWORD</code> no Netlify.
+                Use o botão <strong>Reenviar convite</strong> na lista de usuários após corrigir.
+              </p>
+              <button type="button" onClick={onClose} className="w-full text-xs font-medium text-amber-700 dark:text-amber-400 py-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors">
+                Fechar
+              </button>
+            </div>
+          )}
+
           {error && (
             <div className="flex items-center gap-2 px-3 py-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
               <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
@@ -124,7 +153,7 @@ function UserModal({ user, onClose, onSaved }: ModalProps) {
             </div>
           )}
 
-          <div className="flex gap-3 pt-1">
+          {!emailWarning && <div className="flex gap-3 pt-1">
             <button
               type="button"
               onClick={onClose}
@@ -141,7 +170,7 @@ function UserModal({ user, onClose, onSaved }: ModalProps) {
                 </svg>Salvando...</>
               ) : isEdit ? 'Salvar alterações' : 'Criar usuário'}
             </button>
-          </div>
+          </div>}
         </form>
       </div>
     </div>
@@ -155,6 +184,8 @@ export default function UsersPage() {
   const [loading, setLoading]     = useState(true)
   const [search, setSearch]       = useState('')
   const [modalUser, setModalUser] = useState<AppUser | null | undefined>(undefined)
+  const [resendingId, setResendingId]   = useState<number | null>(null)
+  const [resendStatus, setResendStatus] = useState<{ id: number; ok: boolean; msg: string } | null>(null)
 
   const isAdmin = currentUser?.role === 'Administrador de TI'
 
@@ -169,6 +200,21 @@ export default function UsersPage() {
   }
 
   useEffect(() => { load() }, [])
+
+  async function resendInvite(u: AppUser) {
+    setResendingId(u.id)
+    setResendStatus(null)
+    try {
+      await api.users.resendInvite(u.id)
+      setResendStatus({ id: u.id, ok: true, msg: `Convite reenviado para ${u.email}` })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao reenviar'
+      setResendStatus({ id: u.id, ok: false, msg })
+    } finally {
+      setResendingId(null)
+      setTimeout(() => setResendStatus(null), 6000)
+    }
+  }
 
   async function toggleActive(u: AppUser) {
     if (u.id === currentUser?.id) return
@@ -229,6 +275,20 @@ export default function UsersPage() {
         />
       </div>
 
+      {/* Resend status toast */}
+      {resendStatus && (
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium ${
+          resendStatus.ok
+            ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400'
+            : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
+        }`}>
+          {resendStatus.ok
+            ? <CheckCircle2 size={16} className="shrink-0" />
+            : <AlertTriangle size={16} className="shrink-0" />}
+          {resendStatus.msg}
+        </div>
+      )}
+
       {/* Loading */}
       {loading && (
         <div className="flex items-center justify-center py-16">
@@ -266,13 +326,18 @@ export default function UsersPage() {
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{u.name}</p>
                       {u.id === currentUser?.id && (
                         <span className="text-xs bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 px-1.5 py-0.5 rounded-md font-medium">Você</span>
                       )}
                       {!u.active && (
                         <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded-md font-medium">Inativo</span>
+                      )}
+                      {u.must_change_password && u.active && (
+                        <span className="inline-flex items-center gap-1 text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-md font-medium">
+                          <Mail size={10} /> Convite pendente
+                        </span>
                       )}
                     </div>
                     <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">{u.email}</p>
@@ -286,6 +351,19 @@ export default function UsersPage() {
                   {/* Actions */}
                   {isAdmin && (
                     <div className="flex items-center gap-1 shrink-0">
+                      {/* Reenviar convite — só aparece para usuários com primeiro acesso pendente */}
+                      {u.must_change_password && u.active && (
+                        <button
+                          onClick={() => resendInvite(u)}
+                          disabled={resendingId === u.id}
+                          title="Reenviar e-mail de convite"
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:text-amber-600 transition-colors disabled:opacity-50"
+                        >
+                          {resendingId === u.id
+                            ? <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+                            : <Send size={14} />}
+                        </button>
+                      )}
                       <button
                         onClick={() => setModalUser(u)}
                         title="Editar"

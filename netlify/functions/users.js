@@ -29,7 +29,7 @@ exports.handler = async (event) => {
         return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
       }
       const rows = await sql`
-        SELECT id, name, email, role, active, created_at, updated_at
+        SELECT id, name, email, role, active, must_change_password, created_at, updated_at
         FROM users ORDER BY name ASC
       `
       return { statusCode: 200, headers, body: JSON.stringify(rows) }
@@ -66,9 +66,17 @@ exports.handler = async (event) => {
 
       // Envia link de convite por e-mail (sem senha em texto)
       let emailSent = false
+      let emailError = null
+
       try {
         const siteUrl = process.env.SITE_URL
-        if (siteUrl) {
+        if (!siteUrl) {
+          emailError = 'SITE_URL não configurado'
+          console.warn('[users] convite não enviado: SITE_URL ausente')
+        } else if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+          emailError = 'Credenciais de e-mail não configuradas (GMAIL_USER / GMAIL_APP_PASSWORD)'
+          console.warn('[users] convite não enviado: credenciais de e-mail ausentes')
+        } else {
           await sql`
             CREATE TABLE IF NOT EXISTS password_reset_tokens (
               id SERIAL PRIMARY KEY,
@@ -92,12 +100,14 @@ exports.handler = async (event) => {
             role: rows[0].role,
           })
           emailSent = !result.skipped && !result.error
+          if (!emailSent) emailError = result.error || 'Falha desconhecida ao enviar'
         }
       } catch (emailErr) {
+        emailError = emailErr.message
         console.error('[users] erro ao enviar convite:', emailErr.message)
       }
 
-      return { statusCode: 201, headers, body: JSON.stringify({ ...rows[0], emailSent }) }
+      return { statusCode: 201, headers, body: JSON.stringify({ ...rows[0], emailSent, emailError }) }
     }
 
     // PUT — somente administrador

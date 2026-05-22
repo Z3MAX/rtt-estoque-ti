@@ -203,6 +203,10 @@ export const api = {
       if (MOCK) { await delay(300); return { success: true } }
       return request(`${BASE}/users?id=${id}`, { method: 'DELETE' })
     },
+    resendInvite: async (userId: number) => {
+      if (MOCK) { await delay(600); return { success: true, email: 'demo@rtt.dev' } }
+      return request(`${BASE}/resend-invite`, { method: 'POST', body: JSON.stringify({ userId }) })
+    },
   },
 
   locations: {
