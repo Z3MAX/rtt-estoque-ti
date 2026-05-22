@@ -93,19 +93,14 @@ export default function EquipmentPage() {
     }))
 
     const ws = XLSX.utils.json_to_sheet(rows)
-
-    // Column widths
     ws['!cols'] = [
       { wch: 32 }, { wch: 16 }, { wch: 20 }, { wch: 18 },
       { wch: 14 }, { wch: 20 }, { wch: 22 }, { wch: 20 },
       { wch: 14 }, { wch: 16 }, { wch: 12 }, { wch: 30 },
     ]
-
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Equipamentos')
-
-    const filename = `equipamentos_rtt_${new Date().toISOString().slice(0, 10)}.xlsx`
-    XLSX.writeFile(wb, filename)
+    XLSX.writeFile(wb, `equipamentos_rtt_${new Date().toISOString().slice(0, 10)}.xlsx`)
   }
 
   return (
@@ -113,8 +108,8 @@ export default function EquipmentPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Equipamentos</h1>
-          <p className="text-slate-500 text-sm mt-0.5">{items.length} {items.length === 1 ? 'item' : 'itens'}</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Equipamentos</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">{items.length} {items.length === 1 ? 'item' : 'itens'}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -175,31 +170,31 @@ export default function EquipmentPage() {
 
       {/* Error */}
       {error && (
-        <div className="card p-4 bg-red-50 border-red-100">
-          <p className="text-red-600 text-sm">{error}</p>
+        <div className="card p-4 bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/50">
+          <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
         </div>
       )}
 
       {/* Table */}
       <div className="card overflow-hidden">
         {loading ? (
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-slate-100 dark:divide-slate-700">
             {[...Array(5)].map((_, i) => (
               <div key={i} className="px-6 py-4 flex items-center gap-4 animate-pulse">
-                <div className="w-9 h-9 bg-slate-200 rounded-xl" />
+                <div className="w-9 h-9 bg-slate-200 dark:bg-slate-700 rounded-xl" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-3.5 bg-slate-200 rounded w-48" />
-                  <div className="h-3 bg-slate-100 rounded w-32" />
+                  <div className="h-3.5 bg-slate-200 dark:bg-slate-700 rounded w-48" />
+                  <div className="h-3 bg-slate-100 dark:bg-slate-700/50 rounded w-32" />
                 </div>
-                <div className="h-5 bg-slate-200 rounded-full w-20" />
+                <div className="h-5 bg-slate-200 dark:bg-slate-700 rounded-full w-20" />
               </div>
             ))}
           </div>
         ) : items.length === 0 ? (
           <div className="text-center py-20">
-            <Monitor size={36} className="text-slate-200 mx-auto mb-3" />
-            <p className="text-slate-500 font-medium">Nenhum equipamento encontrado</p>
-            <p className="text-slate-400 text-sm mt-1">Tente ajustar os filtros ou cadastre um novo equipamento</p>
+            <Monitor size={36} className="text-slate-200 dark:text-slate-600 mx-auto mb-3" />
+            <p className="text-slate-500 dark:text-slate-400 font-medium">Nenhum equipamento encontrado</p>
+            <p className="text-slate-400 dark:text-slate-500 text-sm mt-1">Tente ajustar os filtros ou cadastre um novo equipamento</p>
             <button className="btn-primary mt-4" onClick={openCreate}>
               <Plus size={15} /> Cadastrar equipamento
             </button>
@@ -208,19 +203,19 @@ export default function EquipmentPage() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-100">
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Equipamento</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Categoria</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Serial / Patrimônio</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden xl:table-cell">Responsável</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden xl:table-cell">Local</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700">
+                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Equipamento</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Categoria</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Serial / Patrimônio</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden xl:table-cell">Responsável</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden xl:table-cell">Local</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 w-24" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
                 {items.map((eq) => (
-                  <tr key={eq.id} className="hover:bg-slate-50/70 transition-colors group">
+                  <tr key={eq.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-700/30 transition-colors group">
                     <td className="px-6 py-3.5">
                       <div className="flex items-center gap-3">
                         <div
@@ -230,8 +225,8 @@ export default function EquipmentPage() {
                           <Monitor size={15} style={{ color: eq.category_color ?? '#6366f1' }} />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-900 truncate">{eq.name}</p>
-                          <p className="text-xs text-slate-400 truncate">{[eq.brand, eq.model].filter(Boolean).join(' ')}</p>
+                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{eq.name}</p>
+                          <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{[eq.brand, eq.model].filter(Boolean).join(' ')}</p>
                         </div>
                       </div>
                     </td>
@@ -246,14 +241,14 @@ export default function EquipmentPage() {
                       ) : <span className="text-slate-400 text-xs">—</span>}
                     </td>
                     <td className="px-4 py-3.5 hidden lg:table-cell">
-                      <p className="text-xs text-slate-600">{eq.serial_number || '—'}</p>
-                      {eq.asset_tag && <p className="text-xs text-slate-400">#{eq.asset_tag}</p>}
+                      <p className="text-xs text-slate-600 dark:text-slate-400">{eq.serial_number || '—'}</p>
+                      {eq.asset_tag && <p className="text-xs text-slate-400 dark:text-slate-500">#{eq.asset_tag}</p>}
                     </td>
                     <td className="px-4 py-3.5 hidden xl:table-cell">
-                      <p className="text-sm text-slate-600 truncate max-w-[140px]">{eq.assigned_to || '—'}</p>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 truncate max-w-[140px]">{eq.assigned_to || '—'}</p>
                     </td>
                     <td className="px-4 py-3.5 hidden xl:table-cell">
-                      <p className="text-sm text-slate-600 truncate max-w-[120px]">{eq.location_name || '—'}</p>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 truncate max-w-[120px]">{eq.location_name || '—'}</p>
                     </td>
                     <td className="px-4 py-3.5">
                       <StatusBadge status={eq.status} />
@@ -262,13 +257,13 @@ export default function EquipmentPage() {
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => openEdit(eq)}
-                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
                         >
                           <Pencil size={14} />
                         </button>
                         <button
                           onClick={() => setDeleting(eq)}
-                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                         >
                           <Trash2 size={14} />
                         </button>

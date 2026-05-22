@@ -35,13 +35,7 @@ export default function CategoriesPage() {
     }
   }
 
-  function openCreate() {
-    setEditing(null)
-    setForm(defaultForm)
-    setError('')
-    setModalOpen(true)
-  }
-
+  function openCreate() { setEditing(null); setForm(defaultForm); setError(''); setModalOpen(true) }
   function openEdit(cat: Category) {
     setEditing(cat)
     setForm({ name: cat.name, description: cat.description ?? '', color: cat.color, icon: cat.icon })
@@ -52,12 +46,10 @@ export default function CategoriesPage() {
   async function handleSave() {
     if (!form.name.trim()) { setError('Nome é obrigatório'); return }
     try {
-      setSaving(true)
-      setError('')
+      setSaving(true); setError('')
       if (editing) await api.categories.update(editing.id, form)
       else await api.categories.create(form)
-      setModalOpen(false)
-      load()
+      setModalOpen(false); load()
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -70,8 +62,7 @@ export default function CategoriesPage() {
     try {
       setDeleteLoading(true)
       await api.categories.delete(deleting.id)
-      setDeleting(null)
-      load()
+      setDeleting(null); load()
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -83,8 +74,8 @@ export default function CategoriesPage() {
     <div className="p-8 space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Categorias</h1>
-          <p className="text-slate-500 text-sm mt-0.5">{items.length} categorias cadastradas</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Categorias</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">{items.length} categorias cadastradas</p>
         </div>
         <button className="btn-primary" onClick={openCreate}>
           <Plus size={16} /> Nova categoria
@@ -92,8 +83,8 @@ export default function CategoriesPage() {
       </div>
 
       {error && !modalOpen && (
-        <div className="card p-4 bg-red-50 border-red-100">
-          <p className="text-red-600 text-sm">{error}</p>
+        <div className="card p-4 bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/50">
+          <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
         </div>
       )}
 
@@ -102,17 +93,17 @@ export default function CategoriesPage() {
           {[...Array(8)].map((_, i) => (
             <div key={i} className="card p-5 animate-pulse">
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-slate-200 rounded-xl" />
-                <div className="h-4 bg-slate-200 rounded w-24" />
+                <div className="w-10 h-10 bg-slate-200 dark:bg-slate-700 rounded-xl" />
+                <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-24" />
               </div>
-              <div className="h-3 bg-slate-100 rounded w-full" />
+              <div className="h-3 bg-slate-100 dark:bg-slate-700/50 rounded w-full" />
             </div>
           ))}
         </div>
       ) : items.length === 0 ? (
         <div className="card py-20 text-center">
-          <Tag size={36} className="text-slate-200 mx-auto mb-3" />
-          <p className="text-slate-500 font-medium">Nenhuma categoria cadastrada</p>
+          <Tag size={36} className="text-slate-200 dark:text-slate-600 mx-auto mb-3" />
+          <p className="text-slate-500 dark:text-slate-400 font-medium">Nenhuma categoria cadastrada</p>
           <button className="btn-primary mt-4" onClick={openCreate}><Plus size={15} /> Criar categoria</button>
         </div>
       ) : (
@@ -125,8 +116,8 @@ export default function CategoriesPage() {
                     <Monitor size={18} style={{ color: cat.color }} />
                   </div>
                   <div>
-                    <p className="font-semibold text-slate-900 text-sm">{cat.name}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="font-semibold text-slate-900 dark:text-slate-100 text-sm">{cat.name}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                       {cat.equipment_count} equipamento{cat.equipment_count !== 1 ? 's' : ''}
                     </p>
                   </div>
@@ -134,20 +125,20 @@ export default function CategoriesPage() {
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={() => openEdit(cat)}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
                   >
                     <Pencil size={13} />
                   </button>
                   <button
                     onClick={() => setDeleting(cat)}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                   >
                     <Trash2 size={13} />
                   </button>
                 </div>
               </div>
               {cat.description && (
-                <p className="text-xs text-slate-400 mt-3 line-clamp-2">{cat.description}</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-3 line-clamp-2">{cat.description}</p>
               )}
               <div className="mt-3 h-1 rounded-full" style={{ backgroundColor: cat.color + '30' }}>
                 <div className="h-full rounded-full" style={{ backgroundColor: cat.color, width: '40%' }} />
@@ -177,13 +168,13 @@ export default function CategoriesPage() {
                 <button
                   key={c}
                   onClick={() => setForm({ ...form, color: c })}
-                  className={`w-7 h-7 rounded-full transition-transform hover:scale-110 ${form.color === c ? 'ring-2 ring-offset-2 ring-slate-400 scale-110' : ''}`}
+                  className={`w-7 h-7 rounded-full transition-transform hover:scale-110 ${form.color === c ? 'ring-2 ring-offset-2 dark:ring-offset-slate-800 ring-slate-400 scale-110' : ''}`}
                   style={{ backgroundColor: c }}
                 />
               ))}
             </div>
           </div>
-          {error && <p className="text-red-500 text-xs">{error}</p>}
+          {error && <p className="text-red-500 dark:text-red-400 text-xs">{error}</p>}
           <div className="flex gap-3 justify-end pt-2">
             <button className="btn-secondary" onClick={() => setModalOpen(false)}>Cancelar</button>
             <button className="btn-primary" onClick={handleSave} disabled={saving}>

@@ -59,4 +59,21 @@ export const mockDashboard: DashboardData = {
     { id: 4, equipment_id: 6, equipment_name: 'Notebook Lenovo ThinkPad X1', type: 'cadastro', description: 'Equipamento cadastrado', performed_by: 'sistema', created_at: '2023-09-10T10:00:00Z' },
     { id: 5, equipment_id: 7, equipment_name: 'Servidor Dell PowerEdge R740', type: 'status', description: 'Status alterado para: em_uso', performed_by: 'usuário', created_at: '2022-01-20T10:00:00Z' },
   ],
+  byLocation: [
+    { name: 'Administrativo', count: 25 },
+    { name: 'Comercial',      count: 20 },
+    { name: 'TI',             count: 18 },
+    { name: 'Telefonia',      count: 18 },
+    { name: 'Financeiro',     count: 14 },
+  ],
+  totalValue: 78650,
+  valuedCount: 12,
+  monthlyGrowth: [
+    { month: 'Nov/24', count: 8 },
+    { month: 'Dez/24', count: 5 },
+    { month: 'Jan/25', count: 12 },
+    { month: 'Fev/25', count: 7 },
+    { month: 'Mar/25', count: 15 },
+    { month: 'Abr/25', count: 9 },
+  ],
 }

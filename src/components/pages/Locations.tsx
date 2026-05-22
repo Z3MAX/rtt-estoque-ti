@@ -89,15 +89,15 @@ export default function LocationsPage() {
     <div className="p-8 space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Locais</h1>
-          <p className="text-slate-500 text-sm mt-0.5">{items.length} locais cadastrados</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Locais</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">{items.length} locais cadastrados</p>
         </div>
         <button className="btn-primary" onClick={openCreate}><Plus size={16} /> Novo local</button>
       </div>
 
       {error && !modalOpen && (
-        <div className="card p-4 bg-red-50 border-red-100">
-          <p className="text-red-600 text-sm">{error}</p>
+        <div className="card p-4 bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/50">
+          <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
         </div>
       )}
 
@@ -106,10 +106,10 @@ export default function LocationsPage() {
           {[...Array(6)].map((_, i) => (
             <div key={i} className="card p-5 animate-pulse">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-slate-200 rounded-xl" />
+                <div className="w-10 h-10 bg-slate-200 dark:bg-slate-700 rounded-xl" />
                 <div className="space-y-2 flex-1">
-                  <div className="h-4 bg-slate-200 rounded w-28" />
-                  <div className="h-3 bg-slate-100 rounded w-20" />
+                  <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-28" />
+                  <div className="h-3 bg-slate-100 dark:bg-slate-700/50 rounded w-20" />
                 </div>
               </div>
             </div>
@@ -117,8 +117,8 @@ export default function LocationsPage() {
         </div>
       ) : items.length === 0 ? (
         <div className="card py-20 text-center">
-          <MapPin size={36} className="text-slate-200 mx-auto mb-3" />
-          <p className="text-slate-500 font-medium">Nenhum local cadastrado</p>
+          <MapPin size={36} className="text-slate-200 dark:text-slate-600 mx-auto mb-3" />
+          <p className="text-slate-500 dark:text-slate-400 font-medium">Nenhum local cadastrado</p>
           <button className="btn-primary mt-4" onClick={openCreate}><Plus size={15} /> Criar local</button>
         </div>
       ) : (
@@ -126,17 +126,17 @@ export default function LocationsPage() {
           {items.map((loc) => (
             <div
               key={loc.id}
-              className="card p-5 group hover:shadow-md transition-all cursor-pointer hover:border-primary-200"
+              className="card p-5 group hover:shadow-md transition-all cursor-pointer hover:border-primary-200 dark:hover:border-primary-800"
               onClick={() => openDetail(loc)}
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center">
-                    <MapPin size={18} className="text-primary-500" />
+                  <div className="w-10 h-10 rounded-xl bg-primary-50 dark:bg-primary-900/30 flex items-center justify-center">
+                    <MapPin size={18} className="text-primary-500 dark:text-primary-400" />
                   </div>
                   <div>
-                    <p className="font-semibold text-slate-900 text-sm">{loc.name}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="font-semibold text-slate-900 dark:text-slate-100 text-sm">{loc.name}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                       {loc.equipment_count ?? 0} equipamento{(loc.equipment_count ?? 0) !== 1 ? 's' : ''}
                     </p>
                   </div>
@@ -144,23 +144,23 @@ export default function LocationsPage() {
                 <div className="flex gap-1">
                   <button
                     onClick={(e) => { e.stopPropagation(); openEdit(loc) }}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-primary-50 hover:text-primary-600 transition-colors opacity-0 group-hover:opacity-100"
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:text-primary-600 dark:hover:text-primary-400 transition-colors opacity-0 group-hover:opacity-100"
                   >
                     <Pencil size={13} />
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); setDeleting(loc) }}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
                   >
                     <Trash2 size={13} />
                   </button>
-                  <div className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-300 group-hover:text-primary-400 transition-colors">
+                  <div className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-300 dark:text-slate-600 group-hover:text-primary-400 dark:group-hover:text-primary-400 transition-colors">
                     <ChevronRight size={14} />
                   </div>
                 </div>
               </div>
               {loc.description && (
-                <p className="text-xs text-slate-400 mt-3 line-clamp-2">{loc.description}</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-3 line-clamp-2">{loc.description}</p>
               )}
             </div>
           ))}
@@ -176,14 +176,14 @@ export default function LocationsPage() {
       >
         <div className="space-y-4">
           {detailLoc?.description && (
-            <p className="text-sm text-slate-500">{detailLoc.description}</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{detailLoc.description}</p>
           )}
 
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
+            <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
               Equipamentos neste local
             </p>
-            <span className="text-xs bg-slate-100 text-slate-600 font-medium px-2 py-0.5 rounded-full">
+            <span className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-medium px-2 py-0.5 rounded-full">
               {detailLoading ? '...' : detailEquip.length}
             </span>
           </div>
@@ -191,30 +191,35 @@ export default function LocationsPage() {
           {detailLoading ? (
             <div className="space-y-2">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-14 bg-slate-100 rounded-xl animate-pulse" />
+                <div key={i} className="h-14 bg-slate-100 dark:bg-slate-700 rounded-xl animate-pulse" />
               ))}
             </div>
           ) : detailEquip.length === 0 ? (
             <div className="py-10 text-center">
-              <Monitor size={28} className="text-slate-200 mx-auto mb-2" />
-              <p className="text-slate-400 text-sm">Nenhum equipamento neste local</p>
+              <Monitor size={28} className="text-slate-200 dark:text-slate-600 mx-auto mb-2" />
+              <p className="text-slate-400 dark:text-slate-500 text-sm">Nenhum equipamento neste local</p>
             </div>
           ) : (
             <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
               {detailEquip.map((eq) => (
-                <div key={eq.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-colors">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                    style={{ background: eq.category_color ? eq.category_color + '20' : '#f1f5f9' }}>
+                <div
+                  key={eq.id}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-600/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                >
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ background: eq.category_color ? eq.category_color + '20' : '#f1f5f9' }}
+                  >
                     <Monitor size={14} style={{ color: eq.category_color ?? '#94a3b8' }} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate">{eq.name}</p>
+                    <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{eq.name}</p>
                     <div className="flex items-center gap-2 mt-0.5">
                       {eq.category_name && (
-                        <span className="text-xs text-slate-400">{eq.category_name}</span>
+                        <span className="text-xs text-slate-400 dark:text-slate-500">{eq.category_name}</span>
                       )}
                       {eq.assigned_to && (
-                        <span className="flex items-center gap-1 text-xs text-slate-400">
+                        <span className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
                           <User size={10} />
                           {eq.assigned_to}
                         </span>
@@ -242,7 +247,7 @@ export default function LocationsPage() {
             <input className="input" placeholder="Descrição opcional" value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })} />
           </div>
-          {error && <p className="text-red-500 text-xs">{error}</p>}
+          {error && <p className="text-red-500 dark:text-red-400 text-xs">{error}</p>}
           <div className="flex gap-3 justify-end pt-2">
             <button className="btn-secondary" onClick={() => setModalOpen(false)}>Cancelar</button>
             <button className="btn-primary" onClick={handleSave} disabled={saving}>

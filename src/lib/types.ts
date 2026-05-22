@@ -59,4 +59,8 @@ export interface DashboardData {
   byCategory: { name: string; color: string; icon: string; count: number }[]
   recent: Equipment[]
   recentMovements: Movement[]
+  byLocation: { name: string; count: number }[]
+  totalValue: number
+  valuedCount: number
+  monthlyGrowth: { month: string; count: number }[]
 }

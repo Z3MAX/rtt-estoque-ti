@@ -12,7 +12,10 @@ exports.handler = async (event) => {
     requireAuth(event)
     const sql = neon(process.env.DATABASE_URL)
 
-    const [totals, byStatus, byCategory, recent, recentMovements] = await Promise.all([
+    const [
+      totals, byStatus, byCategory, recent, recentMovements,
+      byLocation, valueResult, monthlyResult,
+    ] = await Promise.all([
       sql`SELECT COUNT(*)::int as total FROM equipment`,
 
       sql`
@@ -48,6 +51,34 @@ exports.handler = async (event) => {
         ORDER BY m.created_at DESC
         LIMIT 8
       `,
+
+      sql`
+        SELECT l.name, COUNT(e.id)::int as count
+        FROM locations l
+        LEFT JOIN equipment e ON e.location_id = l.id
+        GROUP BY l.id, l.name
+        HAVING COUNT(e.id) > 0
+        ORDER BY count DESC
+        LIMIT 5
+      `,
+
+      sql`
+        SELECT COALESCE(SUM(purchase_price), 0)::float as total_value,
+               COUNT(purchase_price)::int as valued_count
+        FROM equipment
+        WHERE purchase_price IS NOT NULL AND purchase_price > 0
+      `,
+
+      sql`
+        SELECT
+          TO_CHAR(DATE_TRUNC('month', created_at AT TIME ZONE 'UTC'), 'Mon/YY') as month,
+          DATE_TRUNC('month', created_at AT TIME ZONE 'UTC') as month_ts,
+          COUNT(*)::int as count
+        FROM equipment
+        WHERE created_at >= NOW() - INTERVAL '6 months'
+        GROUP BY DATE_TRUNC('month', created_at AT TIME ZONE 'UTC')
+        ORDER BY DATE_TRUNC('month', created_at AT TIME ZONE 'UTC')
+      `,
     ])
 
     const statusMap = {}
@@ -57,14 +88,18 @@ exports.handler = async (event) => {
       statusCode: 200,
       headers,
       body: JSON.stringify({
-        total: totals[0].total,
-        disponivel: statusMap['disponivel'] || 0,
-        em_uso: statusMap['em_uso'] || 0,
-        manutencao: statusMap['manutencao'] || 0,
-        inativo: statusMap['inativo'] || 0,
+        total:       totals[0].total,
+        disponivel:  statusMap['disponivel']  || 0,
+        em_uso:      statusMap['em_uso']      || 0,
+        manutencao:  statusMap['manutencao']  || 0,
+        inativo:     statusMap['inativo']     || 0,
         byCategory,
         recent,
         recentMovements,
+        byLocation,
+        totalValue:   valueResult[0]?.total_value  ?? 0,
+        valuedCount:  valueResult[0]?.valued_count ?? 0,
+        monthlyGrowth: monthlyResult.map((r) => ({ month: r.month, count: r.count })),
       }),
     }
   } catch (err) {

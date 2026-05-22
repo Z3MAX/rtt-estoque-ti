@@ -6,7 +6,11 @@
       "PowerShell(winget install --id GitHub.cli --silent --accept-package-agreements --accept-source-agreements 2>&1)",
       "WebFetch(domain:mellifluous-peony-a229d6.netlify.app)",
       "PowerShell($response = Invoke-WebRequest -Uri \"https://mellifluous-peony-a229d6.netlify.app/.netlify/functions/setup\" -Method POST -ContentType \"application/json\" -Body \"{}\" -UseBasicParsing ; $response.StatusCode ; $response.Content)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Skill(anthropic-skills:docx)",
+      "Skill(anthropic-skills:docx:*)",
+      "Bash(node -e \"require\\('docx'\\); console.log\\('ok'\\)\")",
+      "Bash(node -e \"require\\('C:/Users/Alexandre Amorim/Downloads/Osiris/node_modules/docx'\\); console.log\\('ok'\\)\")"
     ]
   }
 }
