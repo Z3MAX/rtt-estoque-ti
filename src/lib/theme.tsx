@@ -38,3 +38,21 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 export function useTheme() {
   return useContext(ThemeContext)
 }
+
+/**
+ * Força o modo claro enquanto o componente estiver montado.
+ * Usado nas páginas de autenticação (login, forgot, reset, change-password)
+ * para que nunca sejam afetadas pelo modo escuro do usuário.
+ * O tema original é restaurado automaticamente ao desmontar.
+ */
+export function ForceLightMode({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    const root = document.documentElement
+    const hadDark = root.classList.contains('dark')
+    root.classList.remove('dark')
+    return () => {
+      if (hadDark) root.classList.add('dark')
+    }
+  }, [])
+  return <>{children}</>
+}

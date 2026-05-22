@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/auth'
-import { ThemeProvider } from './lib/theme'
+import { ThemeProvider, ForceLightMode } from './lib/theme'
 import LoginPage from './components/LoginPage'
 import ForgotPasswordPage from './components/ForgotPasswordPage'
 import ResetPasswordPage from './components/ResetPasswordPage'
@@ -31,10 +31,10 @@ function ProtectedRoutes() {
     )
   }
 
-  if (!user) return <LoginPage />
+  if (!user) return <ForceLightMode><LoginPage /></ForceLightMode>
 
   // First login — force password change before anything else
-  if (user.mustChangePassword) return <ChangePasswordPage />
+  if (user.mustChangePassword) return <ForceLightMode><ChangePasswordPage /></ForceLightMode>
 
   return (
     <Routes>
@@ -56,8 +56,8 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <Routes>
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/forgot-password" element={<ForceLightMode><ForgotPasswordPage /></ForceLightMode>} />
+          <Route path="/reset-password" element={<ForceLightMode><ResetPasswordPage /></ForceLightMode>} />
           <Route path="*" element={<ProtectedRoutes />} />
         </Routes>
       </AuthProvider>
