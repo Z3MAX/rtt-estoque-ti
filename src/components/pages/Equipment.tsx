@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Plus, Search, Filter, Pencil, Trash2, Monitor, RefreshCw, FileSpreadsheet, Download, History } from 'lucide-react'
+import { Plus, Search, Filter, Pencil, Trash2, Monitor, RefreshCw, FileSpreadsheet, Download, History, MapPin, Hash, Tag, User } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { api } from '../../lib/api'
 import type { Equipment, Category, Location, EquipmentStatus } from '../../lib/types'
@@ -182,13 +182,17 @@ export default function EquipmentPage() {
         {loading ? (
           <div className="divide-y divide-slate-100 dark:divide-slate-700">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="px-6 py-4 flex items-center gap-4 animate-pulse">
-                <div className="w-9 h-9 bg-slate-200 dark:bg-slate-700 rounded-xl" />
+              <div key={i} className="px-5 py-4 flex items-start gap-4 animate-pulse">
+                <div className="w-10 h-10 bg-slate-200 dark:bg-slate-700 rounded-xl shrink-0" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-3.5 bg-slate-200 dark:bg-slate-700 rounded w-48" />
-                  <div className="h-3 bg-slate-100 dark:bg-slate-700/50 rounded w-32" />
+                  <div className="h-3.5 bg-slate-200 dark:bg-slate-700 rounded w-52" />
+                  <div className="h-3 bg-slate-100 dark:bg-slate-700/50 rounded w-36" />
+                  <div className="flex gap-2 mt-1">
+                    <div className="h-5 bg-slate-200 dark:bg-slate-700 rounded-full w-20" />
+                    <div className="h-5 bg-slate-100 dark:bg-slate-700/50 rounded-full w-24" />
+                    <div className="h-5 bg-slate-100 dark:bg-slate-700/50 rounded-full w-28" />
+                  </div>
                 </div>
-                <div className="h-5 bg-slate-200 dark:bg-slate-700 rounded-full w-20" />
               </div>
             ))}
           </div>
@@ -202,86 +206,103 @@ export default function EquipmentPage() {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700">
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Equipamento</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Categoria</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Serial / Patrimônio</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden xl:table-cell">Responsável</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden xl:table-cell">Local</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 w-24" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
-                {items.map((eq) => (
-                  <tr key={eq.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-700/30 transition-colors group">
-                    <td className="px-6 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                          style={{ backgroundColor: (eq.category_color ?? '#6366f1') + '18' }}
-                        >
-                          <Monitor size={15} style={{ color: eq.category_color ?? '#6366f1' }} />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{eq.name}</p>
-                          <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{[eq.brand, eq.model].filter(Boolean).join(' ')}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5 hidden md:table-cell">
-                      {eq.category_name ? (
-                        <span
-                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
-                          style={{ backgroundColor: (eq.category_color ?? '#6366f1') + '18', color: eq.category_color ?? '#6366f1' }}
-                        >
-                          {eq.category_name}
-                        </span>
-                      ) : <span className="text-slate-400 text-xs">—</span>}
-                    </td>
-                    <td className="px-4 py-3.5 hidden lg:table-cell">
-                      <p className="text-xs text-slate-600 dark:text-slate-400">{eq.serial_number || '—'}</p>
-                      {eq.asset_tag && <p className="text-xs text-slate-400 dark:text-slate-500">#{eq.asset_tag}</p>}
-                    </td>
-                    <td className="px-4 py-3.5 hidden xl:table-cell">
-                      <p className="text-sm text-slate-600 dark:text-slate-400 truncate max-w-[140px]">{eq.assigned_to || '—'}</p>
-                    </td>
-                    <td className="px-4 py-3.5 hidden xl:table-cell">
-                      <p className="text-sm text-slate-600 dark:text-slate-400 truncate max-w-[120px]">{eq.location_name || '—'}</p>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <StatusBadge status={eq.status} />
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => openEdit(eq)}
-                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          onClick={() => setAuditEq(eq)}
-                          title="Ver histórico"
-                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
-                        >
-                          <History size={14} />
-                        </button>
-                        <button
-                          onClick={() => setDeleting(eq)}
-                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
+            {items.map((eq) => (
+              <div key={eq.id} className="flex items-start gap-4 px-5 py-4 hover:bg-slate-50/70 dark:hover:bg-slate-700/30 transition-colors group">
+
+                {/* Category icon */}
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                  style={{ backgroundColor: (eq.category_color ?? '#6366f1') + '18' }}
+                >
+                  <Monitor size={16} style={{ color: eq.category_color ?? '#6366f1' }} />
+                </div>
+
+                {/* Main info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{eq.name}</p>
+                    {eq.category_name && (
+                      <span
+                        className="text-xs font-medium px-2 py-0.5 rounded-full"
+                        style={{ backgroundColor: (eq.category_color ?? '#6366f1') + '18', color: eq.category_color ?? '#6366f1' }}
+                      >
+                        {eq.category_name}
+                      </span>
+                    )}
+                  </div>
+
+                  {(eq.brand || eq.model) && (
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                      {[eq.brand, eq.model].filter(Boolean).join(' · ')}
+                    </p>
+                  )}
+
+                  {/* Tags row */}
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    {/* Status */}
+                    <StatusBadge status={eq.status} />
+
+                    {/* Local */}
+                    {eq.location_name && (
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-medium">
+                        <MapPin size={10} className="shrink-0" />
+                        {eq.location_name}
+                      </span>
+                    )}
+
+                    {/* Nº de Série */}
+                    {eq.serial_number && (
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-medium">
+                        <Hash size={10} className="shrink-0" />
+                        {eq.serial_number}
+                      </span>
+                    )}
+
+                    {/* Patrimônio */}
+                    {eq.asset_tag && (
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 font-medium border border-amber-200 dark:border-amber-800/50">
+                        <Tag size={10} className="shrink-0" />
+                        {eq.asset_tag}
+                      </span>
+                    )}
+
+                    {/* Responsável */}
+                    {eq.assigned_to && (
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium border border-primary-200 dark:border-primary-800/50">
+                        <User size={10} className="shrink-0" />
+                        {eq.assigned_to}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => openEdit(eq)}
+                    title="Editar"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button
+                    onClick={() => setAuditEq(eq)}
+                    title="Ver histórico"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                  >
+                    <History size={14} />
+                  </button>
+                  <button
+                    onClick={() => setDeleting(eq)}
+                    title="Excluir"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
