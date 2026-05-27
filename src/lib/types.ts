@@ -64,3 +64,22 @@ export interface DashboardData {
   valuedCount: number
   monthlyGrowth: { month: string; count: number }[]
 }
+
+export interface AuditChange {
+  field: string
+  label: string
+  old_value: string | null
+  new_value: string | null
+}
+
+export interface AuditEntry {
+  id: number
+  entity_type: string
+  entity_id: number
+  entity_name: string | null
+  action: 'created' | 'updated' | 'deleted' | 'deactivated' | 'activated' | string
+  changes: AuditChange[] | null
+  user_id: number | null
+  user_name: string | null
+  created_at: string
+}

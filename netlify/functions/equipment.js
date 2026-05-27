@@ -1,7 +1,9 @@
 const { neon } = require('@neondatabase/serverless')
 const { requireAuth, makeHeaders, errorResponse } = require('./_auth')
+const { logAudit, computeDiff, resolveIdFields, getUserName } = require('./_audit')
 
 const VALID_STATUSES = ['disponivel', 'em_uso', 'manutencao', 'inativo']
+const EQUIPMENT_FIELDS = ['name','category_id','brand','model','serial_number','asset_tag','status','location_id','assigned_to','purchase_date','purchase_price','notes']
 
 exports.handler = async (event) => {
   const headers = makeHeaders(event)
@@ -18,7 +20,7 @@ exports.handler = async (event) => {
   const id = params.id ? parseInt(params.id) : null
 
   try {
-    requireAuth(event)
+    const authPayload = requireAuth(event)
     if (event.httpMethod === 'GET') {
       if (id) {
         const rows = await sql`
@@ -187,6 +189,12 @@ exports.handler = async (event) => {
         VALUES (${rows[0].id}, 'cadastro', ${'Equipamento cadastrado: ' + name}, 'sistema')
       `
 
+      const userName = await getUserName(sql, authPayload.userId)
+      await logAudit(sql, {
+        entityType: 'equipment', entityId: rows[0].id, entityName: rows[0].name,
+        action: 'created', changes: null, userId: authPayload.userId, userName,
+      })
+
       return { statusCode: 201, headers, body: JSON.stringify(rows[0]) }
     }
 
@@ -228,6 +236,15 @@ exports.handler = async (event) => {
         `
       }
 
+      const changes = await resolveIdFields(sql, computeDiff(existing[0], rows[0], EQUIPMENT_FIELDS))
+      if (changes.length > 0) {
+        const userName = await getUserName(sql, authPayload.userId)
+        await logAudit(sql, {
+          entityType: 'equipment', entityId: id, entityName: rows[0].name,
+          action: 'updated', changes, userId: authPayload.userId, userName,
+        })
+      }
+
       return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
     }
 
@@ -236,6 +253,12 @@ exports.handler = async (event) => {
 
       const existing = await sql`SELECT * FROM equipment WHERE id = ${id}`
       if (existing.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Not found' }) }
+
+      const userName = await getUserName(sql, authPayload.userId)
+      await logAudit(sql, {
+        entityType: 'equipment', entityId: id, entityName: existing[0].name,
+        action: 'deleted', changes: null, userId: authPayload.userId, userName,
+      })
 
       await sql`DELETE FROM equipment WHERE id = ${id}`
       return { statusCode: 200, headers, body: JSON.stringify({ success: true }) }

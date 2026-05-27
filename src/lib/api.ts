@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { mockCategories, mockDashboard, mockEquipment, mockLocations } from './mockData'
-import type { Category, Equipment, Location } from './types'
+import type { AuditEntry, Category, Equipment, Location } from './types'
 
 const BASE = '/.netlify/functions'
 const MOCK = import.meta.env.VITE_MOCK === 'true'
@@ -203,9 +203,22 @@ export const api = {
       if (MOCK) { await delay(300); return { success: true } }
       return request(`${BASE}/users?id=${id}`, { method: 'DELETE' })
     },
+    delete: async (id: number) => {
+      if (MOCK) { await delay(400); return { success: true } }
+      return request(`${BASE}/users?id=${id}&permanent=true`, { method: 'DELETE' })
+    },
     resendInvite: async (userId: number) => {
       if (MOCK) { await delay(600); return { success: true, email: 'demo@rtt.dev' } }
       return request(`${BASE}/resend-invite`, { method: 'POST', body: JSON.stringify({ userId }) })
+    },
+  },
+
+  audit: {
+    list: async (entityType: string, entityId?: number) => {
+      if (MOCK) { await delay(150); return [] }
+      const qs = new URLSearchParams({ entity_type: entityType })
+      if (entityId !== undefined) qs.set('entity_id', String(entityId))
+      return request<AuditEntry[]>(`${BASE}/audit?${qs}`)
     },
   },
 

@@ -75,6 +75,22 @@ exports.handler = async (event) => {
       )
     `
 
+    await sql`
+      CREATE TABLE IF NOT EXISTS audit_log (
+        id SERIAL PRIMARY KEY,
+        entity_type VARCHAR(50) NOT NULL,
+        entity_id INTEGER NOT NULL,
+        entity_name VARCHAR(200),
+        action VARCHAR(50) NOT NULL,
+        changes JSONB,
+        user_id INTEGER,
+        user_name VARCHAR(200),
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `
+    await sql`CREATE INDEX IF NOT EXISTS audit_log_entity_idx ON audit_log(entity_type, entity_id)`
+    await sql`CREATE INDEX IF NOT EXISTS audit_log_created_idx ON audit_log(created_at DESC)`
+
     // Seed categorias padrão
     const cats = await sql`SELECT COUNT(*) as count FROM categories`
     if (parseInt(cats[0].count) === 0) {

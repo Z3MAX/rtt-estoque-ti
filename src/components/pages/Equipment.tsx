@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Plus, Search, Filter, Pencil, Trash2, Monitor, RefreshCw, FileSpreadsheet, Download } from 'lucide-react'
+import { Plus, Search, Filter, Pencil, Trash2, Monitor, RefreshCw, FileSpreadsheet, Download, History } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { api } from '../../lib/api'
 import type { Equipment, Category, Location, EquipmentStatus } from '../../lib/types'
@@ -7,6 +7,7 @@ import { StatusBadge, statusConfig } from '../ui/Badge'
 import EquipmentModal from '../modals/EquipmentModal'
 import ConfirmDialog from '../ui/ConfirmDialog'
 import ImportModal from '../modals/ImportModal'
+import AuditPanel from '../ui/AuditPanel'
 
 const statusOptions: { value: EquipmentStatus | ''; label: string }[] = [
   { value: '', label: 'Todos os status' },
@@ -30,6 +31,7 @@ export default function EquipmentPage() {
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [error, setError] = useState('')
   const [importOpen, setImportOpen] = useState(false)
+  const [auditEq, setAuditEq] = useState<Equipment | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -262,6 +264,13 @@ export default function EquipmentPage() {
                           <Pencil size={14} />
                         </button>
                         <button
+                          onClick={() => setAuditEq(eq)}
+                          title="Ver histórico"
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                        >
+                          <History size={14} />
+                        </button>
+                        <button
                           onClick={() => setDeleting(eq)}
                           className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                         >
@@ -301,6 +310,16 @@ export default function EquipmentPage() {
         title="Excluir equipamento"
         message={`Tem certeza que deseja excluir "${deleting?.name}"? Esta ação não pode ser desfeita.`}
       />
+
+      {auditEq && (
+        <AuditPanel
+          open={!!auditEq}
+          onClose={() => setAuditEq(null)}
+          entityType="equipment"
+          entityId={auditEq.id}
+          entityName={auditEq.name}
+        />
+      )}
     </div>
   )
 }

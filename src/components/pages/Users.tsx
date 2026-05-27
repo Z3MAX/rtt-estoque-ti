@@ -1,7 +1,8 @@
 import { useState, useEffect, type FormEvent } from 'react'
-import { Users, Plus, Pencil, ShieldCheck, Wrench, ToggleLeft, ToggleRight, X, Eye, EyeOff, Search, Mail, AlertTriangle, CheckCircle2, Send } from 'lucide-react'
+import { Users, Plus, Pencil, ShieldCheck, Wrench, ToggleLeft, ToggleRight, X, Eye, EyeOff, Search, Mail, AlertTriangle, CheckCircle2, Send, Trash2 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
+import ConfirmDialog from '../ui/ConfirmDialog'
 
 interface AppUser {
   id: number
@@ -186,6 +187,8 @@ export default function UsersPage() {
   const [modalUser, setModalUser] = useState<AppUser | null | undefined>(undefined)
   const [resendingId, setResendingId]   = useState<number | null>(null)
   const [resendStatus, setResendStatus] = useState<{ id: number; ok: boolean; msg: string } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<AppUser | null>(null)
+  const [deleting, setDeleting]         = useState(false)
 
   const isAdmin = currentUser?.role === 'Administrador de TI'
 
@@ -224,6 +227,23 @@ export default function UsersPage() {
       await load()
     } catch (err) {
       console.error(err)
+    }
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return
+    try {
+      setDeleting(true)
+      await api.users.delete(deleteTarget.id)
+      setDeleteTarget(null)
+      await load()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao excluir'
+      setResendStatus({ id: deleteTarget.id, ok: false, msg })
+      setDeleteTarget(null)
+      setTimeout(() => setResendStatus(null), 6000)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -372,17 +392,26 @@ export default function UsersPage() {
                         <Pencil size={14} />
                       </button>
                       {u.id !== currentUser?.id && (
-                        <button
-                          onClick={() => toggleActive(u)}
-                          title={u.active ? 'Desativar' : 'Ativar'}
-                          className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
-                            u.active
-                              ? 'text-slate-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400'
-                              : 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
-                          }`}
-                        >
-                          {u.active ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
-                        </button>
+                        <>
+                          <button
+                            onClick={() => toggleActive(u)}
+                            title={u.active ? 'Desativar' : 'Ativar'}
+                            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                              u.active
+                                ? 'text-slate-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400'
+                                : 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
+                            }`}
+                          >
+                            {u.active ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
+                          </button>
+                          <button
+                            onClick={() => setDeleteTarget(u)}
+                            title="Excluir permanentemente"
+                            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 dark:text-slate-600 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </>
                       )}
                     </div>
                   )}
@@ -411,6 +440,16 @@ export default function UsersPage() {
           onSaved={async () => { setModalUser(undefined); await load() }}
         />
       )}
+
+      {/* Confirm permanent delete */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        loading={deleting}
+        title="Excluir usuário permanentemente"
+        message={`Tem certeza que deseja excluir "${deleteTarget?.name}" de forma permanente? Esta ação é irreversível e todos os dados do usuário serão removidos do sistema.`}
+      />
     </div>
   )
 }

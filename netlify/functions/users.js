@@ -3,6 +3,7 @@ const crypto = require('crypto')
 const { hashPassword } = require('./_hash')
 const { requireAuth, requireAdmin, makeHeaders, errorResponse } = require('./_auth')
 const { sendInviteEmail } = require('./_email')
+const { logAudit, computeDiff, getUserName } = require('./_audit')
 
 const VALID_ROLES = ['Administrador de TI', 'Técnico de TI']
 
@@ -37,7 +38,7 @@ exports.handler = async (event) => {
 
     // POST — somente administrador
     if (event.httpMethod === 'POST') {
-      requireAdmin(event)
+      const adminPayload = requireAdmin(event)
       const { name, email, role } = JSON.parse(event.body || '{}')
 
       if (!name || !name.trim())
@@ -69,10 +70,10 @@ exports.handler = async (event) => {
       let emailError = null
 
       try {
-        const siteUrl = process.env.SITE_URL
+        const siteUrl = process.env.SITE_URL || process.env.URL
         if (!siteUrl) {
-          emailError = 'SITE_URL não configurado'
-          console.warn('[users] convite não enviado: SITE_URL ausente')
+          emailError = 'URL do site não configurada (SITE_URL)'
+          console.warn('[users] convite não enviado: SITE_URL/URL ausente')
         } else if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
           emailError = 'Credenciais de e-mail não configuradas (GMAIL_USER / GMAIL_APP_PASSWORD)'
           console.warn('[users] convite não enviado: credenciais de e-mail ausentes')
@@ -107,12 +108,15 @@ exports.handler = async (event) => {
         console.error('[users] erro ao enviar convite:', emailErr.message)
       }
 
+      const auditUser = await getUserName(sql, adminPayload.userId)
+      await logAudit(sql, { entityType: 'user', entityId: rows[0].id, entityName: rows[0].name, action: 'created', changes: null, userId: adminPayload.userId, userName: auditUser })
+
       return { statusCode: 201, headers, body: JSON.stringify({ ...rows[0], emailSent, emailError }) }
     }
 
     // PUT — somente administrador
     if (event.httpMethod === 'PUT' && id) {
-      requireAdmin(event)
+      const adminPayload = requireAdmin(event)
       const { name, email, password, role, active } = JSON.parse(event.body || '{}')
 
       if (email !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
@@ -127,6 +131,9 @@ exports.handler = async (event) => {
         if (dup.length > 0)
           return { statusCode: 409, headers, body: JSON.stringify({ error: 'E-mail já utilizado por outro usuário' }) }
       }
+
+      const existingBefore = await sql`SELECT id, name, email, role, active FROM users WHERE id = ${id}`
+      if (existingBefore.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Usuário não encontrado' }) }
 
       const updates = {}
       if (name !== undefined)   updates.name = name.trim()
@@ -147,14 +154,49 @@ exports.handler = async (event) => {
         RETURNING id, name, email, role, active, created_at, updated_at
       `
       if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Usuário não encontrado' }) }
+
+      const changes = computeDiff(existingBefore[0], rows[0], ['name', 'email', 'role', 'active'])
+      if (changes.length > 0) {
+        const auditUser = await getUserName(sql, adminPayload.userId)
+        await logAudit(sql, { entityType: 'user', entityId: Number(id), entityName: rows[0].name, action: 'updated', changes, userId: adminPayload.userId, userName: auditUser })
+      }
+
       return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
     }
 
     // DELETE — somente administrador
     if (event.httpMethod === 'DELETE' && id) {
-      requireAdmin(event)
+      const adminPayload = requireAdmin(event)
+
+      const permanent = event.queryStringParameters?.permanent === 'true'
+
+      if (permanent) {
+        // Impede que o próprio administrador se exclua permanentemente
+        if (String(adminPayload.userId) === String(id)) {
+          return { statusCode: 400, headers, body: JSON.stringify({ error: 'Você não pode excluir sua própria conta' }) }
+        }
+
+        const targetUser = await sql`SELECT name FROM users WHERE id = ${id}`
+        if (targetUser.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Usuário não encontrado' }) }
+        const targetName = targetUser[0].name
+
+        const rows = await sql`DELETE FROM users WHERE id = ${id} RETURNING id`
+        if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Usuário não encontrado' }) }
+
+        const auditUser = await getUserName(sql, adminPayload.userId)
+        await logAudit(sql, { entityType: 'user', entityId: Number(id), entityName: targetName, action: 'deleted', changes: null, userId: adminPayload.userId, userName: auditUser })
+
+        return { statusCode: 200, headers, body: JSON.stringify({ success: true }) }
+      }
+
+      // Soft-delete (desativar)
       const rows = await sql`UPDATE users SET active = false, updated_at = NOW() WHERE id = ${id} RETURNING id`
       if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Usuário não encontrado' }) }
+
+      const auditUser = await getUserName(sql, adminPayload.userId)
+      const targetUser = await sql`SELECT name FROM users WHERE id = ${id}`
+      await logAudit(sql, { entityType: 'user', entityId: Number(id), entityName: targetUser[0]?.name, action: 'deactivated', changes: null, userId: adminPayload.userId, userName: auditUser })
+
       return { statusCode: 200, headers, body: JSON.stringify({ success: true }) }
     }
 

@@ -11,9 +11,9 @@ exports.handler = async (event) => {
   if (!process.env.DATABASE_URL)
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'DATABASE_URL não configurado' }) }
 
-  const siteUrl = process.env.SITE_URL
+  const siteUrl = process.env.SITE_URL || process.env.URL
   if (!siteUrl)
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'SITE_URL não configurado nas variáveis de ambiente do Netlify' }) }
+    return { statusCode: 500, headers, body: JSON.stringify({ error: 'URL do site não configurada. Defina SITE_URL nas variáveis de ambiente do Netlify.' }) }
 
   if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD)
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'GMAIL_USER ou GMAIL_APP_PASSWORD não configurado nas variáveis de ambiente do Netlify' }) }
