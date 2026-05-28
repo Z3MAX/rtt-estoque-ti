@@ -259,5 +259,9 @@ export const api = {
       }
       return request(`${BASE}/locations?id=${id}`, { method: 'DELETE' })
     },
+    sendReport: async (locationId: number, toEmail: string) => {
+      if (MOCK) { await delay(800); return { success: true, email: toEmail } }
+      return request(`${BASE}/send-location-report`, { method: 'POST', body: JSON.stringify({ locationId, toEmail }) })
+    },
   },
 }

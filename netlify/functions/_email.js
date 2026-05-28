@@ -155,4 +155,116 @@ async function sendResetEmail({ name, email, resetUrl }) {
   return sendMail({ to: email, subject: '🔐 Redefinição de senha — Rema Tip Top', html })
 }
 
-module.exports = { sendInviteEmail, sendResetEmail }
+/**
+ * Relatório de equipamentos de um local, enviado ao gestor responsável.
+ */
+async function sendLocationReport({ locationName, managerEmail, equipment, senderName }) {
+  const date = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+  const total = equipment.length
+
+  const STATUS_LABEL = { disponivel: 'Disponível', em_uso: 'Em Uso', manutencao: 'Em Manutenção', inativo: 'Inativo' }
+  const STATUS_COLOR = { disponivel: '#10b981', em_uso: '#3b82f6', manutencao: '#f59e0b', inativo: '#94a3b8' }
+
+  const countByStatus = Object.entries(
+    equipment.reduce((acc, eq) => { acc[eq.status] = (acc[eq.status] || 0) + 1; return acc }, {})
+  )
+
+  const tableRows = equipment.map((eq, i) => `
+    <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f8fafc'}">
+      <td style="padding:10px 14px;color:#0f172a;font-size:13px;font-weight:500">${esc(eq.name)}</td>
+      <td style="padding:10px 14px;color:#475569;font-size:12px">${esc(eq.category_name || '—')}</td>
+      <td style="padding:10px 14px">
+        <span style="background:${STATUS_COLOR[eq.status] || '#94a3b8'}20;color:${STATUS_COLOR[eq.status] || '#94a3b8'};font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;white-space:nowrap">
+          ${esc(STATUS_LABEL[eq.status] || eq.status)}
+        </span>
+      </td>
+      <td style="padding:10px 14px;color:#64748b;font-size:12px;font-family:monospace">${esc(eq.serial_number || '—')}</td>
+      <td style="padding:10px 14px;color:#64748b;font-size:12px;font-family:monospace">${esc(eq.asset_tag || '—')}</td>
+      <td style="padding:10px 14px;color:#475569;font-size:12px">${esc(eq.assigned_to || '—')}</td>
+    </tr>`).join('')
+
+  const summaryChips = countByStatus.map(([status, count]) => `
+    <td style="padding:0 8px;text-align:center">
+      <div style="background:${STATUS_COLOR[status] || '#94a3b8'}15;border:1px solid ${STATUS_COLOR[status] || '#94a3b8'}30;border-radius:10px;padding:10px 16px;min-width:80px">
+        <p style="margin:0;color:${STATUS_COLOR[status] || '#94a3b8'};font-size:22px;font-weight:700">${count}</p>
+        <p style="margin:4px 0 0;color:#64748b;font-size:11px">${esc(STATUS_LABEL[status] || status)}</p>
+      </div>
+    </td>`).join('')
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 20px">
+    <tr><td align="center">
+      <table width="640" cellpadding="0" cellspacing="0" style="max-width:640px;width:100%">
+
+        <!-- Header -->
+        <tr><td style="background:linear-gradient(135deg,#0f172a 0%,#7f0008 100%);border-radius:16px 16px 0 0;padding:32px 40px">
+          <p style="margin:0;color:#fff;font-size:22px;font-weight:700">Rema Tip Top</p>
+          <p style="margin:4px 0 0;color:#94a3b8;font-size:12px">Controle de Estoque TI</p>
+          <p style="margin:24px 0 0;color:#fff;font-size:20px;font-weight:700">📍 Relatório de Equipamentos</p>
+          <p style="margin:6px 0 0;color:#e2e8f0;font-size:14px">Local: <strong>${esc(locationName)}</strong></p>
+          <p style="margin:4px 0 0;color:#94a3b8;font-size:12px">Gerado em ${esc(date)}${senderName ? ` · por ${esc(senderName)}` : ''}</p>
+        </td></tr>
+
+        <!-- Body -->
+        <tr><td style="background:#fff;padding:36px 40px">
+
+          <!-- Total -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:28px">
+            <tr><td style="padding:20px 24px">
+              <p style="margin:0 0 4px;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em">Total de equipamentos</p>
+              <p style="margin:0;color:#0f172a;font-size:32px;font-weight:800">${total}</p>
+            </td></tr>
+          </table>
+
+          <!-- Status summary -->
+          ${countByStatus.length > 0 ? `
+          <p style="margin:0 0 12px;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em">Resumo por status</p>
+          <table cellpadding="0" cellspacing="0" style="margin-bottom:28px">
+            <tr>${summaryChips}</tr>
+          </table>` : ''}
+
+          <!-- Equipment table -->
+          <p style="margin:0 0 12px;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em">Lista completa</p>
+          ${total === 0 ? `
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:32px;text-align:center">
+            <p style="margin:0;color:#94a3b8;font-size:14px">Nenhum equipamento neste local</p>
+          </div>` : `
+          <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;border-collapse:collapse">
+            <thead>
+              <tr style="background:#f1f5f9">
+                <th style="padding:10px 14px;text-align:left;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em">Equipamento</th>
+                <th style="padding:10px 14px;text-align:left;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em">Categoria</th>
+                <th style="padding:10px 14px;text-align:left;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em">Status</th>
+                <th style="padding:10px 14px;text-align:left;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em">Nº Série</th>
+                <th style="padding:10px 14px;text-align:left;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em">Patrimônio</th>
+                <th style="padding:10px 14px;text-align:left;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em">Responsável</th>
+              </tr>
+            </thead>
+            <tbody>${tableRows}</tbody>
+          </table>`}
+
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;border-radius:0 0 16px 16px;padding:20px 40px;text-align:center">
+          <p style="margin:0;color:#94a3b8;font-size:12px">© 2025 Rema Tip Top · Controle de Estoque TI</p>
+          <p style="margin:4px 0 0;color:#cbd5e1;font-size:11px">Este relatório foi gerado automaticamente pelo sistema.</p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+
+  return sendMail({
+    to: managerEmail,
+    subject: `📋 Relatório de equipamentos — ${locationName}`,
+    html,
+  })
+}
+
+module.exports = { sendInviteEmail, sendResetEmail, sendLocationReport }

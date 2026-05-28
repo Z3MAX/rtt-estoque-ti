@@ -14,6 +14,7 @@ export interface Location {
   id: number
   name: string
   description?: string
+  manager_email?: string
   equipment_count?: number
   created_at: string
 }

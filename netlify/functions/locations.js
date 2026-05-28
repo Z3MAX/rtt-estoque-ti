@@ -13,6 +13,9 @@ exports.handler = async (event) => {
   const id = params.id ? parseInt(params.id) : null
 
   try {
+    // Garante coluna manager_email (migrações transparentes para instâncias existentes)
+    await sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS manager_email VARCHAR(200)`
+
     // GET — qualquer usuário autenticado
     if (event.httpMethod === 'GET') {
       requireAuth(event)
@@ -29,15 +32,17 @@ exports.handler = async (event) => {
     // Escrita — somente administrador
     if (event.httpMethod === 'POST') {
       requireAdmin(event)
-      const { name, description } = JSON.parse(event.body || '{}')
+      const { name, description, manager_email } = JSON.parse(event.body || '{}')
       if (!name || !name.trim())
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Nome é obrigatório' }) }
       if (name.length > 100)
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Nome muito longo (máx 100 caracteres)' }) }
+      if (manager_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(manager_email))
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'E-mail do gestor inválido' }) }
 
       const rows = await sql`
-        INSERT INTO locations (name, description)
-        VALUES (${name.trim()}, ${description || null})
+        INSERT INTO locations (name, description, manager_email)
+        VALUES (${name.trim()}, ${description || null}, ${manager_email?.toLowerCase() || null})
         RETURNING *
       `
       return { statusCode: 201, headers, body: JSON.stringify(rows[0]) }
@@ -47,14 +52,18 @@ exports.handler = async (event) => {
       requireAdmin(event)
       if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'ID obrigatório' }) }
 
-      const { name, description } = JSON.parse(event.body || '{}')
+      const { name, description, manager_email } = JSON.parse(event.body || '{}')
+      if (manager_email !== undefined && manager_email !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(manager_email))
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'E-mail do gestor inválido' }) }
+
       const existing = await sql`SELECT * FROM locations WHERE id = ${id}`
       if (existing.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Local não encontrado' }) }
 
       const rows = await sql`
         UPDATE locations SET
-          name        = ${name?.trim() || existing[0].name},
-          description = ${description !== undefined ? description : existing[0].description}
+          name          = ${name?.trim() || existing[0].name},
+          description   = ${description !== undefined ? description : existing[0].description},
+          manager_email = ${manager_email !== undefined ? (manager_email?.toLowerCase() || null) : existing[0].manager_email}
         WHERE id = ${id}
         RETURNING *
       `
