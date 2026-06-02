@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Monitor, Tag, MapPin, Server, ChevronRight, LogOut,
-  UserCircle, Users, Sun, Moon,
+  UserCircle, Users, Sun, Moon, Activity,
 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { useTheme } from '../lib/theme'
@@ -11,6 +11,7 @@ const navItems = [
   { to: '/equipamentos', icon: Monitor,          label: 'Equipamentos', adminOnly: false },
   { to: '/categorias',   icon: Tag,              label: 'Categorias',   adminOnly: false },
   { to: '/locais',       icon: MapPin,           label: 'Locais',       adminOnly: false },
+  { to: '/monitor',      icon: Activity,         label: 'Monitor',      adminOnly: false },
   { to: '/usuarios',     icon: Users,            label: 'Usuários',     adminOnly: true  },
 ]
 

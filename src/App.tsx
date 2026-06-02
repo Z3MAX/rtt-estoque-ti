@@ -11,6 +11,7 @@ import EquipmentPage from './components/pages/Equipment'
 import CategoriesPage from './components/pages/Categories'
 import LocationsPage from './components/pages/Locations'
 import UsersPage from './components/pages/Users'
+import AuditMonitor from './components/pages/AuditMonitor'
 
 function ProtectedRoutes() {
   const { user, loading } = useAuth()
@@ -44,6 +45,7 @@ function ProtectedRoutes() {
         <Route path="/equipamentos" element={<EquipmentPage />} />
         <Route path="/categorias" element={<CategoriesPage />} />
         <Route path="/locais" element={<LocationsPage />} />
+        <Route path="/monitor" element={<AuditMonitor />} />
         <Route path="/usuarios" element={<UsersPage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
