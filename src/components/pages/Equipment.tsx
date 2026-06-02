@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Plus, Search, Filter, Pencil, Trash2, Monitor, RefreshCw, FileSpreadsheet, Download, History, MapPin, Hash, Tag, User } from 'lucide-react'
+import { Plus, Search, Filter, Pencil, Trash2, Monitor, RefreshCw, FileSpreadsheet, Download, History, MapPin, Hash, Tag, User, ClipboardList } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { api } from '../../lib/api'
-import type { Equipment, Category, Location, EquipmentStatus } from '../../lib/types'
+import type { Equipment, Category, Location, EquipmentStatus, AuditEntry } from '../../lib/types'
 import { StatusBadge, statusConfig } from '../ui/Badge'
 import EquipmentModal from '../modals/EquipmentModal'
 import ConfirmDialog from '../ui/ConfirmDialog'
@@ -32,6 +32,7 @@ export default function EquipmentPage() {
   const [error, setError] = useState('')
   const [importOpen, setImportOpen] = useState(false)
   const [auditEq, setAuditEq] = useState<Equipment | null>(null)
+  const [exportingAudit, setExportingAudit] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -75,6 +76,62 @@ export default function EquipmentPage() {
     }
   }
 
+  async function exportAuditReport() {
+    try {
+      setExportingAudit(true)
+      const entries = await api.audit.list('equipment', undefined, 2000) as AuditEntry[]
+
+      const ACTION_LABELS: Record<string, string> = {
+        created: 'Cadastrado', updated: 'Atualizado', deleted: 'Excluído',
+        deactivated: 'Desativado', activated: 'Ativado',
+      }
+
+      const rows: Record<string, string>[] = []
+      for (const entry of entries) {
+        const acao = ACTION_LABELS[entry.action] ?? entry.action
+        const data = new Date(entry.created_at).toLocaleString('pt-BR')
+        if (entry.changes && entry.changes.length > 0) {
+          for (const change of entry.changes) {
+            rows.push({
+              'Equipamento': entry.entity_name ?? '',
+              'Ação': acao,
+              'Campo': change.label,
+              'Valor Anterior': change.old_value ?? '',
+              'Novo Valor': change.new_value ?? '',
+              'Usuário': entry.user_name ?? '',
+              'Data/Hora': data,
+            })
+          }
+        } else {
+          rows.push({
+            'Equipamento': entry.entity_name ?? '',
+            'Ação': acao,
+            'Campo': '',
+            'Valor Anterior': '',
+            'Novo Valor': '',
+            'Usuário': entry.user_name ?? '',
+            'Data/Hora': data,
+          })
+        }
+      }
+
+      if (rows.length === 0) { setError('Nenhum registro de auditoria encontrado.'); return }
+
+      const ws = XLSX.utils.json_to_sheet(rows)
+      ws['!cols'] = [
+        { wch: 32 }, { wch: 14 }, { wch: 18 },
+        { wch: 24 }, { wch: 24 }, { wch: 22 }, { wch: 20 },
+      ]
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Auditoria')
+      XLSX.writeFile(wb, `auditoria_equipamentos_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setExportingAudit(false)
+    }
+  }
+
   function openCreate() { setEditing(null); setModalOpen(true) }
   function openEdit(eq: Equipment) { setEditing(eq); setModalOpen(true) }
 
@@ -114,6 +171,18 @@ export default function EquipmentPage() {
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">{items.length} {items.length === 1 ? 'item' : 'itens'}</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            className="btn-secondary"
+            onClick={exportAuditReport}
+            disabled={exportingAudit}
+            title="Exportar histórico completo de alterações"
+          >
+            {exportingAudit
+              ? <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" /></svg>
+              : <ClipboardList size={16} />
+            }
+            Relatório de Auditoria
+          </button>
           <button
             className="btn-secondary"
             onClick={exportToExcel}

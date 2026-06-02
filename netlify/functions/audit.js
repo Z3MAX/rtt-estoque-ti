@@ -13,7 +13,7 @@ exports.handler = async (event) => {
     const params = event.queryStringParameters || {}
     const entityType = params.entity_type || null
     const entityId = params.entity_id ? parseInt(params.entity_id) : null
-    const limit = Math.min(parseInt(params.limit || '100'), 200)
+    const limit = Math.min(parseInt(params.limit || '100'), 2000)
 
     let rows
     if (entityType && entityId) {
