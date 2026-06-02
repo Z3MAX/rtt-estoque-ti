@@ -79,7 +79,13 @@ export default function EquipmentPage() {
   async function exportAuditReport() {
     try {
       setExportingAudit(true)
-      const entries = await api.audit.list('equipment', undefined, 2000) as AuditEntry[]
+
+      const [entries, allEquip] = await Promise.all([
+        api.audit.list('equipment', undefined, 2000) as Promise<AuditEntry[]>,
+        api.equipment.list() as Promise<Equipment[]>,
+      ])
+
+      const equipMap = new Map(allEquip.map((e) => [e.id, e]))
 
       const ACTION_LABELS: Record<string, string> = {
         created: 'Cadastrado', updated: 'Atualizado', deleted: 'Excluído',
@@ -88,28 +94,39 @@ export default function EquipmentPage() {
 
       const rows: Record<string, string>[] = []
       for (const entry of entries) {
+        const eq = equipMap.get(entry.entity_id)
         const acao = ACTION_LABELS[entry.action] ?? entry.action
         const data = new Date(entry.created_at).toLocaleString('pt-BR')
+
+        const base = {
+          'Equipamento':   entry.entity_name ?? '',
+          'Patrimônio':    eq?.asset_tag ?? '',
+          'Nº de Série':   eq?.serial_number ?? '',
+          'Categoria':     eq?.category_name ?? '',
+          'Local Atual':   eq?.location_name ?? '',
+          'Responsável':   eq?.assigned_to ?? '',
+        }
+
         if (entry.changes && entry.changes.length > 0) {
           for (const change of entry.changes) {
             rows.push({
-              'Equipamento': entry.entity_name ?? '',
+              ...base,
               'Ação': acao,
-              'Campo': change.label,
+              'Campo Alterado': change.label,
               'Valor Anterior': change.old_value ?? '',
               'Novo Valor': change.new_value ?? '',
-              'Usuário': entry.user_name ?? '',
+              'Alterado por': entry.user_name ?? '',
               'Data/Hora': data,
             })
           }
         } else {
           rows.push({
-            'Equipamento': entry.entity_name ?? '',
+            ...base,
             'Ação': acao,
-            'Campo': '',
+            'Campo Alterado': '',
             'Valor Anterior': '',
             'Novo Valor': '',
-            'Usuário': entry.user_name ?? '',
+            'Alterado por': entry.user_name ?? '',
             'Data/Hora': data,
           })
         }
@@ -119,7 +136,8 @@ export default function EquipmentPage() {
 
       const ws = XLSX.utils.json_to_sheet(rows)
       ws['!cols'] = [
-        { wch: 32 }, { wch: 14 }, { wch: 18 },
+        { wch: 32 }, { wch: 16 }, { wch: 18 }, { wch: 18 },
+        { wch: 20 }, { wch: 22 }, { wch: 14 }, { wch: 18 },
         { wch: 24 }, { wch: 24 }, { wch: 22 }, { wch: 20 },
       ]
       const wb = XLSX.utils.book_new()
