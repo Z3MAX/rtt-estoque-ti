@@ -7,7 +7,7 @@ import { useAuth } from '../lib/auth'
 import { useTheme } from '../lib/theme'
 
 const navItems = [
-  { to: '/dashboard',     icon: LayoutDashboard, label: 'Dashboard',      adminOnly: false },
+  { to: '/dashboard',     icon: LayoutDashboard, label: 'Dashboard1',     adminOnly: false },
   { to: '/colaboradores', icon: ClipboardList,   label: 'Colaboradores',  adminOnly: false },
   { to: '/monitor',       icon: Activity,        label: 'Monitor',        adminOnly: false },
   { to: '/usuarios',      icon: Users,           label: 'Usuários',       adminOnly: true  },
