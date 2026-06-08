@@ -1,0 +1,73 @@
+const { neon } = require('@neondatabase/serverless')
+const { requireAuth, makeHeaders, errorResponse } = require('./_auth')
+
+const QUADRANTE_LABELS = {
+  E3: 'Talento Top / Estrela', E2: 'Potencial Forte', E1: 'Enigma',
+  M3: 'Forte Desempenho',    M2: 'Mantenedor / Eficaz', M1: 'Questionável',
+  B3: 'Dedicado / Especialista', B2: 'Bom Profissional', B1: 'Risco / Subpadrão',
+}
+
+exports.handler = async (event) => {
+  const headers = makeHeaders(event, 'GET, OPTIONS')
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers, body: '' }
+  if (event.httpMethod !== 'GET') return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) }
+  if (!process.env.DATABASE_URL) {
+    return { statusCode: 500, headers, body: JSON.stringify({ error: 'DATABASE_URL not configured' }) }
+  }
+
+  const sql = neon(process.env.DATABASE_URL)
+
+  try {
+    requireAuth(event)
+
+    const [totalColabs]    = await sql`SELECT COUNT(*)::int AS n FROM colaboradores WHERE ativo = true`
+    const [totalAvals]     = await sql`SELECT COUNT(*)::int AS n FROM ciclos_avaliacao`
+    const [totalConc]      = await sql`SELECT COUNT(*)::int AS n FROM ciclos_avaliacao WHERE status = 'concluido'`
+    const [collabAvals]    = await sql`SELECT COUNT(DISTINCT colaborador_id)::int AS n FROM ciclos_avaliacao WHERE status = 'concluido'`
+
+    const quadrantesRaw = await sql`
+      SELECT quadrante, COUNT(*)::int AS count
+      FROM ciclos_avaliacao
+      WHERE status = 'concluido' AND quadrante IS NOT NULL
+      GROUP BY quadrante
+      ORDER BY count DESC
+    `
+    const distribuicao_quadrantes = quadrantesRaw.map(r => ({
+      quadrante: r.quadrante,
+      count: r.count,
+      label: QUADRANTE_LABELS[r.quadrante] || r.quadrante,
+    }))
+
+    const recentes = await sql`
+      SELECT ca.*, c.nome AS colaborador_nome
+      FROM ciclos_avaliacao ca
+      LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
+      ORDER BY ca.created_at DESC
+      LIMIT 5
+    `
+
+    const porPeriodo = await sql`
+      SELECT periodo_inicial AS periodo, COUNT(*)::int AS count
+      FROM ciclos_avaliacao
+      WHERE status = 'concluido'
+      GROUP BY periodo_inicial
+      ORDER BY periodo_inicial
+    `
+
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        total_colaboradores:  totalColabs.n,
+        total_avaliacoes:     totalAvals.n,
+        avaliacoes_concluidas: totalConc.n,
+        colaboradores_avaliados: collabAvals.n,
+        distribuicao_quadrantes,
+        avaliacoes_recentes: recentes,
+        avaliacoes_por_periodo: porPeriodo,
+      }),
+    }
+  } catch (err) {
+    return errorResponse(headers, err)
+  }
+}

@@ -1,69 +1,80 @@
-export type EquipmentStatus = 'disponivel' | 'em_uso' | 'manutencao' | 'inativo'
+export type NivelCargo =
+  | 'junior' | 'pleno' | 'senior' | 'supervisor'
+  | 'especialista' | 'coordenador' | 'gerente' | 'diretor'
 
-export interface Category {
-  id: number
-  name: string
-  description?: string
-  color: string
-  icon: string
-  equipment_count?: number
-  created_at: string
+export const NIVEL_LABELS: Record<NivelCargo, string> = {
+  junior:      'Analista Júnior',
+  pleno:       'Analista Pleno',
+  senior:      'Analista Sênior',
+  supervisor:  'Supervisor',
+  especialista:'Especialista',
+  coordenador: 'Coordenador',
+  gerente:     'Gerente',
+  diretor:     'Diretor Regional',
 }
 
-export interface Location {
+export interface Colaborador {
   id: number
-  name: string
-  description?: string
-  manager_email?: string
-  equipment_count?: number
+  nome: string
+  cargo?: string
+  nivel?: NivelCargo
+  area?: string
+  email?: string
+  gestor_nome?: string
+  ativo: boolean
   created_at: string
+  updated_at: string
+  total_avaliacoes?: number
+  ultimo_quadrante?: string
+  ultima_avaliacao?: string
 }
 
-export interface Equipment {
+export type TipoAvaliacao = 'autoavaliacao' | 'lideranca'
+export type StatusAvaliacao = 'rascunho' | 'concluido'
+
+export interface RespostaCompetencia {
+  nota: number
+  observacao?: string
+}
+
+export interface CicloAvaliacao {
   id: number
-  name: string
-  category_id?: number
-  category_name?: string
-  category_color?: string
-  category_icon?: string
-  brand?: string
-  model?: string
-  serial_number?: string
-  asset_tag?: string
-  status: EquipmentStatus
-  location_id?: number
-  location_name?: string
-  assigned_to?: string
-  purchase_date?: string
-  purchase_price?: number
-  notes?: string
+  colaborador_id: number
+  colaborador_nome?: string
+  avaliador_id?: number
+  avaliador_nome?: string
+  tipo: TipoAvaliacao
+  periodo_inicial: string
+  periodo_final: string
+  nivel_cargo?: string
+  score_desempenho?: number
+  score_potencial?: number
+  nivel_desempenho?: string
+  nivel_potencial?: string
+  quadrante?: string
+  respostas?: Record<string, RespostaCompetencia>
+  status: StatusAvaliacao
   created_at: string
   updated_at: string
 }
 
-export interface Movement {
-  id: number
-  equipment_id: number
-  equipment_name?: string
-  type: string
-  description?: string
-  performed_by?: string
-  created_at: string
+export interface DashboardAvaliacoes {
+  total_colaboradores: number
+  total_avaliacoes: number
+  avaliacoes_concluidas: number
+  colaboradores_avaliados: number
+  distribuicao_quadrantes: Array<{ quadrante: string; count: number; label: string }>
+  avaliacoes_recentes: CicloAvaliacao[]
+  avaliacoes_por_periodo: Array<{ periodo: string; count: number }>
 }
 
-export interface DashboardData {
-  total: number
-  disponivel: number
-  em_uso: number
-  manutencao: number
-  inativo: number
-  byCategory: { name: string; color: string; icon: string; count: number }[]
-  recent: Equipment[]
-  recentMovements: Movement[]
-  byLocation: { name: string; count: number }[]
-  totalValue: number
-  valuedCount: number
-  monthlyGrowth: { month: string; count: number }[]
+export interface SystemUser {
+  id: number
+  name: string
+  email: string
+  role: string
+  active: boolean
+  created_at: string
 }
 
 export interface AuditChange {

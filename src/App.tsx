@@ -7,9 +7,9 @@ import ResetPasswordPage from './components/ResetPasswordPage'
 import ChangePasswordPage from './components/ChangePasswordPage'
 import Layout from './components/Layout'
 import Dashboard from './components/pages/Dashboard'
-import EquipmentPage from './components/pages/Equipment'
-import CategoriesPage from './components/pages/Categories'
-import LocationsPage from './components/pages/Locations'
+import ColaboradoresPage from './components/pages/Colaboradores'
+import ColaboradorPerfil from './components/pages/ColaboradorPerfil'
+import NovaAvaliacao from './components/pages/NovaAvaliacao'
 import UsersPage from './components/pages/Users'
 import AuditMonitor from './components/pages/AuditMonitor'
 
@@ -33,8 +33,6 @@ function ProtectedRoutes() {
   }
 
   if (!user) return <ForceLightMode><LoginPage /></ForceLightMode>
-
-  // First login — force password change before anything else
   if (user.mustChangePassword) return <ForceLightMode><ChangePasswordPage /></ForceLightMode>
 
   return (
@@ -42,9 +40,9 @@ function ProtectedRoutes() {
       <Route element={<Layout />}>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/equipamentos" element={<EquipmentPage />} />
-        <Route path="/categorias" element={<CategoriesPage />} />
-        <Route path="/locais" element={<LocationsPage />} />
+        <Route path="/colaboradores" element={<ColaboradoresPage />} />
+        <Route path="/colaboradores/:id" element={<ColaboradorPerfil />} />
+        <Route path="/avaliacoes/nova/:colaboradorId" element={<NovaAvaliacao />} />
         <Route path="/monitor" element={<AuditMonitor />} />
         <Route path="/usuarios" element={<UsersPage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
@@ -59,7 +57,7 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/forgot-password" element={<ForceLightMode><ForgotPasswordPage /></ForceLightMode>} />
-          <Route path="/reset-password" element={<ForceLightMode><ResetPasswordPage /></ForceLightMode>} />
+          <Route path="/reset-password"  element={<ForceLightMode><ResetPasswordPage /></ForceLightMode>} />
           <Route path="*" element={<ProtectedRoutes />} />
         </Routes>
       </AuthProvider>

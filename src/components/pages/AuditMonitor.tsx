@@ -4,7 +4,7 @@ import {
   Hash, Tag, MapPin, TrendingUp, Calendar, Zap, UserCheck,
 } from 'lucide-react'
 import { api } from '../../lib/api'
-import type { AuditEntry, Equipment } from '../../lib/types'
+import type { AuditEntry } from '../../lib/types'
 
 const ACTION_CONFIG: Record<string, { label: string; color: string; bg: string; border: string; symbol: string }> = {
   created:     { label: 'Cadastrado',  symbol: '+', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20',  border: 'border-emerald-200 dark:border-emerald-800/50' },
@@ -37,7 +37,6 @@ const POLL_INTERVAL = 10000
 
 export default function AuditMonitor() {
   const [entries, setEntries] = useState<AuditEntry[]>([])
-  const [equipMap, setEquipMap] = useState<Map<number, Equipment>>(new Map())
   const [loading, setLoading] = useState(true)
   const [paused, setPaused] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
@@ -53,11 +52,7 @@ export default function AuditMonitor() {
   useEffect(() => {
     async function init() {
       try {
-        const [auditData, equipData] = await Promise.all([
-          api.audit.list('equipment', undefined, 200) as Promise<AuditEntry[]>,
-          api.equipment.list() as Promise<Equipment[]>,
-        ])
-        setEquipMap(new Map(equipData.map((e) => [e.id, e])))
+        const auditData = await api.audit.list('colaborador', undefined, 200) as AuditEntry[]
         setEntries(auditData)
         knownIdsRef.current = new Set(auditData.map((e) => e.id))
         setLastUpdate(new Date())
@@ -70,7 +65,7 @@ export default function AuditMonitor() {
 
   const fetchNew = useCallback(async () => {
     try {
-      const data = await api.audit.list('equipment', undefined, 200) as AuditEntry[]
+      const data = await api.audit.list('colaborador', undefined, 200) as AuditEntry[]
       const incoming = data.filter((e) => !knownIdsRef.current.has(e.id))
       if (incoming.length > 0) {
         const incomingIds = new Set(incoming.map((e) => e.id))
@@ -302,7 +297,6 @@ export default function AuditMonitor() {
             {filtered.map((entry) => {
               const cfg = ACTION_CONFIG[entry.action] ?? ACTION_CONFIG.updated
               const isNew = newIds.has(entry.id)
-              const eq = equipMap.get(entry.entity_id)
 
               return (
                 <div
@@ -335,31 +329,6 @@ export default function AuditMonitor() {
                       )}
                     </div>
 
-                    {/* Identifiers row */}
-                    {(eq?.category_name || eq?.asset_tag || eq?.serial_number || eq?.location_name) && (
-                      <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                        {eq?.category_name && (
-                          <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">
-                            {eq.category_name}
-                          </span>
-                        )}
-                        {eq?.asset_tag && (
-                          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50 font-medium">
-                            <Tag size={9} />{eq.asset_tag}
-                          </span>
-                        )}
-                        {eq?.serial_number && (
-                          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 font-medium">
-                            <Hash size={9} />{eq.serial_number}
-                          </span>
-                        )}
-                        {eq?.location_name && (
-                          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 font-medium">
-                            <MapPin size={9} />{eq.location_name}
-                          </span>
-                        )}
-                      </div>
-                    )}
 
                     {/* Changes chips */}
                     {entry.changes && entry.changes.length > 0 && (

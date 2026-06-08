@@ -1,24 +1,22 @@
 import { NavLink } from 'react-router-dom'
 import {
-  LayoutDashboard, Monitor, Tag, MapPin, Server, ChevronRight, LogOut,
-  UserCircle, Users, Sun, Moon, Activity,
+  LayoutDashboard, Users, Activity, LogOut,
+  UserCircle, ChevronRight, Sun, Moon, ClipboardList,
 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { useTheme } from '../lib/theme'
 
 const navItems = [
-  { to: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard',    adminOnly: false },
-  { to: '/equipamentos', icon: Monitor,          label: 'Equipamentos', adminOnly: false },
-  { to: '/categorias',   icon: Tag,              label: 'Categorias',   adminOnly: false },
-  { to: '/locais',       icon: MapPin,           label: 'Locais',       adminOnly: false },
-  { to: '/monitor',      icon: Activity,         label: 'Monitor',      adminOnly: false },
-  { to: '/usuarios',     icon: Users,            label: 'Usuários',     adminOnly: true  },
+  { to: '/dashboard',     icon: LayoutDashboard, label: 'Dashboard',      adminOnly: false },
+  { to: '/colaboradores', icon: ClipboardList,   label: 'Colaboradores',  adminOnly: false },
+  { to: '/monitor',       icon: Activity,        label: 'Monitor',        adminOnly: false },
+  { to: '/usuarios',      icon: Users,           label: 'Usuários',       adminOnly: true  },
 ]
 
 export default function Sidebar() {
   const { user, logout } = useAuth()
   const { theme, toggle } = useTheme()
-  const isAdmin = user?.role === 'Administrador de TI'
+  const isAdmin = user?.role === 'Administrador de RH' || user?.role === 'Administrador de TI'
 
   return (
     <aside className="w-64 h-screen sticky top-0 overflow-y-auto flex flex-col shrink-0
@@ -38,18 +36,17 @@ export default function Sidebar() {
               if (fallback) fallback.style.display = 'flex'
             }}
           />
-          {/* Fallback if logo not found */}
           <div className="hidden items-center gap-3">
             <div className="w-9 h-9 bg-primary-500 rounded-xl flex items-center justify-center shadow-lg shadow-primary-500/30">
-              <Server size={18} className="text-white" />
+              <ClipboardList size={18} className="text-white" />
             </div>
             <div>
               <p className="text-slate-900 dark:text-slate-100 font-bold text-base leading-none">RTT</p>
-              <p className="text-slate-400 text-xs mt-0.5">Controle de TI</p>
+              <p className="text-slate-400 text-xs mt-0.5">Talentos</p>
             </div>
           </div>
         </div>
-        <p className="text-center text-xs text-slate-400 mt-2 font-medium">Controle de Estoque TI</p>
+        <p className="text-center text-xs text-slate-400 mt-2 font-medium">Avaliação de Talentos</p>
       </div>
 
       {/* Nav */}
@@ -80,21 +77,15 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Bottom area */}
+      {/* Bottom */}
       <div className="px-3 py-4 border-t border-slate-100 dark:border-slate-700/60 space-y-2">
-        {/* Theme toggle */}
         <button
           onClick={toggle}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
                      text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800
                      hover:text-slate-900 dark:hover:text-slate-100 transition-all"
-          title={theme === 'dark' ? 'Mudar para modo claro' : 'Mudar para modo escuro'}
         >
-          {theme === 'dark' ? (
-            <Sun size={17} className="text-amber-400" />
-          ) : (
-            <Moon size={17} />
-          )}
+          {theme === 'dark' ? <Sun size={17} className="text-amber-400" /> : <Moon size={17} />}
           <span>{theme === 'dark' ? 'Modo claro' : 'Modo escuro'}</span>
           <span className="ml-auto">
             <span className={`inline-block w-8 h-4 rounded-full transition-colors relative ${theme === 'dark' ? 'bg-primary-500' : 'bg-slate-200'}`}>
@@ -103,7 +94,6 @@ export default function Sidebar() {
           </span>
         </button>
 
-        {/* User */}
         <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
           <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center shrink-0">
             <UserCircle size={18} className="text-primary-600 dark:text-primary-400" />
@@ -120,7 +110,7 @@ export default function Sidebar() {
             <LogOut size={14} />
           </button>
         </div>
-        <p className="text-slate-400 text-xs mt-2 px-1">v1.0.0 &mdash; Rema Tip Top</p>
+        <p className="text-slate-400 text-xs mt-2 px-1">v2.0.0 &mdash; Rema Tip Top</p>
       </div>
     </aside>
   )
