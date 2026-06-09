@@ -22,10 +22,15 @@ function requireAuth(event) {
   }
 }
 
-/** Como requireAuth, mas exige role Administrador de TI. */
+/** Retorna true para roles com acesso administrativo completo. */
+function isAdminRole(role) {
+  return role === 'Administrador de RH' || role === 'Administrador de TI'
+}
+
+/** Como requireAuth, mas exige role de administrador. */
 function requireAdmin(event) {
   const payload = requireAuth(event)
-  if (payload.role !== 'Administrador de TI') {
+  if (!isAdminRole(payload.role)) {
     throw Object.assign(new Error('Acesso negado'), { statusCode: 403 })
   }
   return payload
@@ -61,4 +66,4 @@ function errorResponse(headers, err) {
   return { statusCode: status, headers, body: JSON.stringify({ error: message }) }
 }
 
-module.exports = { requireAuth, requireAdmin, signToken, makeHeaders, errorResponse }
+module.exports = { requireAuth, requireAdmin, isAdminRole, signToken, makeHeaders, errorResponse }

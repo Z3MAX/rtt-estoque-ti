@@ -13,7 +13,9 @@ exports.handler = async (event) => {
   const id = params.id ? parseInt(params.id) : null
 
   try {
-    requireAuth(event)
+    const authPayload = requireAuth(event)
+    const isGestor = authPayload.role === 'Gestor'
+    const gestorArea = authPayload.area || null
 
     if (event.httpMethod === 'GET') {
       if (id) {
@@ -29,6 +31,7 @@ exports.handler = async (event) => {
              ORDER BY ca3.created_at DESC LIMIT 1) AS ultima_avaliacao
           FROM colaboradores c
           WHERE c.id = ${id}
+            AND (${!isGestor} OR c.area = ${gestorArea})
         `
         if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Colaborador não encontrado' }) }
         return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
@@ -48,12 +51,14 @@ exports.handler = async (event) => {
              WHERE ca3.colaborador_id = c.id AND ca3.status = 'concluido'
              ORDER BY ca3.created_at DESC LIMIT 1) AS ultima_avaliacao
           FROM colaboradores c
-          WHERE c.ativo = true AND (
-            LOWER(c.nome)        LIKE ${'%' + search + '%'} OR
-            LOWER(c.cargo)       LIKE ${'%' + search + '%'} OR
-            LOWER(c.area)        LIKE ${'%' + search + '%'} OR
-            LOWER(c.gestor_nome) LIKE ${'%' + search + '%'}
-          )
+          WHERE c.ativo = true
+            AND (${!isGestor} OR c.area = ${gestorArea})
+            AND (
+              LOWER(c.nome)        LIKE ${'%' + search + '%'} OR
+              LOWER(c.cargo)       LIKE ${'%' + search + '%'} OR
+              LOWER(c.area)        LIKE ${'%' + search + '%'} OR
+              LOWER(c.gestor_nome) LIKE ${'%' + search + '%'}
+            )
           ORDER BY c.nome ASC
         `
       } else {
@@ -69,6 +74,7 @@ exports.handler = async (event) => {
              ORDER BY ca3.created_at DESC LIMIT 1) AS ultima_avaliacao
           FROM colaboradores c
           WHERE c.ativo = true
+            AND (${!isGestor} OR c.area = ${gestorArea})
           ORDER BY c.nome ASC
         `
       }
@@ -79,15 +85,36 @@ exports.handler = async (event) => {
       const body = JSON.parse(event.body || '{}')
 
       if (body.bulk && Array.isArray(body.colaboradores)) {
+        const valid = body.colaboradores.filter(c => c.nome && c.nome.trim())
+        if (valid.length === 0) {
+          return { statusCode: 400, headers, body: JSON.stringify({ error: 'Nenhum colaborador válido' }) }
+        }
+
+        // Inserção em lotes de 200 para não estourar o limite de parâmetros/timeout
+        const BATCH = 200
         let inserted = 0
-        for (const c of body.colaboradores) {
-          if (!c.nome || !c.nome.trim()) continue
+        for (let i = 0; i < valid.length; i += BATCH) {
+          const chunk = valid.slice(i, i + BATCH)
+          // Monta VALUES dinâmico usando unnest para um único INSERT por lote
+          const nomes      = chunk.map(c => c.nome.trim())
+          const cargos     = chunk.map(c => c.cargo     || null)
+          const niveis     = chunk.map(c => c.nivel     || null)
+          const areas      = chunk.map(c => c.area      || null)
+          const emails     = chunk.map(c => c.email     || null)
+          const gestores   = chunk.map(c => c.gestor_nome || null)
+
           await sql`
             INSERT INTO colaboradores (nome, cargo, nivel, area, email, gestor_nome)
-            VALUES (${c.nome.trim()}, ${c.cargo || null}, ${c.nivel || null},
-                    ${c.area || null}, ${c.email || null}, ${c.gestor_nome || null})
+            SELECT * FROM unnest(
+              ${nomes}::text[],
+              ${cargos}::text[],
+              ${niveis}::text[],
+              ${areas}::text[],
+              ${emails}::text[],
+              ${gestores}::text[]
+            ) AS t(nome, cargo, nivel, area, email, gestor_nome)
           `
-          inserted++
+          inserted += chunk.length
         }
         return { statusCode: 201, headers, body: JSON.stringify({ success: true, inserted }) }
       }
@@ -126,6 +153,16 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'DELETE') {
+      // Exclusão em lote: ?ids=1,2,3
+      const idsParam = params.ids
+      if (idsParam) {
+        const ids = idsParam.split(',').map(Number).filter(Boolean)
+        if (ids.length === 0) return { statusCode: 400, headers, body: JSON.stringify({ error: 'IDs inválidos' }) }
+        // Gestores não podem fazer exclusão em lote
+        if (isGestor) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado' }) }
+        await sql`UPDATE colaboradores SET ativo = false, updated_at = NOW() WHERE id = ANY(${ids}::int[])`
+        return { statusCode: 200, headers, body: JSON.stringify({ success: true, deleted: ids.length }) }
+      }
       if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'ID necessário' }) }
       await sql`UPDATE colaboradores SET ativo = false, updated_at = NOW() WHERE id = ${id}`
       return { statusCode: 200, headers, body: JSON.stringify({ success: true }) }

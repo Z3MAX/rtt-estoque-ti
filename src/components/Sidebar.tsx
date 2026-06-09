@@ -1,22 +1,21 @@
 import { NavLink } from 'react-router-dom'
 import {
-  LayoutDashboard, Users, Activity, LogOut,
+  LayoutDashboard, Users, LogOut,
   UserCircle, ChevronRight, Sun, Moon, ClipboardList,
 } from 'lucide-react'
-import { useAuth } from '../lib/auth'
+import { useAuth, isAdmin } from '../lib/auth'
 import { useTheme } from '../lib/theme'
 
 const navItems = [
-  { to: '/dashboard',     icon: LayoutDashboard, label: 'Dashboard1',     adminOnly: false },
+  { to: '/dashboard',     icon: LayoutDashboard, label: 'Dashboard',      adminOnly: false },
   { to: '/colaboradores', icon: ClipboardList,   label: 'Colaboradores',  adminOnly: false },
-  { to: '/monitor',       icon: Activity,        label: 'Monitor',        adminOnly: false },
   { to: '/usuarios',      icon: Users,           label: 'Usuários',       adminOnly: true  },
 ]
 
 export default function Sidebar() {
   const { user, logout } = useAuth()
   const { theme, toggle } = useTheme()
-  const isAdmin = user?.role === 'Administrador de RH' || user?.role === 'Administrador de TI'
+  const userIsAdmin = isAdmin(user?.role)
 
   return (
     <aside className="w-64 h-screen sticky top-0 overflow-y-auto flex flex-col shrink-0
@@ -52,7 +51,7 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5">
         <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Menu</p>
-        {navItems.filter(({ adminOnly }) => !adminOnly || isAdmin).map(({ to, icon: Icon, label }) => (
+        {navItems.filter(({ adminOnly }) => !adminOnly || userIsAdmin).map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}

@@ -32,3 +32,6 @@ yarn-error.log*
 
 # Claude local config (launch.json pode ser commitado, mas o .env não)
 # .claude/
+
+# Local Netlify folder
+.netlify

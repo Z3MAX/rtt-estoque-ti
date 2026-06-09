@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Plus, Upload, X, ChevronRight, UserX, RefreshCw, AlertCircle } from 'lucide-react'
+import { Search, Plus, Upload, X, ChevronRight, UserX, RefreshCw, AlertCircle, Trash2 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { api } from '../../lib/api'
+import { useAuth, isAdmin } from '../../lib/auth'
 import type { Colaborador, NivelCargo } from '../../lib/types'
 import { NIVEL_LABELS } from '../../lib/types'
+import ConfirmDialog from '../ui/ConfirmDialog'
 
 const QUADRANTE_COLORS: Record<string, string> = {
   E3: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
@@ -129,12 +131,21 @@ function normalizeKey(k: string): string {
 }
 
 const COLUMN_MAP: Record<string, keyof Colaborador> = {
+  // Nome
   nome: 'nome', name: 'nome',
+  // Cargo / Função — inclui padrão "Desc_ Função" do RH
   cargo: 'cargo', funcao: 'cargo', funcão: 'cargo', position: 'cargo',
+  descfuncao: 'cargo', descricaofuncao: 'cargo', descricaodafuncao: 'cargo',
+  // Nível
   nivel: 'nivel', nível: 'nivel', level: 'nivel',
+  // Área / Departamento — inclui padrão "Desc_ Centro de Custo" do RH
   area: 'area', área: 'area', departamento: 'area', department: 'area',
+  desccentrodecusto: 'area', descricaocentrodecusto: 'area', centrodecusto: 'area',
+  // E-mail
   email: 'email',
+  // Gestor — inclui padrão "Gestor Imediato" do RH
   gestor: 'gestor_nome', gestornome: 'gestor_nome', manager: 'gestor_nome', gerente: 'gestor_nome',
+  gestorimediato: 'gestor_nome', gestordireto: 'gestor_nome',
 }
 
 interface ImportModalProps { onImport: (data: Partial<Colaborador>[]) => Promise<void>; onClose: () => void }
@@ -158,9 +169,10 @@ function ImportModal({ onImport, onClose }: ImportModalProps) {
           const obj: Partial<Colaborador> = {}
           for (const [k, v] of Object.entries(row)) {
             const mapped = COLUMN_MAP[normalizeKey(k)]
-            if (mapped && typeof v === 'string' && v.trim()) {
-              (obj as Record<string, string>)[mapped] = v.trim()
-            }
+            if (!mapped) continue
+            // aceita string ou número (ex: serial de data ignorado pois não está no map)
+            const strVal = typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : ''
+            if (strVal) (obj as Record<string, string>)[mapped] = strVal
           }
           return obj
         }).filter(r => r.nome)
@@ -196,7 +208,8 @@ function ImportModal({ onImport, onClose }: ImportModalProps) {
           <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-600 p-6 text-center">
             <Upload size={28} className="mx-auto text-slate-400 mb-2" />
             <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
-              Selecione um arquivo <strong>.xlsx</strong> com colunas: <em>Nome</em>, Cargo, Nível, Área, Email, Gestor
+              Selecione um arquivo <strong>.xlsx</strong> do sistema de RH ou com colunas:<br />
+              <em>Nome</em>, <em>Desc_ Função</em>, <em>Desc_ Centro de Custo</em>, <em>Gestor Imediato</em>
             </p>
             <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleFile} className="hidden" />
             <button type="button" onClick={() => fileRef.current?.click()} className="btn-secondary text-xs">
@@ -251,12 +264,25 @@ function ImportModal({ onImport, onClose }: ImportModalProps) {
 
 export default function ColaboradoresPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const userIsAdmin = isAdmin(user?.role)
+
   const [colabs, setColabs] = useState<Colaborador[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [toast, setToast] = useState('')
+
+  // Seleção
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const allSelected = colabs.length > 0 && colabs.every(c => selected.has(c.id))
+  const someSelected = selected.size > 0
+
+  // Confirmação de exclusão
+  const [confirmBulk, setConfirmBulk] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Colaborador | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const load = async (s?: string) => {
     setLoading(true)
@@ -265,13 +291,20 @@ export default function ColaboradoresPage() {
   }
 
   useEffect(() => { load() }, [])
-
   useEffect(() => {
     const t = setTimeout(() => load(search), 300)
     return () => clearTimeout(t)
   }, [search])
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
+
+  const toggleSelect = (id: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
+  const toggleAll = () => {
+    setSelected(allSelected ? new Set() : new Set(colabs.map(c => c.id)))
+  }
 
   const handleCreate = async (data: Partial<Colaborador>) => {
     await api.colaboradores.create(data)
@@ -283,6 +316,34 @@ export default function ColaboradoresPage() {
     const r = await api.colaboradores.importBulk(data) as { inserted: number }
     await load(search)
     showToast(`${r.inserted} colaborador(es) importado(s) com sucesso`)
+  }
+
+  const handleDeleteSingle = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await api.colaboradores.deactivate(deleteTarget.id)
+      setSelected(prev => { const n = new Set(prev); n.delete(deleteTarget.id); return n })
+      await load(search)
+      showToast('Colaborador removido')
+    } finally {
+      setDeleting(false)
+      setDeleteTarget(null)
+    }
+  }
+
+  const handleDeleteBulk = async () => {
+    setDeleting(true)
+    const count = selected.size
+    try {
+      await (api.colaboradores as any).deleteBulk([...selected])
+      setSelected(new Set())
+      await load(search)
+      showToast(`${count} colaborador(es) removido(s)`)
+    } finally {
+      setDeleting(false)
+      setConfirmBulk(false)
+    }
   }
 
   return (
@@ -319,6 +380,26 @@ export default function ColaboradoresPage() {
         )}
       </div>
 
+      {/* Barra de ações em lote — visível apenas para admin com seleção ativa */}
+      {userIsAdmin && someSelected && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl animate-slide-up">
+          <span className="text-sm font-medium text-red-700 dark:text-red-400">
+            {selected.size} colaborador(es) selecionado(s)
+          </span>
+          <div className="flex gap-2">
+            <button onClick={() => setSelected(new Set())} className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 px-3 py-1.5 rounded-lg hover:bg-white/60 dark:hover:bg-slate-700/50 transition-colors">
+              Limpar seleção
+            </button>
+            <button
+              onClick={() => setConfirmBulk(true)}
+              className="flex items-center gap-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <Trash2 size={13} /> Excluir {selected.size} selecionado(s)
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Table */}
       <div className="card overflow-hidden">
         {loading ? (
@@ -336,49 +417,82 @@ export default function ColaboradoresPage() {
             <table className="w-full">
               <thead className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700">
                 <tr>
+                  {userIsAdmin && (
+                    <th className="pl-4 pr-2 py-3 w-8">
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={toggleAll}
+                        className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-primary-600 cursor-pointer accent-primary-600"
+                      />
+                    </th>
+                  )}
                   {['Colaborador', 'Cargo / Nível', 'Área', 'Gestor', 'Último ciclo', ''].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                {colabs.map(c => (
-                  <tr
-                    key={c.id}
-                    onClick={() => navigate(`/colaboradores/${c.id}`)}
-                    className="hover:bg-slate-50 dark:hover:bg-slate-700/30 cursor-pointer transition-colors"
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center shrink-0">
-                          <span className="text-primary-600 dark:text-primary-400 text-xs font-bold">{c.nome[0].toUpperCase()}</span>
-                        </div>
-                        <span className="text-sm font-medium text-slate-800 dark:text-slate-200">{c.nome}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="text-sm text-slate-700 dark:text-slate-300">{c.cargo || '—'}</p>
-                      {c.nivel && <p className="text-xs text-slate-400">{NIVEL_LABELS[c.nivel]}</p>}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">{c.area || '—'}</td>
-                    <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">{c.gestor_nome || '—'}</td>
-                    <td className="px-4 py-3">
-                      {c.ultimo_quadrante ? (
-                        <div>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${QUADRANTE_COLORS[c.ultimo_quadrante] || ''}`}>
-                            {c.ultimo_quadrante}
-                          </span>
-                          {c.ultima_avaliacao && <p className="text-xs text-slate-400 mt-0.5">{formatDate(c.ultima_avaliacao)}</p>}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-slate-400 italic">Sem avaliação</span>
+                {colabs.map(c => {
+                  const isChecked = selected.has(c.id)
+                  return (
+                    <tr
+                      key={c.id}
+                      onClick={() => navigate(`/colaboradores/${c.id}`)}
+                      className={`hover:bg-slate-50 dark:hover:bg-slate-700/30 cursor-pointer transition-colors ${isChecked ? 'bg-red-50/50 dark:bg-red-900/10' : ''}`}
+                    >
+                      {userIsAdmin && (
+                        <td className="pl-4 pr-2 py-3 w-8" onClick={e => toggleSelect(c.id, e)}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {}}
+                            className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-primary-600 cursor-pointer accent-primary-600"
+                          />
+                        </td>
                       )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <ChevronRight size={16} className="text-slate-300 dark:text-slate-600" />
-                    </td>
-                  </tr>
-                ))}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center shrink-0">
+                            <span className="text-primary-600 dark:text-primary-400 text-xs font-bold">{c.nome[0].toUpperCase()}</span>
+                          </div>
+                          <span className="text-sm font-medium text-slate-800 dark:text-slate-200">{c.nome}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="text-sm text-slate-700 dark:text-slate-300">{c.cargo || '—'}</p>
+                        {c.nivel && <p className="text-xs text-slate-400">{NIVEL_LABELS[c.nivel]}</p>}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">{c.area || '—'}</td>
+                      <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">{c.gestor_nome || '—'}</td>
+                      <td className="px-4 py-3">
+                        {c.ultimo_quadrante ? (
+                          <div>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${QUADRANTE_COLORS[c.ultimo_quadrante] || ''}`}>
+                              {c.ultimo_quadrante}
+                            </span>
+                            {c.ultima_avaliacao && <p className="text-xs text-slate-400 mt-0.5">{formatDate(c.ultima_avaliacao)}</p>}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400 italic">Sem avaliação</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {userIsAdmin ? (
+                          <button
+                            onClick={e => { e.stopPropagation(); setDeleteTarget(c) }}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-300 dark:text-slate-600 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-colors"
+                            title="Excluir colaborador"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        ) : (
+                          <ChevronRight size={16} className="text-slate-300 dark:text-slate-600" />
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -387,6 +501,26 @@ export default function ColaboradoresPage() {
 
       {showAdd && <ColabModal onSave={handleCreate} onClose={() => setShowAdd(false)} />}
       {showImport && <ImportModal onImport={handleImport} onClose={() => setShowImport(false)} />}
+
+      {/* Confirmação: excluir individual */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Excluir colaborador"
+        message={deleteTarget ? `Tem certeza que deseja excluir "${deleteTarget.nome}"? Esta ação não pode ser desfeita.` : ''}
+        loading={deleting}
+        onConfirm={handleDeleteSingle}
+        onClose={() => setDeleteTarget(null)}
+      />
+
+      {/* Confirmação: exclusão em lote */}
+      <ConfirmDialog
+        open={confirmBulk}
+        title={`Excluir ${selected.size} colaborador(es)`}
+        message={`Tem certeza que deseja excluir os ${selected.size} colaboradores selecionados? Esta ação não pode ser desfeita.`}
+        loading={deleting}
+        onConfirm={handleDeleteBulk}
+        onClose={() => setConfirmBulk(false)}
+      />
 
       {toast && (
         <div className="fixed bottom-6 right-6 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm px-4 py-3 rounded-xl shadow-lg animate-slide-up z-50">

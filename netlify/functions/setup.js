@@ -99,6 +99,10 @@ exports.handler = async (event) => {
     await sql`CREATE INDEX IF NOT EXISTS audit_log_entity_idx ON audit_log(entity_type, entity_id)`
     await sql`CREATE INDEX IF NOT EXISTS audit_log_created_idx ON audit_log(created_at DESC)`
 
+    // Migrations
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS area VARCHAR(200)`
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`
+
     // Seed admin user if none exists
     const existingUsers = await sql`SELECT COUNT(*) AS count FROM users`
     if (parseInt(existingUsers[0].count) === 0) {

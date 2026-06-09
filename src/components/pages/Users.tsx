@@ -9,16 +9,19 @@ interface AppUser {
   name: string
   email: string
   role: string
+  area?: string | null
   active: boolean
   must_change_password?: boolean
   created_at: string
 }
 
-const ROLES = ['Administrador de TI', 'Técnico de TI']
+const ROLES = ['Administrador de RH', 'Gestor']
 
 const ROLE_STYLE: Record<string, string> = {
+  'Administrador de RH': 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 border-primary-200 dark:border-primary-800',
+  'Gestor':              'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800',
+  // backward compat
   'Administrador de TI': 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 border-primary-200 dark:border-primary-800',
-  'Técnico de TI':       'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800',
 }
 
 function initials(name: string) {
@@ -45,7 +48,8 @@ function UserModal({ user, onClose, onSaved }: ModalProps) {
   const [name, setName]         = useState(user?.name ?? '')
   const [email, setEmail]       = useState(user?.email ?? '')
   const [password, setPassword] = useState('')
-  const [role, setRole]         = useState(user?.role ?? 'Técnico de TI')
+  const [role, setRole]         = useState(user?.role ?? 'Gestor')
+  const [area, setArea]         = useState(user?.area ?? '')
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
@@ -55,16 +59,17 @@ function UserModal({ user, onClose, onSaved }: ModalProps) {
     e.preventDefault()
     if (!name.trim() || !email.trim()) { setError('Nome e e-mail são obrigatórios'); return }
     if (!isEdit && !password) { setError('Senha obrigatória para novo usuário'); return }
+    if (role === 'Gestor' && !area.trim()) { setError('Departamento é obrigatório para Gestores'); return }
 
     try {
       setLoading(true); setError(''); setEmailWarning(null)
       if (isEdit) {
-        const payload: Record<string, unknown> = { name, email, role }
+        const payload: Record<string, unknown> = { name, email, role, area: area.trim() || null }
         if (password) payload.password = password
         await api.users.update(user!.id, payload)
         onSaved()
       } else {
-        const result = await api.users.create({ name, email, password, role }) as { emailSent?: boolean; emailError?: string }
+        const result = await api.users.create({ name, email, password, role, area: area.trim() || null }) as { emailSent?: boolean; emailError?: string }
         // Se a conta foi criada mas o e-mail não foi enviado, avisa sem fechar o modal
         if (result.emailSent === false) {
           setEmailWarning(result.emailError || 'E-mail de convite não pôde ser enviado')
@@ -125,6 +130,22 @@ function UserModal({ user, onClose, onSaved }: ModalProps) {
             <select className="input" value={role} onChange={(e) => setRole(e.target.value)} disabled={loading}>
               {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
+          </div>
+          <div>
+            <label className="label">
+              Departamento / Área
+              {role === 'Gestor' && <span className="text-red-500 ml-0.5">*</span>}
+            </label>
+            <input
+              className="input"
+              placeholder={role === 'Gestor' ? 'Ex: TI, Comercial, Financeiro...' : 'Opcional'}
+              value={area}
+              onChange={(e) => setArea(e.target.value)}
+              disabled={loading}
+            />
+            {role === 'Gestor' && (
+              <p className="text-xs text-slate-400 mt-1">O Gestor só visualizará colaboradores desta área.</p>
+            )}
           </div>
 
           {/* E-mail não enviado — aviso com motivo */}
@@ -190,7 +211,7 @@ export default function UsersPage() {
   const [deleteTarget, setDeleteTarget] = useState<AppUser | null>(null)
   const [deleting, setDeleting]         = useState(false)
 
-  const isAdmin = currentUser?.role === 'Administrador de TI'
+  const userIsAdmin = currentUser?.role === 'Administrador de RH' || currentUser?.role === 'Administrador de TI'
 
   async function load() {
     try {
@@ -252,8 +273,9 @@ export default function UsersPage() {
     return u.name.toLowerCase().includes(s) || u.email.toLowerCase().includes(s) || u.role.toLowerCase().includes(s)
   })
 
-  const admins = filtered.filter((u) => u.role === 'Administrador de TI')
-  const techs  = filtered.filter((u) => u.role !== 'Administrador de TI')
+  const admins  = filtered.filter((u) => u.role === 'Administrador de RH' || u.role === 'Administrador de TI')
+  const gestores = filtered.filter((u) => u.role === 'Gestor')
+  const outros  = filtered.filter((u) => u.role !== 'Administrador de RH' && u.role !== 'Administrador de TI' && u.role !== 'Gestor')
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -263,7 +285,7 @@ export default function UsersPage() {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Usuários</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">Gerencie contas e permissões de acesso</p>
         </div>
-        {isAdmin && (
+        {userIsAdmin && (
           <button onClick={() => setModalUser(null)} className="btn-primary shrink-0">
             <Plus size={16} /> Novo Usuário
           </button>
@@ -274,8 +296,8 @@ export default function UsersPage() {
       <div className="grid grid-cols-3 gap-4">
         {[
           { label: 'Total de usuários', value: users.length, color: 'text-slate-700 dark:text-slate-300', bg: 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700' },
-          { label: 'Administradores',   value: users.filter(u => u.role === 'Administrador de TI').length, color: 'text-primary-700 dark:text-primary-400', bg: 'bg-primary-50 dark:bg-primary-900/20 border-primary-200 dark:border-primary-800' },
-          { label: 'Ativos',            value: users.filter(u => u.active).length, color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' },
+          { label: 'Gestores', value: users.filter(u => u.role === 'Gestor').length, color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' },
+          { label: 'Ativos', value: users.filter(u => u.active).length, color: 'text-primary-700 dark:text-primary-400', bg: 'bg-primary-50 dark:bg-primary-900/20 border-primary-200 dark:border-primary-800' },
         ].map(({ label, value, color, bg }) => (
           <div key={label} className={`card p-4 border ${bg}`}>
             <p className={`text-2xl font-bold ${color}`}>{value}</p>
@@ -321,8 +343,9 @@ export default function UsersPage() {
 
       {/* User groups */}
       {!loading && [
-        { title: 'Administradores', icon: ShieldCheck, list: admins, iconColor: 'text-primary-600 dark:text-primary-400', bgColor: 'bg-primary-100 dark:bg-primary-900/30' },
-        { title: 'Técnicos de TI',  icon: Wrench,      list: techs,  iconColor: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-100 dark:bg-emerald-900/30' },
+        { title: 'Administradores de RH', icon: ShieldCheck, list: admins,   iconColor: 'text-primary-600 dark:text-primary-400', bgColor: 'bg-primary-100 dark:bg-primary-900/30' },
+        { title: 'Gestores',              icon: Wrench,      list: gestores, iconColor: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-100 dark:bg-emerald-900/30' },
+        { title: 'Outros',                icon: Users,       list: outros,   iconColor: 'text-slate-500 dark:text-slate-400',    bgColor: 'bg-slate-100 dark:bg-slate-700' },
       ].map(({ title, icon: Icon, list, iconColor, bgColor }) =>
         list.length > 0 && (
           <div key={title} className="card overflow-hidden">
@@ -361,6 +384,7 @@ export default function UsersPage() {
                       )}
                     </div>
                     <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">{u.email}</p>
+                    {u.area && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Área: <span className="font-medium text-slate-600 dark:text-slate-300">{u.area}</span></p>}
                   </div>
 
                   {/* Role badge */}
@@ -369,7 +393,7 @@ export default function UsersPage() {
                   </span>
 
                   {/* Actions */}
-                  {isAdmin && (
+                  {userIsAdmin && (
                     <div className="flex items-center gap-1 shrink-0">
                       {/* Reenviar convite — só aparece para usuários com primeiro acesso pendente */}
                       {u.must_change_password && u.active && (

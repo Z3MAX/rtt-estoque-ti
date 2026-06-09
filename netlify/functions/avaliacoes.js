@@ -14,10 +14,17 @@ exports.handler = async (event) => {
 
   try {
     const authPayload = requireAuth(event)
+    const isGestor = authPayload.role === 'Gestor'
+    const gestorArea = authPayload.area || null
 
     if (event.httpMethod === 'GET') {
       if (id) {
-        const rows = await sql`SELECT * FROM ciclos_avaliacao WHERE id = ${id}`
+        const rows = await sql`
+          SELECT ca.* FROM ciclos_avaliacao ca
+          LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
+          WHERE ca.id = ${id}
+            AND (${!isGestor} OR c.area = ${gestorArea})
+        `
         if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Não encontrado' }) }
         return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
       }
@@ -26,14 +33,18 @@ exports.handler = async (event) => {
       let rows
       if (colaboradorId) {
         rows = await sql`
-          SELECT * FROM ciclos_avaliacao
-          WHERE colaborador_id = ${colaboradorId}
-          ORDER BY created_at DESC
+          SELECT ca.* FROM ciclos_avaliacao ca
+          LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
+          WHERE ca.colaborador_id = ${colaboradorId}
+            AND (${!isGestor} OR c.area = ${gestorArea})
+          ORDER BY ca.created_at DESC
         `
       } else {
         rows = await sql`
-          SELECT * FROM ciclos_avaliacao
-          ORDER BY created_at DESC
+          SELECT ca.* FROM ciclos_avaliacao ca
+          LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
+          WHERE (${!isGestor} OR c.area = ${gestorArea})
+          ORDER BY ca.created_at DESC
           LIMIT 100
         `
       }
@@ -52,6 +63,14 @@ exports.handler = async (event) => {
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'colaborador_id é obrigatório' }) }
       }
 
+      // Gestor só pode avaliar colaboradores do seu departamento
+      if (isGestor && gestorArea) {
+        const check = await sql`SELECT area FROM colaboradores WHERE id = ${colaborador_id}`
+        if (check.length === 0 || check[0].area !== gestorArea) {
+          return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado: colaborador não pertence ao seu departamento' }) }
+        }
+      }
+
       const rows = await sql`
         INSERT INTO ciclos_avaliacao (
           colaborador_id, colaborador_nome, avaliador_id, avaliador_nome,
@@ -60,7 +79,7 @@ exports.handler = async (event) => {
           quadrante, respostas, status
         ) VALUES (
           ${colaborador_id}, ${colaborador_nome || null},
-          ${authPayload.id || null}, ${authPayload.name || null},
+          ${authPayload.userId || null}, ${authPayload.name || null},
           ${tipo || 'lideranca'}, ${periodo_inicial || null}, ${periodo_final || null},
           ${nivel_cargo || null}, ${score_desempenho ?? null}, ${score_potencial ?? null},
           ${nivel_desempenho || null}, ${nivel_potencial || null},

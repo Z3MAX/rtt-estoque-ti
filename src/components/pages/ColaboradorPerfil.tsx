@@ -137,6 +137,7 @@ export default function ColaboradorPerfil() {
   const [colab, setColab] = useState<Colaborador | null>(null)
   const [avaliacoes, setAvaliacoes] = useState<CicloAvaliacao[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [showEdit, setShowEdit] = useState(false)
   const [deleting, setDeleting] = useState<number | null>(null)
   const [toast, setToast] = useState('')
@@ -144,6 +145,7 @@ export default function ColaboradorPerfil() {
   const load = async () => {
     if (!id) return
     setLoading(true)
+    setLoadError('')
     try {
       const [c, a] = await Promise.all([
         api.colaboradores.get(Number(id)) as Promise<Colaborador>,
@@ -151,6 +153,8 @@ export default function ColaboradorPerfil() {
       ])
       setColab(c ?? null)
       setAvaliacoes(a ?? [])
+    } catch (err) {
+      setLoadError((err as Error).message || 'Erro ao carregar dados')
     } finally {
       setLoading(false)
     }
@@ -184,6 +188,21 @@ export default function ColaboradorPerfil() {
         <div className="flex items-center gap-3 text-slate-400">
           <RefreshCw size={18} className="animate-spin" />
           <span className="text-sm">Carregando...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="p-6">
+        <div className="card p-12 text-center space-y-4">
+          <AlertCircle size={32} className="mx-auto text-red-400" />
+          <p className="text-slate-600 dark:text-slate-400">{loadError}</p>
+          <div className="flex gap-3 justify-center">
+            <button onClick={load} className="btn-primary">Tentar novamente</button>
+            <Link to="/colaboradores" className="btn-secondary">Voltar</Link>
+          </div>
         </div>
       </div>
     )
@@ -264,13 +283,13 @@ export default function ColaboradorPerfil() {
           )}
           {ultimaAvaliacao?.score_desempenho != null && (
             <div className="text-center px-4 border-l border-slate-100 dark:border-slate-700">
-              <p className="text-2xl font-bold text-primary-600">{ultimaAvaliacao.score_desempenho.toFixed(1)}</p>
+              <p className="text-2xl font-bold text-primary-600">{Number(ultimaAvaliacao.score_desempenho).toFixed(1)}</p>
               <p className="text-xs text-slate-400">Desempenho</p>
             </div>
           )}
           {ultimaAvaliacao?.score_potencial != null && (
             <div className="text-center px-4 border-l border-slate-100 dark:border-slate-700">
-              <p className="text-2xl font-bold text-slate-700 dark:text-slate-300">{ultimaAvaliacao.score_potencial.toFixed(1)}</p>
+              <p className="text-2xl font-bold text-slate-700 dark:text-slate-300">{Number(ultimaAvaliacao.score_potencial).toFixed(1)}</p>
               <p className="text-xs text-slate-400">Potencial</p>
             </div>
           )}
@@ -329,9 +348,9 @@ export default function ColaboradorPerfil() {
                     {a.quadrante && <span className="text-xs text-slate-500">{QUADRANTE_LABELS[a.quadrante]}</span>}
                     {a.score_desempenho != null && (
                       <span className="text-xs text-slate-400">
-                        Desempenho: <strong className="text-primary-600">{a.score_desempenho.toFixed(1)}</strong>
+                        Desempenho: <strong className="text-primary-600">{Number(a.score_desempenho).toFixed(1)}</strong>
                         {' '}/{' '}
-                        Potencial: <strong className="text-slate-700 dark:text-slate-300">{a.score_potencial?.toFixed(1)}</strong>
+                        Potencial: <strong className="text-slate-700 dark:text-slate-300">{Number(a.score_potencial).toFixed(1)}</strong>
                       </span>
                     )}
                   </div>

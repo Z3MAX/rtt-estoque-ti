@@ -1,11 +1,11 @@
 const { neon } = require('@neondatabase/serverless')
 const crypto = require('crypto')
 const { hashPassword } = require('./_hash')
-const { requireAuth, requireAdmin, makeHeaders, errorResponse } = require('./_auth')
+const { requireAuth, requireAdmin, isAdminRole, makeHeaders, errorResponse } = require('./_auth')
 const { sendInviteEmail } = require('./_email')
 const { logAudit, computeDiff, getUserName } = require('./_audit')
 
-const VALID_ROLES = ['Administrador de TI', 'Técnico de TI']
+const VALID_ROLES = ['Administrador de RH', 'Gestor']
 
 exports.handler = async (event) => {
   const headers = makeHeaders(event)
@@ -18,19 +18,19 @@ exports.handler = async (event) => {
   const id = event.queryStringParameters?.id
 
   try {
-    // GET — qualquer usuário autenticado pode listar
+    // GET — somente administrador pode listar usuários
     if (event.httpMethod === 'GET') {
-      requireAuth(event)
+      requireAdmin(event)
       if (id) {
         const rows = await sql`
-          SELECT id, name, email, role, active, created_at, updated_at
+          SELECT id, name, email, role, area, active, created_at, updated_at
           FROM users WHERE id = ${id}
         `
         if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Usuário não encontrado' }) }
         return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
       }
       const rows = await sql`
-        SELECT id, name, email, role, active, must_change_password, created_at, updated_at
+        SELECT id, name, email, role, area, active, must_change_password, created_at, updated_at
         FROM users ORDER BY name ASC
       `
       return { statusCode: 200, headers, body: JSON.stringify(rows) }
@@ -39,7 +39,7 @@ exports.handler = async (event) => {
     // POST — somente administrador
     if (event.httpMethod === 'POST') {
       const adminPayload = requireAdmin(event)
-      const { name, email, role } = JSON.parse(event.body || '{}')
+      const { name, email, role, area } = JSON.parse(event.body || '{}')
 
       if (!name || !name.trim())
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Nome é obrigatório' }) }
@@ -60,9 +60,9 @@ exports.handler = async (event) => {
       const passwordHash = await hashPassword(crypto.randomBytes(32).toString('hex'))
 
       const rows = await sql`
-        INSERT INTO users (name, email, password_hash, role, must_change_password)
-        VALUES (${name.trim()}, ${email.toLowerCase()}, ${passwordHash}, ${role || 'Técnico de TI'}, true)
-        RETURNING id, name, email, role, active, must_change_password, created_at, updated_at
+        INSERT INTO users (name, email, password_hash, role, area, must_change_password)
+        VALUES (${name.trim()}, ${email.toLowerCase()}, ${passwordHash}, ${role || 'Gestor'}, ${area || null}, true)
+        RETURNING id, name, email, role, area, active, must_change_password, created_at, updated_at
       `
 
       // Envia link de convite por e-mail (sem senha em texto)
@@ -117,7 +117,7 @@ exports.handler = async (event) => {
     // PUT — somente administrador
     if (event.httpMethod === 'PUT' && id) {
       const adminPayload = requireAdmin(event)
-      const { name, email, password, role, active } = JSON.parse(event.body || '{}')
+      const { name, email, password, role, area, active } = JSON.parse(event.body || '{}')
 
       if (email !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'E-mail inválido' }) }
@@ -139,6 +139,7 @@ exports.handler = async (event) => {
       if (name !== undefined)   updates.name = name.trim()
       if (email !== undefined)  updates.email = email.toLowerCase()
       if (role !== undefined)   updates.role = role
+      if (area !== undefined)   updates.area = area || null
       if (active !== undefined) updates.active = active
       if (password)             updates.password_hash = await hashPassword(password)
 
@@ -147,11 +148,12 @@ exports.handler = async (event) => {
           name          = COALESCE(${updates.name ?? null}, name),
           email         = COALESCE(${updates.email ?? null}, email),
           role          = COALESCE(${updates.role ?? null}, role),
+          area          = CASE WHEN ${area !== undefined} THEN ${updates.area ?? null} ELSE area END,
           active        = COALESCE(${updates.active ?? null}, active),
           password_hash = COALESCE(${updates.password_hash ?? null}, password_hash),
           updated_at    = NOW()
         WHERE id = ${id}
-        RETURNING id, name, email, role, active, created_at, updated_at
+        RETURNING id, name, email, role, area, active, created_at, updated_at
       `
       if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Usuário não encontrado' }) }
 

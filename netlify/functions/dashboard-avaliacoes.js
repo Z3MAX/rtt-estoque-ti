@@ -18,18 +18,37 @@ exports.handler = async (event) => {
   const sql = neon(process.env.DATABASE_URL)
 
   try {
-    requireAuth(event)
+    const authPayload = requireAuth(event)
+    const isGestor = authPayload.role === 'Gestor'
+    const gestorArea = authPayload.area || null
 
-    const [totalColabs]    = await sql`SELECT COUNT(*)::int AS n FROM colaboradores WHERE ativo = true`
-    const [totalAvals]     = await sql`SELECT COUNT(*)::int AS n FROM ciclos_avaliacao`
-    const [totalConc]      = await sql`SELECT COUNT(*)::int AS n FROM ciclos_avaliacao WHERE status = 'concluido'`
-    const [collabAvals]    = await sql`SELECT COUNT(DISTINCT colaborador_id)::int AS n FROM ciclos_avaliacao WHERE status = 'concluido'`
+    const [totalColabs] = await sql`
+      SELECT COUNT(*)::int AS n FROM colaboradores
+      WHERE ativo = true AND (${!isGestor} OR area = ${gestorArea})
+    `
+    const [totalAvals] = await sql`
+      SELECT COUNT(*)::int AS n FROM ciclos_avaliacao ca
+      LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
+      WHERE (${!isGestor} OR c.area = ${gestorArea})
+    `
+    const [totalConc] = await sql`
+      SELECT COUNT(*)::int AS n FROM ciclos_avaliacao ca
+      LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
+      WHERE ca.status = 'concluido' AND (${!isGestor} OR c.area = ${gestorArea})
+    `
+    const [collabAvals] = await sql`
+      SELECT COUNT(DISTINCT ca.colaborador_id)::int AS n FROM ciclos_avaliacao ca
+      LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
+      WHERE ca.status = 'concluido' AND (${!isGestor} OR c.area = ${gestorArea})
+    `
 
     const quadrantesRaw = await sql`
-      SELECT quadrante, COUNT(*)::int AS count
-      FROM ciclos_avaliacao
-      WHERE status = 'concluido' AND quadrante IS NOT NULL
-      GROUP BY quadrante
+      SELECT ca.quadrante, COUNT(*)::int AS count
+      FROM ciclos_avaliacao ca
+      LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
+      WHERE ca.status = 'concluido' AND ca.quadrante IS NOT NULL
+        AND (${!isGestor} OR c.area = ${gestorArea})
+      GROUP BY ca.quadrante
       ORDER BY count DESC
     `
     const distribuicao_quadrantes = quadrantesRaw.map(r => ({
@@ -42,16 +61,18 @@ exports.handler = async (event) => {
       SELECT ca.*, c.nome AS colaborador_nome
       FROM ciclos_avaliacao ca
       LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
+      WHERE (${!isGestor} OR c.area = ${gestorArea})
       ORDER BY ca.created_at DESC
       LIMIT 5
     `
 
     const porPeriodo = await sql`
-      SELECT periodo_inicial AS periodo, COUNT(*)::int AS count
-      FROM ciclos_avaliacao
-      WHERE status = 'concluido'
-      GROUP BY periodo_inicial
-      ORDER BY periodo_inicial
+      SELECT ca.periodo_inicial AS periodo, COUNT(*)::int AS count
+      FROM ciclos_avaliacao ca
+      LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
+      WHERE ca.status = 'concluido' AND (${!isGestor} OR c.area = ${gestorArea})
+      GROUP BY ca.periodo_inicial
+      ORDER BY ca.periodo_inicial
     `
 
     return {

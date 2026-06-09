@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider, useAuth } from './lib/auth'
+import { AuthProvider, useAuth, isAdmin } from './lib/auth'
 import { ThemeProvider, ForceLightMode } from './lib/theme'
 import LoginPage from './components/LoginPage'
 import ForgotPasswordPage from './components/ForgotPasswordPage'
@@ -44,7 +44,7 @@ function ProtectedRoutes() {
         <Route path="/colaboradores/:id" element={<ColaboradorPerfil />} />
         <Route path="/avaliacoes/nova/:colaboradorId" element={<NovaAvaliacao />} />
         <Route path="/monitor" element={<AuditMonitor />} />
-        <Route path="/usuarios" element={<UsersPage />} />
+        <Route path="/usuarios" element={isAdmin(user?.role) ? <UsersPage /> : <Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>

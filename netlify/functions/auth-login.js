@@ -31,7 +31,7 @@ exports.handler = async (event) => {
   try {
     // Busca por e-mail (sem conferir senha no SQL para evitar timing attacks)
     const rows = await sql`
-      SELECT id, name, email, role, active, must_change_password, password_hash
+      SELECT id, name, email, role, area, active, must_change_password, password_hash
       FROM users
       WHERE email = ${email.toLowerCase()}
     `
@@ -72,8 +72,10 @@ exports.handler = async (event) => {
 
     const tokenPayload = {
       userId: user.id,
+      name: user.name,
       email: user.email,
       role: user.role,
+      area: user.area || null,
       mustChangePassword: user.must_change_password ?? false,
     }
 
@@ -89,6 +91,7 @@ exports.handler = async (event) => {
           name: user.name,
           email: user.email,
           role: user.role,
+          area: user.area || null,
           mustChangePassword: user.must_change_password ?? false,
         },
       }),

@@ -113,6 +113,10 @@ export const api = {
       if (MOCK) { await delay(300); _colabs = _colabs.map(c => c.id === id ? { ...c, ativo: false } : c); return { success: true } }
       return request(`${BASE}/colaboradores?id=${id}`, { method: 'DELETE' })
     },
+    deleteBulk: async (ids: number[]) => {
+      if (MOCK) { await delay(400); _colabs = _colabs.map(c => ids.includes(c.id) ? { ...c, ativo: false } : c); return { success: true, deleted: ids.length } }
+      return request(`${BASE}/colaboradores?ids=${ids.join(',')}`, { method: 'DELETE' })
+    },
     importBulk: async (colaboradores: Partial<Colaborador>[]) => {
       if (MOCK) {
         await delay(600)
@@ -125,7 +129,18 @@ export const api = {
         }
         return { success: true, inserted }
       }
-      return request(`${BASE}/colaboradores`, { method: 'POST', body: JSON.stringify({ bulk: true, colaboradores }) })
+      // Envia em lotes de 500 para não estourar o payload limit do Netlify
+      const CHUNK = 500
+      let totalInserted = 0
+      for (let i = 0; i < colaboradores.length; i += CHUNK) {
+        const chunk = colaboradores.slice(i, i + CHUNK)
+        const result = await request<{ inserted: number }>(`${BASE}/colaboradores`, {
+          method: 'POST',
+          body: JSON.stringify({ bulk: true, colaboradores: chunk }),
+        })
+        totalInserted += result.inserted ?? 0
+      }
+      return { success: true, inserted: totalInserted }
     },
   },
 

@@ -7,7 +7,16 @@ export interface User {
   name: string
   email: string
   role: string
+  area?: string | null
   mustChangePassword?: boolean
+}
+
+export function isAdmin(role?: string) {
+  return role === 'Administrador de RH' || role === 'Administrador de TI'
+}
+
+export function isGestor(role?: string) {
+  return role === 'Gestor'
 }
 
 interface AuthContextType {
