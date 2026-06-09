@@ -115,7 +115,7 @@ export const api = {
     },
     deleteBulk: async (ids: number[]) => {
       if (MOCK) { await delay(400); _colabs = _colabs.map(c => ids.includes(c.id) ? { ...c, ativo: false } : c); return { success: true, deleted: ids.length } }
-      return request(`${BASE}/colaboradores?ids=${ids.join(',')}`, { method: 'DELETE' })
+      return request(`${BASE}/colaboradores`, { method: 'DELETE', body: JSON.stringify({ ids }) })
     },
     importBulk: async (colaboradores: Partial<Colaborador>[]) => {
       if (MOCK) {
@@ -129,18 +129,19 @@ export const api = {
         }
         return { success: true, inserted }
       }
-      // Envia em lotes de 500 para não estourar o payload limit do Netlify
       const CHUNK = 500
       let totalInserted = 0
+      let totalUpdated = 0
       for (let i = 0; i < colaboradores.length; i += CHUNK) {
         const chunk = colaboradores.slice(i, i + CHUNK)
-        const result = await request<{ inserted: number }>(`${BASE}/colaboradores`, {
+        const result = await request<{ inserted: number; updated: number }>(`${BASE}/colaboradores`, {
           method: 'POST',
           body: JSON.stringify({ bulk: true, colaboradores: chunk }),
         })
         totalInserted += result.inserted ?? 0
+        totalUpdated  += result.updated  ?? 0
       }
-      return { success: true, inserted: totalInserted }
+      return { success: true, inserted: totalInserted, updated: totalUpdated }
     },
   },
 
@@ -166,6 +167,10 @@ export const api = {
         return a
       }
       return request<CicloAvaliacao>(`${BASE}/avaliacoes`, { method: 'POST', body: JSON.stringify(data) })
+    },
+    update: async (id: number, data: Partial<CicloAvaliacao>) => {
+      if (MOCK) { await delay(400); _avaliacoes = _avaliacoes.map(a => a.id === id ? { ...a, ...data } : a); return _avaliacoes.find(a => a.id === id) }
+      return request<CicloAvaliacao>(`${BASE}/avaliacoes?id=${id}`, { method: 'PUT', body: JSON.stringify(data) })
     },
     delete: async (id: number) => {
       if (MOCK) { await delay(300); _avaliacoes = _avaliacoes.filter(a => a.id !== id); return { success: true } }
@@ -205,6 +210,25 @@ export const api = {
       if (MOCK) { await delay(600); return { success: true } }
       return request(`${BASE}/resend-invite`, { method: 'POST', body: JSON.stringify({ userId }) })
     },
+  },
+
+  departamentos: {
+    list: async () => {
+      if (MOCK) { await delay(300); return [] }
+      return request(`${BASE}/departamentos`)
+    },
+  },
+
+  avaliacoesPendentes: {
+    list: async () => {
+      if (MOCK) { await delay(300); return [] }
+      return request(`${BASE}/avaliacoes-pendentes`)
+    },
+  },
+
+  setupGestores: async () => {
+    if (MOCK) { await delay(800); return { success: true, created: 0, skipped: 0, usuarios: [] } }
+    return request(`${BASE}/setup-gestores`, { method: 'POST' })
   },
 
   audit: {

@@ -1,5 +1,5 @@
 const { neon } = require('@neondatabase/serverless')
-const { requireAuth, makeHeaders, errorResponse } = require('./_auth')
+const { requireAuth, isAdminRole, makeHeaders, errorResponse } = require('./_auth')
 
 exports.handler = async (event) => {
   const headers = makeHeaders(event)
@@ -33,7 +33,7 @@ exports.handler = async (event) => {
       let rows
       if (colaboradorId) {
         rows = await sql`
-          SELECT ca.* FROM ciclos_avaliacao ca
+          SELECT ca.*, c.nome AS colaborador_nome FROM ciclos_avaliacao ca
           LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
           WHERE ca.colaborador_id = ${colaboradorId}
             AND (${!isGestor} OR c.area = ${gestorArea})
@@ -41,11 +41,10 @@ exports.handler = async (event) => {
         `
       } else {
         rows = await sql`
-          SELECT ca.* FROM ciclos_avaliacao ca
+          SELECT ca.*, c.nome AS colaborador_nome FROM ciclos_avaliacao ca
           LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
           WHERE (${!isGestor} OR c.area = ${gestorArea})
           ORDER BY ca.created_at DESC
-          LIMIT 100
         `
       }
       return { statusCode: 200, headers, body: JSON.stringify(rows) }
@@ -93,10 +92,31 @@ exports.handler = async (event) => {
 
     if (event.httpMethod === 'PUT') {
       if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'ID necessário' }) }
+      // Somente Administrador de RH pode editar avaliações existentes
+      if (!isAdminRole(authPayload.role)) {
+        return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado' }) }
+      }
       const body = JSON.parse(event.body || '{}')
+      const {
+        avaliador_nome, tipo, periodo_inicial, periodo_final, nivel_cargo,
+        score_desempenho, score_potencial, nivel_desempenho, nivel_potencial,
+        quadrante, respostas, status,
+      } = body
       const rows = await sql`
         UPDATE ciclos_avaliacao
-        SET status = ${body.status ?? 'concluido'}, updated_at = NOW()
+        SET avaliador_nome    = COALESCE(${avaliador_nome ?? null}, avaliador_nome),
+            tipo              = COALESCE(${tipo ?? null}, tipo),
+            periodo_inicial   = COALESCE(${periodo_inicial ?? null}, periodo_inicial),
+            periodo_final     = COALESCE(${periodo_final ?? null}, periodo_final),
+            nivel_cargo       = COALESCE(${nivel_cargo ?? null}, nivel_cargo),
+            score_desempenho  = COALESCE(${score_desempenho ?? null}, score_desempenho),
+            score_potencial   = COALESCE(${score_potencial ?? null}, score_potencial),
+            nivel_desempenho  = COALESCE(${nivel_desempenho ?? null}, nivel_desempenho),
+            nivel_potencial   = COALESCE(${nivel_potencial ?? null}, nivel_potencial),
+            quadrante         = COALESCE(${quadrante ?? null}, quadrante),
+            respostas         = COALESCE(${respostas ? JSON.stringify(respostas) : null}::jsonb, respostas),
+            status            = COALESCE(${status ?? null}, status),
+            updated_at        = NOW()
         WHERE id = ${id}
         RETURNING *
       `

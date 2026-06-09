@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react'
-import { Users, Plus, Pencil, ShieldCheck, Wrench, ToggleLeft, ToggleRight, X, Eye, EyeOff, Search, Mail, AlertTriangle, CheckCircle2, Send, Trash2 } from 'lucide-react'
+import { Users, Plus, Pencil, ShieldCheck, Wrench, ToggleLeft, ToggleRight, X, Eye, EyeOff, Search, Mail, AlertTriangle, CheckCircle2, Send, Trash2, UserPlus, RefreshCw } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import ConfirmDialog from '../ui/ConfirmDialog'
@@ -210,6 +210,8 @@ export default function UsersPage() {
   const [resendStatus, setResendStatus] = useState<{ id: number; ok: boolean; msg: string } | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<AppUser | null>(null)
   const [deleting, setDeleting]         = useState(false)
+  const [importingGestores, setImportingGestores] = useState(false)
+  const [importResult, setImportResult] = useState<{ created: number; skipped: number } | null>(null)
 
   const userIsAdmin = currentUser?.role === 'Administrador de RH' || currentUser?.role === 'Administrador de TI'
 
@@ -286,9 +288,30 @@ export default function UsersPage() {
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">Gerencie contas e permissões de acesso</p>
         </div>
         {userIsAdmin && (
-          <button onClick={() => setModalUser(null)} className="btn-primary shrink-0">
-            <Plus size={16} /> Novo Usuário
-          </button>
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={async () => {
+                setImportingGestores(true)
+                setImportResult(null)
+                try {
+                  const r = await (api as any).setupGestores() as { created: number; skipped: number }
+                  setImportResult(r)
+                  await load()
+                } finally {
+                  setImportingGestores(false)
+                }
+              }}
+              disabled={importingGestores}
+              className="btn-secondary gap-2"
+              title="Cria automaticamente usuários para todos os gestores cadastrados nos colaboradores"
+            >
+              {importingGestores ? <RefreshCw size={15} className="animate-spin" /> : <UserPlus size={15} />}
+              Importar Gestores
+            </button>
+            <button onClick={() => setModalUser(null)} className="btn-primary">
+              <Plus size={16} /> Novo Usuário
+            </button>
+          </div>
         )}
       </div>
 
@@ -474,6 +497,22 @@ export default function UsersPage() {
         title="Excluir usuário permanentemente"
         message={`Tem certeza que deseja excluir "${deleteTarget?.name}" de forma permanente? Esta ação é irreversível e todos os dados do usuário serão removidos do sistema.`}
       />
+
+      {importResult && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-start gap-3 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 px-4 py-3 rounded-xl shadow-lg max-w-sm animate-slide-up">
+          <CheckCircle2 size={18} className="text-emerald-400 dark:text-emerald-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold">Gestores importados</p>
+            <p className="text-xs opacity-70 mt-0.5">
+              {importResult.created} criado(s) · {importResult.skipped} já existiam
+            </p>
+            <p className="text-xs opacity-50 mt-0.5">Senha padrão: <span className="font-mono">Gestor@2025</span></p>
+          </div>
+          <button onClick={() => setImportResult(null)} className="ml-auto opacity-50 hover:opacity-100">
+            <X size={14} />
+          </button>
+        </div>
+      )}
     </div>
   )
 }

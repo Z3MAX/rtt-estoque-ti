@@ -85,38 +85,83 @@ exports.handler = async (event) => {
       const body = JSON.parse(event.body || '{}')
 
       if (body.bulk && Array.isArray(body.colaboradores)) {
-        const valid = body.colaboradores.filter(c => c.nome && c.nome.trim())
-        if (valid.length === 0) {
+        const rawValid = body.colaboradores.filter(c => c.nome && c.nome.trim())
+        if (rawValid.length === 0) {
           return { statusCode: 400, headers, body: JSON.stringify({ error: 'Nenhum colaborador válido' }) }
         }
+        // Deduplica pelo nome (case-insensitive), mantendo a última ocorrência
+        const seen = new Map()
+        for (const c of rawValid) seen.set(c.nome.trim().toLowerCase(), c)
+        const valid = [...seen.values()]
 
-        // Inserção em lotes de 200 para não estourar o limite de parâmetros/timeout
+        // Upsert em lotes de 200: atualiza se nome já existe, insere se não existe
         const BATCH = 200
         let inserted = 0
+        let updated = 0
         for (let i = 0; i < valid.length; i += BATCH) {
           const chunk = valid.slice(i, i + BATCH)
-          // Monta VALUES dinâmico usando unnest para um único INSERT por lote
-          const nomes      = chunk.map(c => c.nome.trim())
-          const cargos     = chunk.map(c => c.cargo     || null)
-          const niveis     = chunk.map(c => c.nivel     || null)
-          const areas      = chunk.map(c => c.area      || null)
-          const emails     = chunk.map(c => c.email     || null)
-          const gestores   = chunk.map(c => c.gestor_nome || null)
+          const nomes    = chunk.map(c => c.nome.trim())
+          const cargos   = chunk.map(c => c.cargo      || null)
+          const niveis   = chunk.map(c => c.nivel      || null)
+          const areas    = chunk.map(c => c.area       || null)
+          const emails   = chunk.map(c => c.email      || null)
+          const gestores = chunk.map(c => c.gestor_nome || null)
 
-          await sql`
-            INSERT INTO colaboradores (nome, cargo, nivel, area, email, gestor_nome)
-            SELECT * FROM unnest(
-              ${nomes}::text[],
-              ${cargos}::text[],
-              ${niveis}::text[],
-              ${areas}::text[],
-              ${emails}::text[],
-              ${gestores}::text[]
-            ) AS t(nome, cargo, nivel, area, email, gestor_nome)
+          const result = await sql`
+            WITH input AS (
+              SELECT * FROM unnest(
+                ${nomes}::text[],
+                ${cargos}::text[],
+                ${niveis}::text[],
+                ${areas}::text[],
+                ${emails}::text[],
+                ${gestores}::text[]
+              ) AS t(nome, cargo, nivel, area, email, gestor_nome)
+            ),
+            upd AS (
+              UPDATE colaboradores c
+              SET cargo       = i.cargo,
+                  nivel       = i.nivel,
+                  area        = i.area,
+                  email       = i.email,
+                  gestor_nome = i.gestor_nome,
+                  ativo       = true,
+                  updated_at  = NOW()
+              FROM input i
+              WHERE c.id = (
+                SELECT id FROM colaboradores x
+                WHERE LOWER(TRIM(x.nome)) = LOWER(TRIM(i.nome))
+                ORDER BY x.id ASC
+                LIMIT 1
+              )
+              RETURNING c.id
+            ),
+            dedup AS (
+              UPDATE colaboradores SET ativo = false
+              WHERE id IN (
+                SELECT id FROM (
+                  SELECT id, ROW_NUMBER() OVER (PARTITION BY LOWER(TRIM(nome)) ORDER BY id ASC) AS rn
+                  FROM colaboradores
+                ) sub WHERE rn > 1
+              )
+            ),
+            ins AS (
+              INSERT INTO colaboradores (nome, cargo, nivel, area, email, gestor_nome)
+              SELECT i.nome, i.cargo, i.nivel, i.area, i.email, i.gestor_nome
+              FROM input i
+              WHERE NOT EXISTS (
+                SELECT 1 FROM colaboradores c WHERE LOWER(TRIM(c.nome)) = LOWER(TRIM(i.nome))
+              )
+              RETURNING id
+            )
+            SELECT
+              (SELECT COUNT(*) FROM ins)::int AS inserted,
+              (SELECT COUNT(*) FROM upd)::int AS updated
           `
-          inserted += chunk.length
+          inserted += result[0]?.inserted || 0
+          updated  += result[0]?.updated  || 0
         }
-        return { statusCode: 201, headers, body: JSON.stringify({ success: true, inserted }) }
+        return { statusCode: 201, headers, body: JSON.stringify({ success: true, inserted, updated }) }
       }
 
       const { nome, cargo, nivel, area, email, gestor_nome } = body
@@ -153,12 +198,11 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'DELETE') {
-      // Exclusão em lote: ?ids=1,2,3
-      const idsParam = params.ids
-      if (idsParam) {
-        const ids = idsParam.split(',').map(Number).filter(Boolean)
+      // Exclusão em lote: body { ids: [1,2,3] }
+      const deleteBody = event.body ? (() => { try { return JSON.parse(event.body) } catch { return {} } })() : {}
+      if (Array.isArray(deleteBody.ids) && deleteBody.ids.length > 0) {
+        const ids = deleteBody.ids.map(Number).filter(Boolean)
         if (ids.length === 0) return { statusCode: 400, headers, body: JSON.stringify({ error: 'IDs inválidos' }) }
-        // Gestores não podem fazer exclusão em lote
         if (isGestor) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado' }) }
         await sql`UPDATE colaboradores SET ativo = false, updated_at = NOW() WHERE id = ANY(${ids}::int[])`
         return { statusCode: 200, headers, body: JSON.stringify({ success: true, deleted: ids.length }) }

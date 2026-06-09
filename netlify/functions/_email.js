@@ -44,8 +44,8 @@ async function sendMail({ to, subject, html }) {
  * Envia um link para definição de senha — nunca envia a senha em texto.
  */
 async function sendInviteEmail({ name, email, inviteUrl, role }) {
-  const roleLabel = role === 'Administrador de TI' ? 'Administrador de TI' : 'Técnico de TI'
-  const roleColor = role === 'Administrador de TI' ? '#e30613' : '#10b981'
+  const roleLabel = role || 'Gestor'
+  const roleColor = (role === 'Administrador de RH' || role === 'Administrador de TI') ? '#e30613' : '#10b981'
   const siteUrl = process.env.SITE_URL || ''
 
   const html = `<!DOCTYPE html>
@@ -57,13 +57,13 @@ async function sendInviteEmail({ name, email, inviteUrl, role }) {
       <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%">
         <tr><td style="background:linear-gradient(135deg,#0f172a 0%,#7f0008 100%);border-radius:16px 16px 0 0;padding:32px 40px;text-align:center">
           <p style="margin:0;color:#fff;font-size:22px;font-weight:700">Rema Tip Top</p>
-          <p style="margin:4px 0 0;color:#94a3b8;font-size:12px">Controle de Estoque TI</p>
+          <p style="margin:4px 0 0;color:#94a3b8;font-size:12px">Gestão de Talentos e Avaliações</p>
           <p style="margin:20px 0 0;color:#fff;font-size:22px;font-weight:700">Você foi convidado!</p>
         </td></tr>
         <tr><td style="background:#fff;padding:36px 40px">
           <p style="margin:0 0 20px;color:#0f172a;font-size:20px;font-weight:700">Olá, ${esc(name)} 👋</p>
           <p style="margin:0 0 24px;color:#475569;font-size:14px;line-height:1.6">
-            Seu acesso ao sistema de controle de estoque de TI da <strong>Rema Tip Top</strong> foi criado.
+            Seu acesso à plataforma de <strong>Gestão de Talentos e Avaliações</strong> da Rema Tip Top foi criado.
             Clique no botão abaixo para definir sua senha e ativar sua conta.
           </p>
           <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:24px">
@@ -120,7 +120,7 @@ async function sendResetEmail({ name, email, resetUrl }) {
       <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%">
         <tr><td style="background:linear-gradient(135deg,#0f172a 0%,#7f0008 100%);border-radius:16px 16px 0 0;padding:32px 40px;text-align:center">
           <p style="margin:0;color:#fff;font-size:22px;font-weight:700">Rema Tip Top</p>
-          <p style="margin:4px 0 0;color:#94a3b8;font-size:12px">Controle de Estoque TI</p>
+          <p style="margin:4px 0 0;color:#94a3b8;font-size:12px">Gestão de Talentos e Avaliações</p>
           <p style="margin:20px 0 0;color:#fff;font-size:22px;font-weight:700">Redefinição de senha</p>
         </td></tr>
         <tr><td style="background:#fff;padding:36px 40px">
@@ -202,7 +202,7 @@ async function sendLocationReport({ locationName, managerEmail, equipment, sende
         <!-- Header -->
         <tr><td style="background:linear-gradient(135deg,#0f172a 0%,#7f0008 100%);border-radius:16px 16px 0 0;padding:32px 40px">
           <p style="margin:0;color:#fff;font-size:22px;font-weight:700">Rema Tip Top</p>
-          <p style="margin:4px 0 0;color:#94a3b8;font-size:12px">Controle de Estoque TI</p>
+          <p style="margin:4px 0 0;color:#94a3b8;font-size:12px">Gestão de Talentos e Avaliações</p>
           <p style="margin:24px 0 0;color:#fff;font-size:20px;font-weight:700">📍 Relatório de Equipamentos</p>
           <p style="margin:6px 0 0;color:#e2e8f0;font-size:14px">Local: <strong>${esc(locationName)}</strong></p>
           <p style="margin:4px 0 0;color:#94a3b8;font-size:12px">Gerado em ${esc(date)}${senderName ? ` · por ${esc(senderName)}` : ''}</p>
@@ -250,7 +250,7 @@ async function sendLocationReport({ locationName, managerEmail, equipment, sende
 
         <!-- Footer -->
         <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;border-radius:0 0 16px 16px;padding:20px 40px;text-align:center">
-          <p style="margin:0;color:#94a3b8;font-size:12px">© 2025 Rema Tip Top · Controle de Estoque TI</p>
+          <p style="margin:0;color:#94a3b8;font-size:12px">© 2025 Rema Tip Top · Gestão de Talentos e Avaliações</p>
           <p style="margin:4px 0 0;color:#cbd5e1;font-size:11px">Este relatório foi gerado automaticamente pelo sistema.</p>
         </td></tr>
 

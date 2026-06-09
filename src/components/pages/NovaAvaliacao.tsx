@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, RefreshCw, Printer, Save } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
-import type { Colaborador, NivelCargo } from '../../lib/types'
+import type { Colaborador, NivelCargo, CicloAvaliacao } from '../../lib/types'
 import { NIVEL_LABELS } from '../../lib/types'
 
 // ─── Competency data ──────────────────────────────────────────────────────────
@@ -390,6 +390,10 @@ function BarRow({ label, value, color }: { label: string; value: number; color: 
 
 export default function NovaAvaliacao() {
   const { colaboradorId } = useParams<{ colaboradorId: string }>()
+  const [searchParams] = useSearchParams()
+  const editId = searchParams.get('edit') ? Number(searchParams.get('edit')) : null
+  const isEditMode = editId != null
+
   const navigate = useNavigate()
   const { user } = useAuth()
 
@@ -419,6 +423,28 @@ export default function NovaAvaliacao() {
       try {
         const c = await api.colaboradores.get(Number(colaboradorId)) as Colaborador
         setColab(c ?? null)
+
+        // Edit mode: pre-fill form with existing evaluation
+        if (editId) {
+          const av = await api.avaliacoes.get(editId) as CicloAvaliacao
+          if (av) {
+            setAvaliador(av.avaliador_nome ?? '')
+            setTipo(av.tipo ?? '')
+            setPeriodoInicial(av.periodo_inicial ?? '')
+            setPeriodoFinal(av.periodo_final ?? '')
+            const resps = (av.respostas as unknown as Record<string, { nota?: number; rating?: number; observation?: string; observacao?: string }>) || {}
+            const newRatings: Record<string, number> = {}
+            const newObs: Record<string, string> = {}
+            for (const [k, v] of Object.entries(resps)) {
+              if (v.nota != null) newRatings[k] = v.nota
+              else if (v.rating != null) newRatings[k] = v.rating
+              if (v.observacao) newObs[k] = v.observacao
+              else if (v.observation) newObs[k] = v.observation
+            }
+            setRatings(newRatings)
+            setObservations(newObs)
+          }
+        }
       } finally {
         setLoadingColab(false)
       }
@@ -490,24 +516,31 @@ export default function NovaAvaliacao() {
       for (const c of todasComps) {
         respostas[c.id] = { nota: ratings[c.id], observacao: observations[c.id] || undefined }
       }
-      await api.avaliacoes.create({
-        colaborador_id:  colab.id,
+      const payload = {
+        colaborador_id:   colab.id,
         colaborador_nome: colab.nome,
-        avaliador_nome:  avaliador || user?.name,
-        tipo:            tipo as 'autoavaliacao' | 'lideranca',
-        periodo_inicial: periodoInicial,
-        periodo_final:   periodoFinal,
-        nivel_cargo:     nivel,
+        avaliador_nome:   avaliador || user?.name,
+        tipo:             tipo as 'autoavaliacao' | 'lideranca',
+        periodo_inicial:  periodoInicial,
+        periodo_final:    periodoFinal,
+        nivel_cargo:      nivel,
         score_desempenho: parseFloat(result.avgDesempenho.toFixed(2)),
         score_potencial:  parseFloat(result.avgPotencial.toFixed(2)),
         nivel_desempenho: classificarEixo(result.avgDesempenho),
         nivel_potencial:  classificarEixo(result.avgPotencial),
-        quadrante:       result.quadrante,
+        quadrante:        result.quadrante,
         respostas,
-        status:          'concluido',
-      })
-      setSaved(true)
-      setTimeout(() => navigate(`/colaboradores/${colab.id}`), 1500)
+        status:           'concluido',
+      }
+      if (isEditMode && editId) {
+        await api.avaliacoes.update(editId, payload as unknown as Partial<CicloAvaliacao>)
+        setSaved(true)
+        setTimeout(() => navigate(`/avaliacoes/${editId}`), 1500)
+      } else {
+        await api.avaliacoes.create(payload as unknown as Partial<CicloAvaliacao>)
+        setSaved(true)
+        setTimeout(() => navigate(`/colaboradores/${colab.id}`), 1500)
+      }
     } catch (err) {
       alert('Erro ao salvar: ' + (err as Error).message)
     } finally {
@@ -529,7 +562,7 @@ export default function NovaAvaliacao() {
           <ArrowLeft size={15} /> {colab.nome}
         </button>
         <span className="text-slate-300 dark:text-slate-600">/</span>
-        <span className="text-sm text-slate-700 dark:text-slate-300 font-medium">Nova avaliação</span>
+        <span className="text-sm text-slate-700 dark:text-slate-300 font-medium">{isEditMode ? 'Editar avaliação' : 'Nova avaliação'}</span>
       </div>
 
       {/* Header */}

@@ -313,9 +313,12 @@ export default function ColaboradoresPage() {
   }
 
   const handleImport = async (data: Partial<Colaborador>[]) => {
-    const r = await api.colaboradores.importBulk(data) as { inserted: number }
+    const r = await api.colaboradores.importBulk(data) as { inserted: number; updated: number }
     await load(search)
-    showToast(`${r.inserted} colaborador(es) importado(s) com sucesso`)
+    const parts = []
+    if (r.inserted > 0) parts.push(`${r.inserted} adicionado(s)`)
+    if (r.updated  > 0) parts.push(`${r.updated} atualizado(s)`)
+    showToast(parts.length ? parts.join(', ') : 'Nenhuma alteração')
   }
 
   const handleDeleteSingle = async () => {
@@ -336,7 +339,7 @@ export default function ColaboradoresPage() {
     setDeleting(true)
     const count = selected.size
     try {
-      await (api.colaboradores as any).deleteBulk([...selected])
+      await api.colaboradores.deleteBulk([...selected])
       setSelected(new Set())
       await load(search)
       showToast(`${count} colaborador(es) removido(s)`)

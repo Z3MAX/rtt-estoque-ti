@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Plus, Edit2, X, Trash2, AlertCircle, RefreshCw, ClipboardList } from 'lucide-react'
+import { ArrowLeft, Plus, Edit2, X, Trash2, AlertCircle, RefreshCw, ClipboardList, ChevronRight } from 'lucide-react'
 import { api } from '../../lib/api'
 import type { Colaborador, CicloAvaliacao, NivelCargo } from '../../lib/types'
 import { NIVEL_LABELS } from '../../lib/types'
@@ -321,7 +321,11 @@ export default function ColaboradorPerfil() {
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-slate-700">
             {avaliacoes.map(a => (
-              <div key={a.id} className="px-5 py-4 flex items-start gap-4 hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors">
+              <div
+                key={a.id}
+                onClick={() => navigate(`/avaliacoes/${a.id}`)}
+                className="px-5 py-4 flex items-start gap-4 hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors cursor-pointer"
+              >
                 {/* Quadrant badge */}
                 <div className="shrink-0 mt-0.5">
                   {a.quadrante ? (
@@ -360,14 +364,17 @@ export default function ColaboradorPerfil() {
                 </div>
 
                 {/* Actions */}
-                <button
-                  onClick={() => handleDelete(a.id)}
-                  disabled={deleting === a.id}
-                  className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-slate-300 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-colors"
-                  title="Excluir avaliação"
-                >
-                  {deleting === a.id ? <RefreshCw size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={e => { e.stopPropagation(); handleDelete(a.id) }}
+                    disabled={deleting === a.id}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-300 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-colors"
+                    title="Excluir avaliação"
+                  >
+                    {deleting === a.id ? <RefreshCw size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                  </button>
+                  <ChevronRight size={14} className="text-slate-300 dark:text-slate-600" />
+                </div>
               </div>
             ))}
           </div>

@@ -12,6 +12,11 @@ import ColaboradorPerfil from './components/pages/ColaboradorPerfil'
 import NovaAvaliacao from './components/pages/NovaAvaliacao'
 import UsersPage from './components/pages/Users'
 import AuditMonitor from './components/pages/AuditMonitor'
+import DepartamentosPage from './components/pages/Departamentos'
+import DepartamentoDetalhe from './components/pages/DepartamentoDetalhe'
+import RealizarAvaliacaoPage from './components/pages/RealizarAvaliacao'
+import AvaliacaoDetalhe from './components/pages/AvaliacaoDetalhe'
+import AvaliacoesPage from './components/pages/Avaliacoes'
 
 function ProtectedRoutes() {
   const { user, loading } = useAuth()
@@ -43,6 +48,11 @@ function ProtectedRoutes() {
         <Route path="/colaboradores" element={<ColaboradoresPage />} />
         <Route path="/colaboradores/:id" element={<ColaboradorPerfil />} />
         <Route path="/avaliacoes/nova/:colaboradorId" element={<NovaAvaliacao />} />
+        <Route path="/departamentos" element={<DepartamentosPage />} />
+        <Route path="/departamentos/:area" element={<DepartamentoDetalhe />} />
+        <Route path="/realizar-avaliacao" element={<RealizarAvaliacaoPage />} />
+        <Route path="/avaliacoes" element={isAdmin(user?.role) ? <AvaliacoesPage /> : <Navigate to="/dashboard" replace />} />
+        <Route path="/avaliacoes/:id" element={<AvaliacaoDetalhe />} />
         <Route path="/monitor" element={<AuditMonitor />} />
         <Route path="/usuarios" element={isAdmin(user?.role) ? <UsersPage /> : <Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -48,28 +48,13 @@ export default function LoginPage() {
           </div>
 
           <h1 className="text-4xl font-bold text-white leading-tight">
-            Gestão de ativos<br />
-            <span className="text-primary-400">de TI simplificada</span>
+            Gestão de talentos<br />
+            <span className="text-primary-400">e avaliações</span>
           </h1>
           <p className="text-slate-400 mt-3 text-sm leading-relaxed max-w-sm">
-            A solução da <span className="text-white font-medium">Rema Tip Top</span> para controlar todo o inventário
-            de equipamentos em um só lugar.
+            Avalie e desenvolva seu time com <span className="text-white font-medium">visibilidade total</span> sobre desempenho, potencial e evolução de cada colaborador.
           </p>
 
-          {/* Feature pills */}
-          <div className="flex flex-wrap gap-2 mt-5">
-            {[
-              { icon: Monitor, text: 'Equipamentos' },
-              { icon: Tag,     text: 'Categorias' },
-              { icon: MapPin,  text: 'Locais' },
-              { icon: Shield,  text: 'Histórico' },
-            ].map(({ icon: Icon, text }) => (
-              <div key={text} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/8 border border-white/10">
-                <Icon size={12} className="text-primary-400" />
-                <span className="text-slate-300 text-xs font-medium">{text}</span>
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* Hero image — fills remaining height */}

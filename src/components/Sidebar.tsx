@@ -1,15 +1,18 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, LogOut,
-  UserCircle, ChevronRight, Sun, Moon, ClipboardList,
+  UserCircle, ChevronRight, Sun, Moon, ClipboardList, Building2, ClipboardCheck, ListChecks,
 } from 'lucide-react'
 import { useAuth, isAdmin } from '../lib/auth'
 import { useTheme } from '../lib/theme'
 
 const navItems = [
-  { to: '/dashboard',     icon: LayoutDashboard, label: 'Dashboard',      adminOnly: false },
-  { to: '/colaboradores', icon: ClipboardList,   label: 'Colaboradores',  adminOnly: false },
-  { to: '/usuarios',      icon: Users,           label: 'Usuários',       adminOnly: true  },
+  { to: '/dashboard',          icon: LayoutDashboard, label: 'Dashboard',            adminOnly: false },
+  { to: '/colaboradores',      icon: ClipboardList,   label: 'Colaboradores',        adminOnly: false },
+  { to: '/departamentos',      icon: Building2,       label: 'Departamentos',        adminOnly: false },
+  { to: '/realizar-avaliacao', icon: ClipboardCheck,  label: 'Realizar Avaliação',   adminOnly: false },
+  { to: '/avaliacoes',         icon: ListChecks,      label: 'Avaliações',           adminOnly: true  },
+  { to: '/usuarios',           icon: Users,           label: 'Usuários',             adminOnly: true  },
 ]
 
 export default function Sidebar() {
