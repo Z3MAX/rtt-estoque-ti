@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, X, RefreshCw, ClipboardList, ChevronRight, Filter } from 'lucide-react'
+import {
+  Search, X, RefreshCw, ClipboardList, ChevronRight, Filter,
+  Download, FileDown, CheckSquare, Square, Package,
+} from 'lucide-react'
 import { api } from '../../lib/api'
 import type { CicloAvaliacao } from '../../lib/types'
+import { exportarAvaliacaoUnica, exportarAvaliacoesZip } from '../../lib/exportAvaliacao'
 
 const QUADRANTE_COLORS: Record<string, string> = {
   E3: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
@@ -17,16 +21,13 @@ const QUADRANTE_COLORS: Record<string, string> = {
 }
 
 const QUADRANTE_LABELS: Record<string, string> = {
-  E3: 'Talento Top / Estrela', E2: 'Potencial Forte',   E1: 'Enigma',
-  M3: 'Forte Desempenho',      M2: 'Mantenedor / Eficaz', M1: 'Questionável',
-  B3: 'Dedicado / Especialista', B2: 'Bom Profissional', B1: 'Risco / Subpadrão',
+  E3: 'Talento Top / Estrela', E2: 'Potencial Forte',       E1: 'Enigma',
+  M3: 'Forte Desempenho',      M2: 'Mantenedor / Eficaz',   M1: 'Questionável',
+  B3: 'Dedicado / Especialista', B2: 'Bom Profissional',    B1: 'Risco / Subpadrão',
 }
 
 const TIPO_LABELS: Record<string, string> = {
-  lideranca:    'Pela liderança',
-  autoavaliacao:'Autoavaliação',
-  par:          'Por par',
-  rh:           'RH',
+  lideranca: 'Pela liderança', autoavaliacao: 'Autoavaliação', par: 'Por par', rh: 'RH',
 }
 
 const PERIODOS: Record<string, string> = {
@@ -49,11 +50,16 @@ export default function AvaliacoesPage() {
   const [filterPeriodo, setFilterPeriodo] = useState('')
   const [showFilters, setShowFilters] = useState(false)
 
+  // selection
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [exporting, setExporting] = useState(false)
+
   const load = async () => {
     setLoading(true)
     try {
       const data = await api.avaliacoes.list() as CicloAvaliacao[]
       setAvaliacoes(data)
+      setSelected(new Set())
     } finally {
       setLoading(false)
     }
@@ -82,6 +88,73 @@ export default function AvaliacoesPage() {
   const totalM = filtered.filter(a => a.quadrante?.startsWith('M')).length
   const totalB = filtered.filter(a => a.quadrante?.startsWith('B')).length
 
+  // ── selection helpers ──
+  const allFilteredIds = filtered.map(a => a.id).filter((id): id is number => id != null)
+  const allSelected = allFilteredIds.length > 0 && allFilteredIds.every(id => selected.has(id))
+  const someSelected = allFilteredIds.some(id => selected.has(id))
+
+  function toggleAll() {
+    if (allSelected) {
+      setSelected(prev => {
+        const next = new Set(prev)
+        allFilteredIds.forEach(id => next.delete(id))
+        return next
+      })
+    } else {
+      setSelected(prev => {
+        const next = new Set(prev)
+        allFilteredIds.forEach(id => next.add(id))
+        return next
+      })
+    }
+  }
+
+  function toggleOne(id: number, e: React.MouseEvent) {
+    e.stopPropagation()
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  // ── export handlers ──
+  async function handleExportSingle(av: CicloAvaliacao, e: React.MouseEvent) {
+    e.stopPropagation()
+    exportarAvaliacaoUnica(av)
+  }
+
+  async function handleExportSelected() {
+    const toExport = filtered.filter(a => a.id != null && selected.has(a.id!))
+    if (!toExport.length) return
+    setExporting(true)
+    try {
+      if (toExport.length === 1) {
+        exportarAvaliacaoUnica(toExport[0])
+      } else {
+        await exportarAvaliacoesZip(toExport)
+      }
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  async function handleExportAll() {
+    if (!filtered.length) return
+    setExporting(true)
+    try {
+      if (filtered.length === 1) {
+        exportarAvaliacaoUnica(filtered[0])
+      } else {
+        await exportarAvaliacoesZip(filtered)
+      }
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const selectedCount = allFilteredIds.filter(id => selected.has(id)).length
+
   return (
     <div className="p-6 space-y-5 animate-fade-in">
       {/* Header */}
@@ -92,9 +165,22 @@ export default function AvaliacoesPage() {
             {filtered.length} avaliação(ões) concluída(s)
           </p>
         </div>
-        <button onClick={load} className="btn-secondary gap-2 self-start">
-          <RefreshCw size={14} /> Atualizar
-        </button>
+        <div className="flex gap-2 flex-wrap justify-end">
+          <button onClick={load} className="btn-secondary gap-2">
+            <RefreshCw size={14} /> Atualizar
+          </button>
+          {filtered.length > 0 && (
+            <button
+              onClick={handleExportAll}
+              disabled={exporting}
+              className="btn-secondary gap-2"
+              title="Exportar todas as avaliações visíveis"
+            >
+              {exporting ? <RefreshCw size={14} className="animate-spin" /> : <Package size={14} />}
+              Exportar tudo {filtered.length > 1 ? '(.zip)' : '(.pdf)'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Stats strip */}
@@ -169,6 +255,32 @@ export default function AvaliacoesPage() {
         </div>
       )}
 
+      {/* Bulk action bar */}
+      {selectedCount > 0 && (
+        <div className="flex items-center gap-3 px-4 py-3 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-xl">
+          <span className="text-sm font-medium text-primary-700 dark:text-primary-300 flex-1">
+            {selectedCount} avaliação(ões) selecionada(s)
+          </span>
+          <button
+            onClick={() => setSelected(new Set())}
+            className="text-xs text-primary-500 hover:text-primary-700 dark:hover:text-primary-300"
+          >
+            Limpar seleção
+          </button>
+          <button
+            onClick={handleExportSelected}
+            disabled={exporting}
+            className="btn-primary gap-2 text-sm py-1.5"
+          >
+            {exporting
+              ? <RefreshCw size={14} className="animate-spin" />
+              : selectedCount === 1 ? <FileDown size={14} /> : <Package size={14} />
+            }
+            {exporting ? 'Gerando...' : selectedCount === 1 ? 'Exportar PDF' : `Exportar ${selectedCount} em ZIP`}
+          </button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="card overflow-hidden">
         {loading ? (
@@ -185,95 +297,133 @@ export default function AvaliacoesPage() {
             <table className="w-full">
               <thead className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700">
                 <tr>
+                  {/* select-all */}
+                  <th className="px-4 py-3 w-10">
+                    <button
+                      onClick={toggleAll}
+                      className="text-slate-400 hover:text-primary-500 transition-colors"
+                      title={allSelected ? 'Desselecionar todos' : 'Selecionar todos'}
+                    >
+                      {allSelected
+                        ? <CheckSquare size={16} className="text-primary-500" />
+                        : someSelected
+                          ? <CheckSquare size={16} className="text-primary-400 opacity-60" />
+                          : <Square size={16} />
+                      }
+                    </button>
+                  </th>
                   {['Colaborador', 'Quadrante', 'Desempenho', 'Potencial', 'Período', 'Tipo', 'Avaliador', 'Data', ''].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                {filtered.map(a => (
-                  <tr
-                    key={a.id}
-                    onClick={() => navigate(`/avaliacoes/${a.id}`)}
-                    className="hover:bg-slate-50 dark:hover:bg-slate-700/30 cursor-pointer transition-colors"
-                  >
-                    {/* Colaborador */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center shrink-0">
-                          <span className="text-primary-600 dark:text-primary-400 text-xs font-bold">
-                            {(a.colaborador_nome ?? '?')[0].toUpperCase()}
+                {filtered.map(a => {
+                  const isChecked = a.id != null && selected.has(a.id)
+                  return (
+                    <tr
+                      key={a.id}
+                      onClick={() => navigate(`/avaliacoes/${a.id}`)}
+                      className={`cursor-pointer transition-colors ${isChecked ? 'bg-primary-50/60 dark:bg-primary-900/10' : 'hover:bg-slate-50 dark:hover:bg-slate-700/30'}`}
+                    >
+                      {/* checkbox */}
+                      <td className="px-4 py-3" onClick={e => a.id != null && toggleOne(a.id, e)}>
+                        <button className="text-slate-300 hover:text-primary-500 transition-colors">
+                          {isChecked
+                            ? <CheckSquare size={15} className="text-primary-500" />
+                            : <Square size={15} />
+                          }
+                        </button>
+                      </td>
+
+                      {/* Colaborador */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center shrink-0">
+                            <span className="text-primary-600 dark:text-primary-400 text-xs font-bold">
+                              {(a.colaborador_nome ?? '?')[0].toUpperCase()}
+                            </span>
+                          </div>
+                          <span className="text-sm font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                            {a.colaborador_nome ?? '—'}
                           </span>
                         </div>
-                        <span className="text-sm font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap">
-                          {a.colaborador_nome ?? '—'}
+                      </td>
+
+                      {/* Quadrante */}
+                      <td className="px-4 py-3">
+                        {a.quadrante ? (
+                          <div>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${QUADRANTE_COLORS[a.quadrante] ?? ''}`}>
+                              {a.quadrante}
+                            </span>
+                            <p className="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">{QUADRANTE_LABELS[a.quadrante]}</p>
+                          </div>
+                        ) : '—'}
+                      </td>
+
+                      {/* Desempenho */}
+                      <td className="px-4 py-3">
+                        {a.score_desempenho != null ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-primary-600">{Number(a.score_desempenho).toFixed(1)}</span>
+                            <div className="w-16 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                              <div className="h-full bg-primary-500 rounded-full" style={{ width: `${(Number(a.score_desempenho) / 5) * 100}%` }} />
+                            </div>
+                          </div>
+                        ) : '—'}
+                      </td>
+
+                      {/* Potencial */}
+                      <td className="px-4 py-3">
+                        {a.score_potencial != null ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{Number(a.score_potencial).toFixed(1)}</span>
+                            <div className="w-16 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                              <div className="h-full bg-slate-500 rounded-full" style={{ width: `${(Number(a.score_potencial) / 5) * 100}%` }} />
+                            </div>
+                          </div>
+                        ) : '—'}
+                      </td>
+
+                      {/* Período */}
+                      <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                        {PERIODOS[a.periodo_inicial] || a.periodo_inicial || '—'}
+                      </td>
+
+                      {/* Tipo */}
+                      <td className="px-4 py-3">
+                        <span className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-full whitespace-nowrap">
+                          {TIPO_LABELS[a.tipo] || a.tipo}
                         </span>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Quadrante */}
-                    <td className="px-4 py-3">
-                      {a.quadrante ? (
-                        <div>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${QUADRANTE_COLORS[a.quadrante] ?? ''}`}>
-                            {a.quadrante}
-                          </span>
-                          <p className="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">{QUADRANTE_LABELS[a.quadrante]}</p>
+                      {/* Avaliador */}
+                      <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                        {a.avaliador_nome || '—'}
+                      </td>
+
+                      {/* Data */}
+                      <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
+                        {formatDate(a.created_at)}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={e => handleExportSingle(a, e)}
+                            title="Exportar PDF desta avaliação"
+                            className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-300 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
+                          >
+                            <FileDown size={14} />
+                          </button>
+                          <ChevronRight size={15} className="text-slate-300 dark:text-slate-600" />
                         </div>
-                      ) : '—'}
-                    </td>
-
-                    {/* Desempenho */}
-                    <td className="px-4 py-3">
-                      {a.score_desempenho != null ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-primary-600">{Number(a.score_desempenho).toFixed(1)}</span>
-                          <div className="w-16 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                            <div className="h-full bg-primary-500 rounded-full" style={{ width: `${(Number(a.score_desempenho) / 5) * 100}%` }} />
-                          </div>
-                        </div>
-                      ) : '—'}
-                    </td>
-
-                    {/* Potencial */}
-                    <td className="px-4 py-3">
-                      {a.score_potencial != null ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{Number(a.score_potencial).toFixed(1)}</span>
-                          <div className="w-16 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                            <div className="h-full bg-slate-500 rounded-full" style={{ width: `${(Number(a.score_potencial) / 5) * 100}%` }} />
-                          </div>
-                        </div>
-                      ) : '—'}
-                    </td>
-
-                    {/* Período */}
-                    <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                      {PERIODOS[a.periodo_inicial] || a.periodo_inicial || '—'}
-                    </td>
-
-                    {/* Tipo */}
-                    <td className="px-4 py-3">
-                      <span className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-full whitespace-nowrap">
-                        {TIPO_LABELS[a.tipo] || a.tipo}
-                      </span>
-                    </td>
-
-                    {/* Avaliador */}
-                    <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                      {a.avaliador_nome || '—'}
-                    </td>
-
-                    {/* Data */}
-                    <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
-                      {formatDate(a.created_at)}
-                    </td>
-
-                    <td className="px-4 py-3">
-                      <ChevronRight size={15} className="text-slate-300 dark:text-slate-600" />
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
