@@ -15,8 +15,8 @@ exports.handler = async (event) => {
   if (!siteUrl)
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'URL do site não configurada. Defina SITE_URL nas variáveis de ambiente do Netlify.' }) }
 
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD)
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'GMAIL_USER ou GMAIL_APP_PASSWORD não configurado nas variáveis de ambiente do Netlify' }) }
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS)
+    return { statusCode: 500, headers, body: JSON.stringify({ error: 'SMTP_USER ou SMTP_PASS não configurado nas variáveis de ambiente do Netlify' }) }
 
   try {
     requireAdmin(event)

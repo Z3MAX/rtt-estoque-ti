@@ -10,8 +10,8 @@ exports.handler = async (event) => {
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Método não permitido' }) }
   if (!process.env.DATABASE_URL)
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'DATABASE_URL não configurado' }) }
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD)
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Credenciais de e-mail não configuradas (GMAIL_USER / GMAIL_APP_PASSWORD)' }) }
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS)
+    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Credenciais de e-mail não configuradas (SMTP_USER / SMTP_PASS)' }) }
 
   try {
     const authPayload = requireAuth(event)

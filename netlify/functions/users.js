@@ -74,8 +74,8 @@ exports.handler = async (event) => {
         if (!siteUrl) {
           emailError = 'URL do site não configurada (SITE_URL)'
           console.warn('[users] convite não enviado: SITE_URL/URL ausente')
-        } else if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-          emailError = 'Credenciais de e-mail não configuradas (GMAIL_USER / GMAIL_APP_PASSWORD)'
+        } else if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+          emailError = 'Credenciais de e-mail não configuradas (SMTP_USER / SMTP_PASS)'
           console.warn('[users] convite não enviado: credenciais de e-mail ausentes')
         } else {
           await sql`
