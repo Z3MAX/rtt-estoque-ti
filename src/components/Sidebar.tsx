@@ -1,24 +1,26 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, LogOut,
-  UserCircle, ChevronRight, Sun, Moon, ClipboardList, Building2, ClipboardCheck, ListChecks,
+  UserCircle, ChevronRight, Sun, Moon, ClipboardList, Building2, ClipboardCheck, ListChecks, Shield,
 } from 'lucide-react'
-import { useAuth, isAdmin } from '../lib/auth'
+import { useAuth, isAdmin, isMaster } from '../lib/auth'
 import { useTheme } from '../lib/theme'
 
 const navItems = [
-  { to: '/dashboard',          icon: LayoutDashboard, label: 'Dashboard',            adminOnly: false },
-  { to: '/colaboradores',      icon: ClipboardList,   label: 'Colaboradores',        adminOnly: false },
-  { to: '/departamentos',      icon: Building2,       label: 'Departamentos',        adminOnly: false },
-  { to: '/realizar-avaliacao', icon: ClipboardCheck,  label: 'Realizar Avaliação',   adminOnly: false },
-  { to: '/avaliacoes',         icon: ListChecks,      label: 'Avaliações',           adminOnly: true  },
-  { to: '/usuarios',           icon: Users,           label: 'Usuários',             adminOnly: true  },
+  { to: '/dashboard',          icon: LayoutDashboard, label: 'Dashboard',            adminOnly: false, masterOnly: false },
+  { to: '/colaboradores',      icon: ClipboardList,   label: 'Colaboradores',        adminOnly: false, masterOnly: false },
+  { to: '/departamentos',      icon: Building2,       label: 'Departamentos',        adminOnly: false, masterOnly: false },
+  { to: '/realizar-avaliacao', icon: ClipboardCheck,  label: 'Realizar Avaliação',   adminOnly: false, masterOnly: false },
+  { to: '/avaliacoes',         icon: ListChecks,      label: 'Avaliações',           adminOnly: true,  masterOnly: false },
+  { to: '/usuarios',           icon: Users,           label: 'Usuários',             adminOnly: true,  masterOnly: false },
+  { to: '/auditoria',          icon: Shield,          label: 'Auditoria',            adminOnly: false, masterOnly: true  },
 ]
 
 export default function Sidebar() {
   const { user, logout } = useAuth()
   const { theme, toggle } = useTheme()
-  const userIsAdmin = isAdmin(user?.role)
+  const userIsAdmin  = isAdmin(user?.role)
+  const userIsMaster = isMaster(user?.role)
 
   return (
     <aside className="w-64 h-screen sticky top-0 overflow-y-auto flex flex-col shrink-0
@@ -54,7 +56,7 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5">
         <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Menu</p>
-        {navItems.filter(({ adminOnly }) => !adminOnly || userIsAdmin).map(({ to, icon: Icon, label }) => (
+        {navItems.filter(({ adminOnly, masterOnly }) => (!adminOnly || userIsAdmin) && (!masterOnly || userIsMaster)).map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}

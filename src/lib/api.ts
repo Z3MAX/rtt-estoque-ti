@@ -232,12 +232,14 @@ export const api = {
   },
 
   audit: {
-    list: async (entityType: string, entityId?: number, limit?: number) => {
+    list: async (entityType?: string, entityId?: number, limit?: number) => {
       if (MOCK) { await delay(150); return [] }
-      const qs = new URLSearchParams({ entity_type: entityType })
+      const qs = new URLSearchParams()
+      if (entityType) qs.set('entity_type', entityType)
       if (entityId !== undefined) qs.set('entity_id', String(entityId))
       if (limit !== undefined) qs.set('limit', String(limit))
-      return request<AuditEntry[]>(`${BASE}/audit?${qs}`)
+      const q = qs.toString()
+      return request<AuditEntry[]>(`${BASE}/audit${q ? `?${q}` : ''}`)
     },
   },
 }

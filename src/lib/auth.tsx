@@ -12,7 +12,11 @@ export interface User {
 }
 
 export function isAdmin(role?: string) {
-  return role === 'Administrador de RH' || role === 'Administrador de TI'
+  return role === 'Administrador de RH' || role === 'Administrador de TI' || role === 'Administrador Master'
+}
+
+export function isMaster(role?: string) {
+  return role === 'Administrador Master'
 }
 
 export function isGestor(role?: string) {

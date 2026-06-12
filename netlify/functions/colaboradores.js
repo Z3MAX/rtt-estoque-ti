@@ -1,5 +1,6 @@
 const { neon } = require('@neondatabase/serverless')
 const { requireAuth, makeHeaders, errorResponse } = require('./_auth')
+const { logAudit, computeDiff, getUserName } = require('./_audit')
 
 exports.handler = async (event) => {
   const headers = makeHeaders(event)
@@ -174,6 +175,8 @@ exports.handler = async (event) => {
                 ${area || null}, ${email || null}, ${gestor_nome || null})
         RETURNING *
       `
+      const userName = await getUserName(sql, authPayload.userId)
+      await logAudit(sql, { entityType: 'colaborador', entityId: rows[0].id, entityName: rows[0].nome, action: 'created', changes: null, userId: authPayload.userId, userName })
       return { statusCode: 201, headers, body: JSON.stringify(rows[0]) }
     }
 
@@ -181,6 +184,7 @@ exports.handler = async (event) => {
       if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'ID necessário' }) }
       const body = JSON.parse(event.body || '{}')
       const { nome, cargo, nivel, area, email, gestor_nome } = body
+      const before = await sql`SELECT nome, cargo, nivel, area, email, gestor_nome FROM colaboradores WHERE id = ${id}`
       const rows = await sql`
         UPDATE colaboradores
         SET nome       = ${nome       ?? null},
@@ -194,6 +198,9 @@ exports.handler = async (event) => {
         RETURNING *
       `
       if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Não encontrado' }) }
+      const changes = computeDiff(before[0] || {}, rows[0], ['nome', 'cargo', 'nivel', 'area', 'email', 'gestor_nome'])
+      const userName = await getUserName(sql, authPayload.userId)
+      await logAudit(sql, { entityType: 'colaborador', entityId: rows[0].id, entityName: rows[0].nome, action: 'updated', changes, userId: authPayload.userId, userName })
       return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
     }
 
@@ -208,7 +215,10 @@ exports.handler = async (event) => {
         return { statusCode: 200, headers, body: JSON.stringify({ success: true, deleted: ids.length }) }
       }
       if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'ID necessário' }) }
+      const target = await sql`SELECT nome FROM colaboradores WHERE id = ${id}`
       await sql`UPDATE colaboradores SET ativo = false, updated_at = NOW() WHERE id = ${id}`
+      const userName = await getUserName(sql, authPayload.userId)
+      await logAudit(sql, { entityType: 'colaborador', entityId: id, entityName: target[0]?.nome || `#${id}`, action: 'deactivated', changes: null, userId: authPayload.userId, userName })
       return { statusCode: 200, headers, body: JSON.stringify({ success: true }) }
     }
 

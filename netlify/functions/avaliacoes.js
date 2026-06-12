@@ -1,5 +1,6 @@
 const { neon } = require('@neondatabase/serverless')
 const { requireAuth, isAdminRole, makeHeaders, errorResponse } = require('./_auth')
+const { logAudit, getUserName } = require('./_audit')
 
 exports.handler = async (event) => {
   const headers = makeHeaders(event)
@@ -87,6 +88,16 @@ exports.handler = async (event) => {
         )
         RETURNING *
       `
+      const userName = await getUserName(sql, authPayload.userId)
+      await logAudit(sql, {
+        entityType: 'avaliacao',
+        entityId: rows[0].id,
+        entityName: rows[0].colaborador_nome || `Colaborador #${rows[0].colaborador_id}`,
+        action: 'created',
+        changes: null,
+        userId: authPayload.userId,
+        userName,
+      })
       return { statusCode: 201, headers, body: JSON.stringify(rows[0]) }
     }
 
@@ -121,12 +132,33 @@ exports.handler = async (event) => {
         RETURNING *
       `
       if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Não encontrado' }) }
+      const userName = await getUserName(sql, authPayload.userId)
+      await logAudit(sql, {
+        entityType: 'avaliacao',
+        entityId: rows[0].id,
+        entityName: rows[0].colaborador_nome || `Colaborador #${rows[0].colaborador_id}`,
+        action: 'updated',
+        changes: null,
+        userId: authPayload.userId,
+        userName,
+      })
       return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
     }
 
     if (event.httpMethod === 'DELETE') {
       if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'ID necessário' }) }
+      const existing = await sql`SELECT colaborador_nome, colaborador_id FROM ciclos_avaliacao WHERE id = ${id}`
       await sql`DELETE FROM ciclos_avaliacao WHERE id = ${id}`
+      const userName = await getUserName(sql, authPayload.userId)
+      await logAudit(sql, {
+        entityType: 'avaliacao',
+        entityId: id,
+        entityName: existing[0]?.colaborador_nome || `Avaliação #${id}`,
+        action: 'deleted',
+        changes: null,
+        userId: authPayload.userId,
+        userName,
+      })
       return { statusCode: 200, headers, body: JSON.stringify({ success: true }) }
     }
 

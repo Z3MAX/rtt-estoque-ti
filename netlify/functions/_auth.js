@@ -24,7 +24,12 @@ function requireAuth(event) {
 
 /** Retorna true para roles com acesso administrativo completo. */
 function isAdminRole(role) {
-  return role === 'Administrador de RH' || role === 'Administrador de TI'
+  return role === 'Administrador de RH' || role === 'Administrador de TI' || role === 'Administrador Master'
+}
+
+/** Retorna true somente para Administrador Master. */
+function isMasterRole(role) {
+  return role === 'Administrador Master'
 }
 
 /** Como requireAuth, mas exige role de administrador. */
@@ -32,6 +37,15 @@ function requireAdmin(event) {
   const payload = requireAuth(event)
   if (!isAdminRole(payload.role)) {
     throw Object.assign(new Error('Acesso negado'), { statusCode: 403 })
+  }
+  return payload
+}
+
+/** Como requireAuth, mas exige role de Administrador Master. */
+function requireMaster(event) {
+  const payload = requireAuth(event)
+  if (!isMasterRole(payload.role)) {
+    throw Object.assign(new Error('Acesso restrito ao Administrador Master'), { statusCode: 403 })
   }
   return payload
 }
@@ -66,4 +80,4 @@ function errorResponse(headers, err) {
   return { statusCode: status, headers, body: JSON.stringify({ error: message }) }
 }
 
-module.exports = { requireAuth, requireAdmin, isAdminRole, signToken, makeHeaders, errorResponse }
+module.exports = { requireAuth, requireAdmin, requireMaster, isAdminRole, isMasterRole, signToken, makeHeaders, errorResponse }

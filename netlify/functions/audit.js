@@ -1,5 +1,5 @@
 const { neon } = require('@neondatabase/serverless')
-const { requireAuth, makeHeaders, errorResponse } = require('./_auth')
+const { requireMaster, makeHeaders, errorResponse } = require('./_auth')
 
 exports.handler = async (event) => {
   const headers = makeHeaders(event, 'GET, OPTIONS')
@@ -8,7 +8,7 @@ exports.handler = async (event) => {
   if (!process.env.DATABASE_URL) return { statusCode: 500, headers, body: JSON.stringify({ error: 'DATABASE_URL not configured' }) }
 
   try {
-    requireAuth(event)
+    requireMaster(event)
     const sql = neon(process.env.DATABASE_URL)
     const params = event.queryStringParameters || {}
     const entityType = params.entity_type || null

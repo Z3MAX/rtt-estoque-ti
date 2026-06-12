@@ -5,7 +5,7 @@ const { requireAuth, requireAdmin, isAdminRole, makeHeaders, errorResponse } = r
 const { sendInviteEmail } = require('./_email')
 const { logAudit, computeDiff, getUserName } = require('./_audit')
 
-const VALID_ROLES = ['Administrador de RH', 'Gestor']
+const VALID_ROLES = ['Administrador de RH', 'Gestor', 'Administrador Master']
 
 exports.handler = async (event) => {
   const headers = makeHeaders(event)

@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider, useAuth, isAdmin } from './lib/auth'
+import { AuthProvider, useAuth, isAdmin, isMaster } from './lib/auth'
 import { ThemeProvider, ForceLightMode } from './lib/theme'
 import LoginPage from './components/LoginPage'
 import ForgotPasswordPage from './components/ForgotPasswordPage'
@@ -17,6 +17,7 @@ import DepartamentoDetalhe from './components/pages/DepartamentoDetalhe'
 import RealizarAvaliacaoPage from './components/pages/RealizarAvaliacao'
 import AvaliacaoDetalhe from './components/pages/AvaliacaoDetalhe'
 import AvaliacoesPage from './components/pages/Avaliacoes'
+import AuditoriaPage from './components/pages/Auditoria'
 
 function ProtectedRoutes() {
   const { user, loading } = useAuth()
@@ -55,6 +56,7 @@ function ProtectedRoutes() {
         <Route path="/avaliacoes/:id" element={<AvaliacaoDetalhe />} />
         <Route path="/monitor" element={<AuditMonitor />} />
         <Route path="/usuarios" element={isAdmin(user?.role) ? <UsersPage /> : <Navigate to="/dashboard" replace />} />
+        <Route path="/auditoria" element={isMaster(user?.role) ? <AuditoriaPage /> : <Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>
