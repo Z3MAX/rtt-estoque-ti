@@ -2,18 +2,25 @@ const nodemailer = require('nodemailer')
 
 function createTransporter() {
   return nodemailer.createTransport({
-    service: 'gmail',
+    host: process.env.SMTP_HOST || 'smtp.office365.com',
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: false, // STARTTLS on port 587
     auth: {
-      user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_APP_PASSWORD,
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+    tls: {
+      ciphers: 'SSLv3',
+      rejectUnauthorized: false,
     },
   })
 }
 
-const FROM = () =>
-  process.env.GMAIL_USER
-    ? `Rema Tip Top TI <${process.env.GMAIL_USER}>`
-    : 'Rema Tip Top TI <noreply@rtt.com>'
+const FROM = () => {
+  const user = process.env.SMTP_USER
+  const name = process.env.SMTP_FROM_NAME || 'Rema Tip Top'
+  return user ? `${name} <${user}>` : `${name} <noreply@rematiptop.com.br>`
+}
 
 /** Escapa caracteres especiais HTML para prevenir injeção em templates de e-mail. */
 function esc(s) {
@@ -26,8 +33,8 @@ function esc(s) {
 }
 
 async function sendMail({ to, subject, html }) {
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-    return { skipped: true, reason: 'GMAIL_USER ou GMAIL_APP_PASSWORD não configurado' }
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    return { skipped: true, reason: 'SMTP_USER ou SMTP_PASS não configurado' }
   }
   try {
     const transporter = createTransporter()
