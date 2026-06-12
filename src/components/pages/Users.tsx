@@ -42,9 +42,10 @@ interface ModalProps {
   user?: AppUser | null
   onClose: () => void
   onSaved: () => void
+  currentUserRole?: string
 }
 
-function UserModal({ user, onClose, onSaved }: ModalProps) {
+function UserModal({ user, onClose, onSaved, currentUserRole }: ModalProps) {
   const isEdit = !!user
   const [name, setName]         = useState(user?.name ?? '')
   const [email, setEmail]       = useState(user?.email ?? '')
@@ -129,7 +130,9 @@ function UserModal({ user, onClose, onSaved }: ModalProps) {
           <div>
             <label className="label">Perfil de acesso</label>
             <select className="input" value={role} onChange={(e) => setRole(e.target.value)} disabled={loading}>
-              {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+              {ROLES.filter((r) => r !== 'Administrador Master' || currentUserRole === 'Administrador Master').map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
             </select>
           </div>
           <div>
@@ -486,6 +489,7 @@ export default function UsersPage() {
           user={modalUser}
           onClose={() => setModalUser(undefined)}
           onSaved={async () => { setModalUser(undefined); await load() }}
+          currentUserRole={currentUser?.role}
         />
       )}
 
