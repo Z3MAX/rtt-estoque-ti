@@ -15,13 +15,14 @@ interface AppUser {
   created_at: string
 }
 
-const ROLES = ['Administrador de RH', 'Gestor']
+const ROLES = ['Administrador Master', 'Administrador de RH', 'Gestor']
 
 const ROLE_STYLE: Record<string, string> = {
-  'Administrador de RH': 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 border-primary-200 dark:border-primary-800',
-  'Gestor':              'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800',
+  'Administrador Master': 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 border-violet-200 dark:border-violet-800',
+  'Administrador de RH':  'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 border-primary-200 dark:border-primary-800',
+  'Gestor':               'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800',
   // backward compat
-  'Administrador de TI': 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 border-primary-200 dark:border-primary-800',
+  'Administrador de TI':  'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 border-primary-200 dark:border-primary-800',
 }
 
 function initials(name: string) {
@@ -213,7 +214,7 @@ export default function UsersPage() {
   const [importingGestores, setImportingGestores] = useState(false)
   const [importResult, setImportResult] = useState<{ created: number; skipped: number } | null>(null)
 
-  const userIsAdmin = currentUser?.role === 'Administrador de RH' || currentUser?.role === 'Administrador de TI'
+  const userIsAdmin = currentUser?.role === 'Administrador de RH' || currentUser?.role === 'Administrador de TI' || currentUser?.role === 'Administrador Master'
 
   async function load() {
     try {
