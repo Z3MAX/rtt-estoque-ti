@@ -130,9 +130,7 @@ function UserModal({ user, onClose, onSaved, currentUserRole }: ModalProps) {
           <div>
             <label className="label">Perfil de acesso</label>
             <select className="input" value={role} onChange={(e) => setRole(e.target.value)} disabled={loading}>
-              {ROLES.filter((r) => r !== 'Administrador Master' || currentUserRole === 'Administrador Master').map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
+              {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
           <div>

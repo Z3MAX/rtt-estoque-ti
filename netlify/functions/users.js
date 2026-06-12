@@ -51,8 +51,11 @@ exports.handler = async (event) => {
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Nome muito longo (máx 200 caracteres)' }) }
       if (role && !VALID_ROLES.includes(role))
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Papel inválido' }) }
-      if (role === 'Administrador Master' && !isMasterRole(adminPayload.role))
-        return { statusCode: 403, headers, body: JSON.stringify({ error: 'Apenas um Administrador Master pode conceder este perfil' }) }
+      if (role === 'Administrador Master' && !isMasterRole(adminPayload.role)) {
+        const existingMasters = await sql`SELECT id FROM users WHERE role = 'Administrador Master' LIMIT 1`
+        if (existingMasters.length > 0)
+          return { statusCode: 403, headers, body: JSON.stringify({ error: 'Apenas um Administrador Master pode conceder este perfil' }) }
+      }
 
       const existing = await sql`SELECT id FROM users WHERE email = ${email.toLowerCase()}`
       if (existing.length > 0)
@@ -125,8 +128,11 @@ exports.handler = async (event) => {
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'E-mail inválido' }) }
       if (role !== undefined && !VALID_ROLES.includes(role))
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Papel inválido' }) }
-      if (role === 'Administrador Master' && !isMasterRole(adminPayload.role))
-        return { statusCode: 403, headers, body: JSON.stringify({ error: 'Apenas um Administrador Master pode conceder este perfil' }) }
+      if (role === 'Administrador Master' && !isMasterRole(adminPayload.role)) {
+        const existingMasters = await sql`SELECT id FROM users WHERE role = 'Administrador Master' LIMIT 1`
+        if (existingMasters.length > 0)
+          return { statusCode: 403, headers, body: JSON.stringify({ error: 'Apenas um Administrador Master pode conceder este perfil' }) }
+      }
       if (password && password.length < 8)
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'A senha deve ter no mínimo 8 caracteres' }) }
 
