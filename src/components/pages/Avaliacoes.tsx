@@ -86,7 +86,7 @@ export default function AvaliacoesPage() {
   const [filterPeriodo, setFilterPeriodo] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [showFilters, setShowFilters] = useState(false)
-  const [calibrando, setCalibrando] = useState<number | null>(null)
+
 
   // selection
   const [selected, setSelected] = useState<Set<number>>(new Set())
@@ -122,18 +122,6 @@ export default function AvaliacoesPage() {
   const quadrantes = [...new Set(avaliacoes.map(a => a.quadrante).filter(Boolean))] as string[]
   const pendentesCount = avaliacoes.filter(a => a.status === 'pendente').length
   const hasFilters = !!filterQuadrante || !!filterPeriodo || !!filterStatus
-
-  async function handleCalibrar(a: CicloAvaliacao, e: React.MouseEvent) {
-    e.stopPropagation()
-    if (!a.id) return
-    setCalibrando(a.id)
-    try {
-      await api.avaliacoes.update(a.id, { calibrar: true } as never)
-      await load()
-    } catch { /* erro silencioso */ } finally {
-      setCalibrando(null)
-    }
-  }
 
   // Stats
   const totalE = filtered.filter(a => a.quadrante?.startsWith('E')).length
@@ -511,14 +499,11 @@ export default function AvaliacoesPage() {
                         <div className="flex items-center gap-1">
                           {userIsAdmin && a.status === 'pendente' && (
                             <button
-                              onClick={e => handleCalibrar(a, e)}
-                              disabled={calibrando === a.id}
-                              title="Concluir calibração"
-                              className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-800 transition-colors disabled:opacity-50"
+                              onClick={e => { e.stopPropagation(); navigate(`/avaliacoes/${a.id}?calibrar=1`) }}
+                              title="Realizar calibração"
+                              className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-800 transition-colors"
                             >
-                              {calibrando === a.id
-                                ? <RefreshCw size={11} className="animate-spin" />
-                                : <CheckCircle2 size={11} />}
+                              <CheckCircle2 size={11} />
                               Calibrar
                             </button>
                           )}

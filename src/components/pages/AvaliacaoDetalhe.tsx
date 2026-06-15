@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, RefreshCw, ChevronRight, Pencil, CheckCircle2, ClipboardCheck, AlertCircle, Target, TrendingUp, Star } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth, isAdmin } from '../../lib/auth'
@@ -393,6 +393,7 @@ function CalibracaoModal({ avaliacao, onClose, onConcluido }: {
 
 export default function AvaliacaoDetalhe() {
   const { id } = useParams<{ id: string }>()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { user } = useAuth()
   const userIsAdmin = isAdmin(user?.role)
@@ -400,7 +401,7 @@ export default function AvaliacaoDetalhe() {
   const [colab, setColab] = useState<Colaborador | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [showCalibracao, setShowCalibracao] = useState(false)
+  const [showCalibracao, setShowCalibracao] = useState(searchParams.get('calibrar') === '1')
 
   useEffect(() => {
     const load = async () => {
