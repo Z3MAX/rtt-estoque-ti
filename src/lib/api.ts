@@ -219,6 +219,25 @@ export const api = {
     },
   },
 
+  ciclos: {
+    list: async () => {
+      if (MOCK) { await delay(300); return [] }
+      return request(`${BASE}/ciclos`)
+    },
+    getAtivo: async () => {
+      if (MOCK) { await delay(200); return null }
+      return request(`${BASE}/ciclos`)
+    },
+    create: async (data: { periodo_inicial: string; periodo_final?: string; prazo?: string }) => {
+      if (MOCK) { await delay(400); return { id: 1, ...data, status: 'aberto', created_at: new Date().toISOString() } }
+      return request(`${BASE}/ciclos`, { method: 'POST', body: JSON.stringify(data) })
+    },
+    encerrar: async (id: number) => {
+      if (MOCK) { await delay(400); return { success: true } }
+      return request(`${BASE}/ciclos?id=${id}`, { method: 'PUT', body: JSON.stringify({ status: 'encerrado' }) })
+    },
+  },
+
   avaliacoesPendentes: {
     list: async () => {
       if (MOCK) { await delay(300); return [] }

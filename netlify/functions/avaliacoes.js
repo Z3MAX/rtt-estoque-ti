@@ -63,6 +63,12 @@ exports.handler = async (event) => {
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'colaborador_id é obrigatório' }) }
       }
 
+      // Verifica se há ciclo aberto (obrigatório para todos)
+      const activeCycle = await sql`SELECT id, periodo_inicial FROM ciclos WHERE status = 'aberto' LIMIT 1`.catch(() => [])
+      if (activeCycle.length === 0) {
+        return { statusCode: 403, headers, body: JSON.stringify({ error: 'Nenhum ciclo de avaliação está aberto no momento. Aguarde o RH abrir um novo ciclo.' }) }
+      }
+
       // Gestor só pode avaliar colaboradores do seu departamento
       if (isGestor && gestorArea) {
         const check = await sql`SELECT area FROM colaboradores WHERE id = ${colaborador_id}`

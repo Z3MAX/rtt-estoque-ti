@@ -465,6 +465,7 @@ export default function NovaAvaliacao() {
 
   const [colab, setColab] = useState<Colaborador | null>(null)
   const [loadingColab, setLoadingColab] = useState(true)
+  const [cicloAtivo, setCicloAtivo] = useState<{ id: number; periodo_inicial: string } | null | undefined>(undefined)
   const [avaliador, setAvaliador] = useState(user?.name ?? '')
   const [tipo, setTipo] = useState('')
   const [periodoInicial, setPeriodoInicial] = useState('')
@@ -476,6 +477,12 @@ export default function NovaAvaliacao() {
   const [result, setResult] = useState<{ avgDesempenho: number; avgPotencial: number; quadrante: string } | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    api.ciclos.getAtivo()
+      .then((c) => setCicloAtivo(c as { id: number; periodo_inicial: string } | null))
+      .catch(() => setCicloAtivo(null))
+  }, [])
 
   useEffect(() => {
     const load = async () => {
@@ -502,6 +509,13 @@ export default function NovaAvaliacao() {
             setRatings(newRatings)
             setObservations(newObs)
           }
+        } else {
+          // Pre-fill period from active cycle
+          const ciclo = await api.ciclos.getAtivo().catch(() => null) as { periodo_inicial: string } | null
+          if (ciclo?.periodo_inicial) {
+            setPeriodoInicial(ciclo.periodo_inicial)
+            setPeriodoFinal(ciclo.periodo_inicial)
+          }
         }
       } finally {
         setLoadingColab(false)
@@ -523,6 +537,31 @@ export default function NovaAvaliacao() {
 
   if (!colab) {
     return <div className="p-6"><div className="card p-12 text-center"><p className="text-slate-500">Colaborador não encontrado.</p></div></div>
+  }
+
+  const isGestor = user?.role === 'Gestor'
+  if (!isEditMode && cicloAtivo === null && isGestor) {
+    return (
+      <div className="p-6 max-w-3xl mx-auto animate-fade-in">
+        <button onClick={() => navigate(`/colaboradores/${colab.id}`)} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 mb-5">
+          <ArrowLeft size={14} /> {colab.nome}
+        </button>
+        <div className="card p-10 flex flex-col items-center text-center gap-4">
+          <div className="w-16 h-16 rounded-2xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+            <AlertTriangle size={28} className="text-amber-500" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Nenhum ciclo de avaliação aberto</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-sm">
+              O RH ainda não abriu um ciclo de avaliação. Aguarde a abertura do ciclo para enviar avaliações.
+            </p>
+          </div>
+          <button onClick={() => navigate(`/colaboradores/${colab.id}`)} className="btn-secondary">
+            Voltar
+          </button>
+        </div>
+      </div>
+    )
   }
 
   const nivel = colab.nivel as NivelCargo | undefined
@@ -581,7 +620,6 @@ export default function NovaAvaliacao() {
         nivel_potencial:  classificarEixo(result.avgPotencial),
         quadrante:        result.quadrante,
         respostas,
-        status:           'concluido',
       }
       if (isEditMode && editId) {
         await api.avaliacoes.update(editId, payload as unknown as Partial<CicloAvaliacao>)

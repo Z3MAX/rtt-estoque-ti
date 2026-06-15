@@ -18,6 +18,7 @@ import RealizarAvaliacaoPage from './components/pages/RealizarAvaliacao'
 import AvaliacaoDetalhe from './components/pages/AvaliacaoDetalhe'
 import AvaliacoesPage from './components/pages/Avaliacoes'
 import AuditoriaPage from './components/pages/Auditoria'
+import CicloAvaliacaoPage from './components/pages/CicloAvaliacao'
 
 function ProtectedRoutes() {
   const { user, loading } = useAuth()
@@ -57,6 +58,7 @@ function ProtectedRoutes() {
         <Route path="/monitor" element={<AuditMonitor />} />
         <Route path="/usuarios" element={isAdmin(user?.role) ? <UsersPage /> : <Navigate to="/dashboard" replace />} />
         <Route path="/auditoria" element={isMaster(user?.role) ? <AuditoriaPage /> : <Navigate to="/dashboard" replace />} />
+        <Route path="/ciclo-avaliacao" element={isAdmin(user?.role) ? <CicloAvaliacaoPage /> : <Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>

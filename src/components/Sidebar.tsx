@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, LogOut,
-  UserCircle, ChevronRight, Sun, Moon, ClipboardList, Building2, ClipboardCheck, ListChecks, Shield,
+  UserCircle, ChevronRight, Sun, Moon, ClipboardList, Building2, ClipboardCheck, ListChecks, Shield, CalendarRange,
 } from 'lucide-react'
 import { useAuth, isAdmin, isMaster } from '../lib/auth'
 import { useTheme } from '../lib/theme'
@@ -12,6 +12,7 @@ const navItems = [
   { to: '/departamentos',      icon: Building2,       label: 'Departamentos',        adminOnly: false, masterOnly: false },
   { to: '/realizar-avaliacao', icon: ClipboardCheck,  label: 'Realizar Avaliação',   adminOnly: false, masterOnly: false },
   { to: '/avaliacoes',         icon: ListChecks,      label: 'Avaliações',           adminOnly: true,  masterOnly: false },
+  { to: '/ciclo-avaliacao',    icon: CalendarRange,   label: 'Ciclo de Avaliação',   adminOnly: true,  masterOnly: false },
   { to: '/usuarios',           icon: Users,           label: 'Usuários',             adminOnly: true,  masterOnly: false },
   { to: '/auditoria',          icon: Shield,          label: 'Auditoria',            adminOnly: false, masterOnly: true  },
 ]
