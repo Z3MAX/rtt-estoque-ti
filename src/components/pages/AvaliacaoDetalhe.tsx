@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, RefreshCw, ChevronRight, Pencil } from 'lucide-react'
+import { ArrowLeft, RefreshCw, ChevronRight, Pencil, CheckCircle2 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth, isAdmin } from '../../lib/auth'
 import type { CicloAvaliacao, Colaborador } from '../../lib/types'
@@ -128,6 +128,18 @@ export default function AvaliacaoDetalhe() {
   const [colab, setColab] = useState<Colaborador | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [calibrando, setCalibrando] = useState(false)
+
+  async function handleCalibrar() {
+    if (!avaliacao?.id) return
+    setCalibrando(true)
+    try {
+      const updated = await api.avaliacoes.update(avaliacao.id, { calibrar: true } as never) as CicloAvaliacao
+      setAvaliacao(updated)
+    } catch { /* erro silencioso */ } finally {
+      setCalibrando(false)
+    }
+  }
 
   useEffect(() => {
     const load = async () => {
@@ -184,9 +196,24 @@ export default function AvaliacaoDetalhe() {
       {/* Header card */}
       <div className="card p-5">
         <div className="flex flex-wrap items-start gap-4 justify-between">
-          {/* Edit button — admin only */}
+          {/* Admin actions */}
           {userIsAdmin && colab && (
-            <div className="w-full flex justify-end -mb-2">
+            <div className="w-full flex justify-end gap-2 -mb-2">
+              {avaliacao.status === 'aguardando_calibracao' && (
+                <button
+                  onClick={handleCalibrar}
+                  disabled={calibrando}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all disabled:opacity-50"
+                >
+                  {calibrando ? <RefreshCw size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                  Concluir calibração
+                </button>
+              )}
+              {avaliacao.status === 'concluido' && (
+                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20">
+                  <CheckCircle2 size={12} /> Calibração concluída
+                </span>
+              )}
               <button
                 onClick={() => navigate(`/avaliacoes/nova/${colab.id}?edit=${id}`)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-primary-600 dark:hover:text-primary-400 hover:border-primary-300 dark:hover:border-primary-700 transition-all"

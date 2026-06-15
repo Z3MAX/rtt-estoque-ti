@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Search, X, RefreshCw, ClipboardList, ChevronRight, Filter,
-  Download, FileDown, CheckSquare, Square, Package, FileSpreadsheet,
+  Download, FileDown, CheckSquare, Square, Package, FileSpreadsheet, CheckCircle2,
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { api } from '../../lib/api'
 import type { CicloAvaliacao } from '../../lib/types'
 import { exportarAvaliacaoUnica, exportarAvaliacoesZip } from '../../lib/exportAvaliacao'
+import { useAuth, isAdmin } from '../../lib/auth'
 
 const QUADRANTE_COLORS: Record<string, string> = {
   E3: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
@@ -76,12 +77,16 @@ function exportarExcel(avaliacoes: CicloAvaliacao[]) {
 
 export default function AvaliacoesPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const userIsAdmin = isAdmin(user?.role)
   const [avaliacoes, setAvaliacoes] = useState<CicloAvaliacao[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filterQuadrante, setFilterQuadrante] = useState('')
   const [filterPeriodo, setFilterPeriodo] = useState('')
+  const [filterStatus, setFilterStatus] = useState('')
   const [showFilters, setShowFilters] = useState(false)
+  const [calibrando, setCalibrando] = useState<number | null>(null)
 
   // selection
   const [selected, setSelected] = useState<Set<number>>(new Set())
@@ -108,13 +113,27 @@ export default function AvaliacoesPage() {
       (a.quadrante ?? '').toLowerCase().includes(s)
     const matchQ = !filterQuadrante || a.quadrante === filterQuadrante
     const matchP = !filterPeriodo || a.periodo_inicial === filterPeriodo
-    return matchSearch && matchQ && matchP
+    const matchS = !filterStatus || a.status === filterStatus
+    return matchSearch && matchQ && matchP && matchS
   })
 
   const periodos = [...new Set(avaliacoes.map(a => a.periodo_inicial).filter(Boolean))]
     .sort().reverse() as string[]
   const quadrantes = [...new Set(avaliacoes.map(a => a.quadrante).filter(Boolean))] as string[]
-  const hasFilters = !!filterQuadrante || !!filterPeriodo
+  const pendentesCount = avaliacoes.filter(a => a.status === 'aguardando_calibracao').length
+  const hasFilters = !!filterQuadrante || !!filterPeriodo || !!filterStatus
+
+  async function handleCalibrar(a: CicloAvaliacao, e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!a.id) return
+    setCalibrando(a.id)
+    try {
+      await api.avaliacoes.update(a.id, { calibrar: true } as never)
+      await load()
+    } catch { /* erro silencioso */ } finally {
+      setCalibrando(null)
+    }
+  }
 
   // Stats
   const totalE = filtered.filter(a => a.quadrante?.startsWith('E')).length
@@ -195,7 +214,12 @@ export default function AvaliacoesPage() {
         <div className="flex-1">
           <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Avaliações</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            {filtered.length} avaliação(ões) concluída(s)
+            {filtered.length} avaliação(ões)
+            {pendentesCount > 0 && userIsAdmin && (
+              <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">
+                {pendentesCount} aguardando calibração
+              </span>
+            )}
           </p>
         </div>
         <div className="flex gap-2 flex-wrap justify-end">
@@ -295,6 +319,14 @@ export default function AvaliacoesPage() {
               ))}
             </select>
           </div>
+          <div className="flex-1 min-w-40">
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5 block">Status</label>
+            <select className="input text-sm w-full" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+              <option value="">Todos</option>
+              <option value="aguardando_calibracao">Aguardando calibração</option>
+              <option value="concluido">Concluída</option>
+            </select>
+          </div>
         </div>
       )}
 
@@ -365,7 +397,7 @@ export default function AvaliacoesPage() {
                       }
                     </button>
                   </th>
-                  {['Colaborador', 'Quadrante', 'Desempenho', 'Potencial', 'Período', 'Tipo', 'Avaliador', 'Data', ''].map(h => (
+                  {['Colaborador', 'Quadrante', 'Desempenho', 'Potencial', 'Período', 'Tipo', 'Avaliador', 'Data', 'Status', ''].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -461,9 +493,35 @@ export default function AvaliacoesPage() {
                         {formatDate(a.created_at)}
                       </td>
 
+                      {/* Status */}
+                      <td className="px-4 py-3">
+                        {a.status === 'aguardando_calibracao' ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 whitespace-nowrap">
+                            Ag. calibração
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 whitespace-nowrap">
+                            <CheckCircle2 size={11} /> Concluída
+                          </span>
+                        )}
+                      </td>
+
                       {/* Actions */}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
+                          {userIsAdmin && a.status === 'aguardando_calibracao' && (
+                            <button
+                              onClick={e => handleCalibrar(a, e)}
+                              disabled={calibrando === a.id}
+                              title="Concluir calibração"
+                              className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-800 transition-colors disabled:opacity-50"
+                            >
+                              {calibrando === a.id
+                                ? <RefreshCw size={11} className="animate-spin" />
+                                : <CheckCircle2 size={11} />}
+                              Calibrar
+                            </button>
+                          )}
                           <button
                             onClick={e => handleExportSingle(a, e)}
                             title="Exportar PDF desta avaliação"

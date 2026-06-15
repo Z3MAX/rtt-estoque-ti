@@ -84,7 +84,7 @@ exports.handler = async (event) => {
           ${nivel_cargo || null}, ${score_desempenho ?? null}, ${score_potencial ?? null},
           ${nivel_desempenho || null}, ${nivel_potencial || null},
           ${quadrante || null}, ${respostas ? JSON.stringify(respostas) : null},
-          ${status || 'concluido'}
+          ${isGestor ? 'aguardando_calibracao' : (status || 'concluido')}
         )
         RETURNING *
       `
@@ -111,8 +111,35 @@ exports.handler = async (event) => {
       const {
         avaliador_nome, tipo, periodo_inicial, periodo_final, nivel_cargo,
         score_desempenho, score_potencial, nivel_desempenho, nivel_potencial,
-        quadrante, respostas, status,
+        quadrante, respostas, status, calibrar,
       } = body
+
+      // Calibração: Admin RH conclui avaliação enviada por Gestor
+      if (calibrar) {
+        const current = await sql`SELECT status, colaborador_nome, colaborador_id FROM ciclos_avaliacao WHERE id = ${id}`
+        if (current.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Não encontrado' }) }
+        if (current[0].status !== 'aguardando_calibracao')
+          return { statusCode: 400, headers, body: JSON.stringify({ error: 'Avaliação não está aguardando calibração' }) }
+        const rows = await sql`
+          UPDATE ciclos_avaliacao
+          SET status     = 'concluido',
+              updated_at = NOW()
+          WHERE id = ${id}
+          RETURNING *
+        `
+        const userName = await getUserName(sql, authPayload.userId)
+        await logAudit(sql, {
+          entityType: 'avaliacao',
+          entityId: rows[0].id,
+          entityName: rows[0].colaborador_nome || `Colaborador #${rows[0].colaborador_id}`,
+          action: 'calibrated',
+          changes: null,
+          userId: authPayload.userId,
+          userName,
+        })
+        return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
+      }
+
       const rows = await sql`
         UPDATE ciclos_avaliacao
         SET avaliador_nome    = COALESCE(${avaliador_nome ?? null}, avaliador_nome),
