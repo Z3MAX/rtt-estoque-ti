@@ -465,7 +465,7 @@ export default function NovaAvaliacao() {
 
   const [colab, setColab] = useState<Colaborador | null>(null)
   const [loadingColab, setLoadingColab] = useState(true)
-  const [cicloAtivo, setCicloAtivo] = useState<{ id: number; periodo_inicial: string } | null | undefined>(undefined)
+  const [cicloAtivo, setCicloAtivo] = useState<{ id: number; periodo_inicial: string; prazo?: string } | null | undefined>(undefined)
   const [avaliador, setAvaliador] = useState(user?.name ?? '')
   const [tipo, setTipo] = useState('')
   const [periodoInicial, setPeriodoInicial] = useState('')
@@ -478,9 +478,28 @@ export default function NovaAvaliacao() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
+  // Converte data de prazo (YYYY-MM-DD) para código de semestre
+  function prazoToSemestre(prazo: string): string {
+    const d = new Date(prazo)
+    const year = d.getUTCFullYear()
+    const month = d.getUTCMonth() + 1
+    return month <= 6 ? `1Sem_${year}` : `2Sem_${year}`
+  }
+
+  // Normaliza resposta do ciclo: admin recebe array, gestor recebe objeto | null
+  function normalizeCiclo(raw: unknown): { id: number; periodo_inicial: string; prazo?: string } | null {
+    if (!raw) return null
+    if (Array.isArray(raw)) {
+      const aberto = (raw as { id: number; periodo_inicial: string; prazo?: string; status: string }[])
+        .find(c => c.status === 'aberto')
+      return aberto ?? null
+    }
+    return raw as { id: number; periodo_inicial: string; prazo?: string }
+  }
+
   useEffect(() => {
     api.ciclos.getAtivo()
-      .then((c) => setCicloAtivo(c as { id: number; periodo_inicial: string } | null))
+      .then((c) => setCicloAtivo(normalizeCiclo(c)))
       .catch(() => setCicloAtivo(null))
   }, [])
 
@@ -511,10 +530,11 @@ export default function NovaAvaliacao() {
           }
         } else {
           // Pre-fill period from active cycle
-          const ciclo = await api.ciclos.getAtivo().catch(() => null) as { periodo_inicial: string } | null
+          const raw = await api.ciclos.getAtivo().catch(() => null)
+          const ciclo = normalizeCiclo(raw)
           if (ciclo?.periodo_inicial) {
             setPeriodoInicial(ciclo.periodo_inicial)
-            setPeriodoFinal(ciclo.periodo_inicial)
+            setPeriodoFinal(ciclo.prazo ? prazoToSemestre(ciclo.prazo) : ciclo.periodo_inicial)
           }
         }
       } finally {
@@ -699,15 +719,31 @@ export default function NovaAvaliacao() {
             </select>
           </div>
           <div>
-            <label className="label">Semestre inicial</label>
-            <select className="input" value={periodoInicial} onChange={e => setPeriodoInicial(e.target.value)}>
+            <label className="label">
+              Semestre inicial
+              {!isEditMode && cicloAtivo && <span className="ml-1.5 text-[10px] text-primary-500 font-semibold uppercase tracking-wide">Ciclo ativo</span>}
+            </label>
+            <select
+              className="input disabled:opacity-60 disabled:cursor-not-allowed"
+              value={periodoInicial}
+              onChange={e => setPeriodoInicial(e.target.value)}
+              disabled={!isEditMode && !!cicloAtivo}
+            >
               <option value="">Selecione</option>
               {PERIODOS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
           </div>
           <div>
-            <label className="label">Semestre final</label>
-            <select className="input" value={periodoFinal} onChange={e => setPeriodoFinal(e.target.value)}>
+            <label className="label">
+              Semestre final
+              {!isEditMode && cicloAtivo?.prazo && <span className="ml-1.5 text-[10px] text-primary-500 font-semibold uppercase tracking-wide">Prazo do ciclo</span>}
+            </label>
+            <select
+              className="input disabled:opacity-60 disabled:cursor-not-allowed"
+              value={periodoFinal}
+              onChange={e => setPeriodoFinal(e.target.value)}
+              disabled={!isEditMode && !!cicloAtivo}
+            >
               <option value="">Selecione</option>
               {PERIODOS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
