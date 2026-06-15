@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ClipboardCheck, Search, X, RefreshCw, UserX, ChevronDown, ChevronRight, PlayCircle, Users, Building2, CheckCircle2 } from 'lucide-react'
+import { ClipboardCheck, Search, X, RefreshCw, UserX, ChevronDown, ChevronRight, PlayCircle, Users, Building2, CheckCircle2, CalendarRange } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth, isAdmin } from '../../lib/auth'
 import type { Colaborador } from '../../lib/types'
@@ -34,6 +34,7 @@ export default function RealizarAvaliacaoPage() {
   const { user } = useAuth()
   const userIsAdmin = isAdmin(user?.role)
 
+  const [cicloAtivo, setCicloAtivo] = useState<{ periodo_inicial: string } | null | undefined>(undefined)
   const [pendentes, setPendentes] = useState<PendingColaborador[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -42,8 +43,12 @@ export default function RealizarAvaliacaoPage() {
   const load = async () => {
     setLoading(true)
     try {
-      const data = await (api as any).avaliacoesPendentes.list() as PendingColaborador[]
-      setPendentes(data)
+      const [ciclo, data] = await Promise.all([
+        api.ciclos.getAtivo().catch(() => null) as Promise<{ periodo_inicial: string } | null>,
+        (api as any).avaliacoesPendentes.list() as Promise<PendingColaborador[]>,
+      ])
+      setCicloAtivo(ciclo)
+      setPendentes(ciclo ? data : [])
       // Para gestor: expande tudo automaticamente
       if (!userIsAdmin) {
         const nomes = new Set(data.map((c: PendingColaborador) => c.gestor_nome || 'Sem gestor'))
@@ -165,8 +170,25 @@ export default function RealizarAvaliacaoPage() {
         )}
       </div>
 
-      {/* Empty state */}
-      {totalPendentes === 0 && (
+      {/* Empty state — sem ciclo aberto */}
+      {cicloAtivo === null && (
+        <div className="card flex flex-col items-center justify-center h-56 gap-3 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
+            <CalendarRange size={26} className="text-amber-500" />
+          </div>
+          <div>
+            <p className="text-base font-semibold text-slate-700 dark:text-slate-200">Nenhum ciclo de avaliação aberto</p>
+            <p className="text-sm text-slate-400 mt-1">
+              {userIsAdmin
+                ? 'Abra um ciclo na aba "Ciclo de Avaliação" para liberar as avaliações.'
+                : 'O RH ainda não abriu um ciclo de avaliação. Aguarde para realizar avaliações.'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Empty state — ciclo aberto mas tudo avaliado */}
+      {cicloAtivo !== null && totalPendentes === 0 && (
         <div className="flex flex-col items-center justify-center h-56 text-slate-400 gap-3">
           <CheckCircle2 size={40} className="text-emerald-400 opacity-70" />
           <p className="text-base font-medium text-slate-600 dark:text-slate-300">
@@ -177,7 +199,7 @@ export default function RealizarAvaliacaoPage() {
       )}
 
       {/* Lista por área > gestor */}
-      {areas.map(({ area, gestores }) => (
+      {cicloAtivo && areas.map(({ area, gestores }) => (
         <div key={area} className="space-y-4">
           {/* Cabeçalho da área — só mostra para admin */}
           {userIsAdmin && (
