@@ -30,7 +30,7 @@ export interface Colaborador {
 }
 
 export type TipoAvaliacao = 'autoavaliacao' | 'lideranca'
-export type StatusAvaliacao = 'rascunho' | 'aguardando_calibracao' | 'concluido'
+export type StatusAvaliacao = 'rascunho' | 'pendente' | 'concluido'
 
 export interface RespostaCompetencia {
   nota: number

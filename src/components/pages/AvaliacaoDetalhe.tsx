@@ -199,7 +199,7 @@ export default function AvaliacaoDetalhe() {
           {/* Admin actions */}
           {userIsAdmin && colab && (
             <div className="w-full flex justify-end gap-2 -mb-2">
-              {avaliacao.status === 'aguardando_calibracao' && (
+              {avaliacao.status === 'pendente' && (
                 <button
                   onClick={handleCalibrar}
                   disabled={calibrando}

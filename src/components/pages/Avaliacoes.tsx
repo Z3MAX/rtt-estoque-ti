@@ -120,7 +120,7 @@ export default function AvaliacoesPage() {
   const periodos = [...new Set(avaliacoes.map(a => a.periodo_inicial).filter(Boolean))]
     .sort().reverse() as string[]
   const quadrantes = [...new Set(avaliacoes.map(a => a.quadrante).filter(Boolean))] as string[]
-  const pendentesCount = avaliacoes.filter(a => a.status === 'aguardando_calibracao').length
+  const pendentesCount = avaliacoes.filter(a => a.status === 'pendente').length
   const hasFilters = !!filterQuadrante || !!filterPeriodo || !!filterStatus
 
   async function handleCalibrar(a: CicloAvaliacao, e: React.MouseEvent) {
@@ -323,7 +323,7 @@ export default function AvaliacoesPage() {
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5 block">Status</label>
             <select className="input text-sm w-full" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
               <option value="">Todos</option>
-              <option value="aguardando_calibracao">Aguardando calibração</option>
+              <option value="pendente">Aguardando calibração</option>
               <option value="concluido">Concluída</option>
             </select>
           </div>
@@ -495,7 +495,7 @@ export default function AvaliacoesPage() {
 
                       {/* Status */}
                       <td className="px-4 py-3">
-                        {a.status === 'aguardando_calibracao' ? (
+                        {a.status === 'pendente' ? (
                           <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 whitespace-nowrap">
                             Ag. calibração
                           </span>
@@ -509,7 +509,7 @@ export default function AvaliacoesPage() {
                       {/* Actions */}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
-                          {userIsAdmin && a.status === 'aguardando_calibracao' && (
+                          {userIsAdmin && a.status === 'pendente' && (
                             <button
                               onClick={e => handleCalibrar(a, e)}
                               disabled={calibrando === a.id}

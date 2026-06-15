@@ -84,7 +84,7 @@ exports.handler = async (event) => {
           ${nivel_cargo || null}, ${score_desempenho ?? null}, ${score_potencial ?? null},
           ${nivel_desempenho || null}, ${nivel_potencial || null},
           ${quadrante || null}, ${respostas ? JSON.stringify(respostas) : null},
-          'aguardando_calibracao'
+          'pendente'
         )
         RETURNING *
       `
@@ -118,7 +118,7 @@ exports.handler = async (event) => {
       if (calibrar) {
         const current = await sql`SELECT status, colaborador_nome, colaborador_id FROM ciclos_avaliacao WHERE id = ${id}`
         if (current.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Não encontrado' }) }
-        if (current[0].status !== 'aguardando_calibracao')
+        if (current[0].status !== 'pendente')
           return { statusCode: 400, headers, body: JSON.stringify({ error: 'Avaliação não está aguardando calibração' }) }
         const rows = await sql`
           UPDATE ciclos_avaliacao
