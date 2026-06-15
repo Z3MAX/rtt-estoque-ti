@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import {
   CalendarRange, RefreshCw, Play, Square, ChevronDown, ChevronUp,
-  CheckCircle2, Clock, AlertCircle, Users,
+  CheckCircle2, Clock, AlertCircle, Users, Trash2,
 } from 'lucide-react'
 import { api } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
 
 const PERIODOS: Record<string, string> = {
   '1Sem_2024': '1º Sem / 2024', '2Sem_2024': '2º Sem / 2024',
@@ -133,9 +134,10 @@ function GestorRow({ g }: { g: Gestor }) {
   )
 }
 
-function CicloCard({ ciclo, onEncerrar }: { ciclo: Ciclo; onEncerrar: (id: number) => void }) {
+function CicloCard({ ciclo, onEncerrar, onDeletado, isMaster }: { ciclo: Ciclo; onEncerrar: (id: number) => void; onDeletado: (id: number) => void; isMaster: boolean }) {
   const [expanded, setExpanded] = useState(ciclo.status === 'aberto')
   const [encerrando, setEncerrando] = useState(false)
+  const [deletando, setDeletando] = useState(false)
   const isAberto = ciclo.status === 'aberto'
   const gestoresCompletos = ciclo.gestores.filter(g => g.enviadas >= g.total_colabs && g.total_colabs > 0).length
   const totalGestores = ciclo.gestores.length
@@ -145,6 +147,13 @@ function CicloCard({ ciclo, onEncerrar }: { ciclo: Ciclo; onEncerrar: (id: numbe
     setEncerrando(true)
     try { await api.ciclos.encerrar(ciclo.id); onEncerrar(ciclo.id) }
     catch { /* silencioso */ } finally { setEncerrando(false) }
+  }
+
+  async function handleDeletar() {
+    if (!confirm(`Tem certeza que deseja EXCLUIR o ciclo "${PERIODOS[ciclo.periodo_inicial] || ciclo.periodo_inicial}"? Esta ação não pode ser desfeita.`)) return
+    setDeletando(true)
+    try { await api.ciclos.deletar(ciclo.id); onDeletado(ciclo.id) }
+    catch { /* silencioso */ } finally { setDeletando(false) }
   }
 
   return (
@@ -177,6 +186,17 @@ function CicloCard({ ciclo, onEncerrar }: { ciclo: Ciclo; onEncerrar: (id: numbe
             >
               {encerrando ? <RefreshCw size={11} className="animate-spin" /> : <Square size={11} />}
               Encerrar
+            </button>
+          )}
+          {isMaster && (
+            <button
+              onClick={handleDeletar}
+              disabled={deletando}
+              title="Excluir ciclo"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 border border-slate-200 dark:border-slate-700 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 hover:border-red-200 dark:hover:border-red-800 transition-colors disabled:opacity-50"
+            >
+              {deletando ? <RefreshCw size={11} className="animate-spin" /> : <Trash2 size={11} />}
+              Excluir
             </button>
           )}
           <button onClick={() => setExpanded(v => !v)} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
@@ -219,6 +239,8 @@ function CicloCard({ ciclo, onEncerrar }: { ciclo: Ciclo; onEncerrar: (id: numbe
 }
 
 export default function CicloAvaliacaoPage() {
+  const { user } = useAuth()
+  const userIsMaster = user?.role === 'Administrador Master'
   const [ciclos, setCiclos] = useState<Ciclo[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -277,7 +299,9 @@ export default function CicloAvaliacaoPage() {
             <CicloCard
               key={c.id}
               ciclo={c}
+              isMaster={userIsMaster}
               onEncerrar={() => load()}
+              onDeletado={() => load()}
             />
           ))}
         </div>

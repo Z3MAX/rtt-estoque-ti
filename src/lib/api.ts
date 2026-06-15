@@ -236,6 +236,10 @@ export const api = {
       if (MOCK) { await delay(400); return { success: true } }
       return request(`${BASE}/ciclos?id=${id}`, { method: 'PUT', body: JSON.stringify({ status: 'encerrado' }) })
     },
+    deletar: async (id: number) => {
+      if (MOCK) { await delay(400); return { success: true } }
+      return request(`${BASE}/ciclos?id=${id}`, { method: 'DELETE' })
+    },
   },
 
   avaliacoesPendentes: {

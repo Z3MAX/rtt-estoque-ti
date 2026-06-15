@@ -1,5 +1,5 @@
 const { neon } = require('@neondatabase/serverless')
-const { requireAuth, requireAdmin, isAdminRole, makeHeaders, errorResponse } = require('./_auth')
+const { requireAuth, requireAdmin, requireMaster, isAdminRole, isMasterRole, makeHeaders, errorResponse } = require('./_auth')
 const { logAudit, getUserName } = require('./_audit')
 
 exports.handler = async (event) => {
@@ -102,6 +102,20 @@ exports.handler = async (event) => {
       const userName = await getUserName(sql, authPayload.userId)
       await logAudit(sql, { entityType: 'ciclo', entityId: rows[0].id, entityName: `Ciclo ${rows[0].periodo_inicial}`, action: 'deactivated', changes: null, userId: authPayload.userId, userName })
       return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
+    }
+
+    // DELETE — excluir ciclo (somente Administrador Master)
+    if (event.httpMethod === 'DELETE') {
+      requireMaster(event)
+      if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'ID necessário' }) }
+
+      const existing = await sql`SELECT periodo_inicial FROM ciclos WHERE id = ${id}`
+      if (existing.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Ciclo não encontrado' }) }
+
+      await sql`DELETE FROM ciclos WHERE id = ${id}`
+      const userName = await getUserName(sql, authPayload.userId)
+      await logAudit(sql, { entityType: 'ciclo', entityId: id, entityName: `Ciclo ${existing[0].periodo_inicial}`, action: 'deleted', changes: null, userId: authPayload.userId, userName })
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true }) }
     }
 
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Método não permitido' }) }
