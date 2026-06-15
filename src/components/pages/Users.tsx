@@ -68,7 +68,8 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
 
     // Enriquece com áreas dos colaboradores (quando disponível)
     api.departamentos.list()
-      .then((depts: { area: string }[]) => {
+      .then((result) => {
+        const depts = result as { area: string }[]
         depts.forEach(d => { if (d.area && d.area !== 'Sem área') seed.add(d.area) })
         const merged = [...seed].sort()
         setAreas(merged)
