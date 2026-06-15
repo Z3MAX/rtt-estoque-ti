@@ -52,10 +52,12 @@ exports.handler = async (event) => {
 
     // Gera novo token com validade de 7 dias
     const inviteToken = crypto.randomBytes(40).toString('hex')
+    const inviteTokenHash = crypto.createHash('sha256').update(inviteToken).digest('hex')
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    // Armazena o hash do token (não o token em si) para proteger contra vazamento do banco
     await sql`
       INSERT INTO password_reset_tokens (user_id, token, expires_at)
-      VALUES (${user.id}, ${inviteToken}, ${expiresAt.toISOString()})
+      VALUES (${user.id}, ${inviteTokenHash}, ${expiresAt.toISOString()})
     `
 
     const result = await sendInviteEmail({

@@ -1,4 +1,5 @@
 const { neon } = require('@neondatabase/serverless')
+const crypto = require('crypto')
 const { hashPassword } = require('./_hash')
 const { makeHeaders, errorResponse } = require('./_auth')
 
@@ -34,11 +35,12 @@ exports.handler = async (event) => {
   const sql = neon(process.env.DATABASE_URL)
 
   try {
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
     const tokens = await sql`
       SELECT t.id, t.user_id, t.expires_at, t.used, u.name, u.email
       FROM password_reset_tokens t
       JOIN users u ON u.id = t.user_id
-      WHERE t.token = ${token}
+      WHERE t.token = ${tokenHash}
     `
 
     if (tokens.length === 0) {

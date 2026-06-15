@@ -50,9 +50,9 @@ function requireMaster(event) {
   return payload
 }
 
-/** Assina um JWT com 8h de validade. */
+/** Assina um JWT com 2h de validade. */
 function signToken(payload) {
-  return jwt.sign(payload, getSecret(), { expiresIn: '8h' })
+  return jwt.sign(payload, getSecret(), { expiresIn: '2h' })
 }
 
 /** Gera os headers CORS/Content-Type padronizados. */

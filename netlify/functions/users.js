@@ -96,8 +96,9 @@ exports.handler = async (event) => {
           await sql`UPDATE password_reset_tokens SET used = true WHERE user_id = ${rows[0].id} AND used = false`
 
           const inviteToken = crypto.randomBytes(40).toString('hex')
+          const inviteTokenHash = crypto.createHash('sha256').update(inviteToken).digest('hex')
           const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-          await sql`INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (${rows[0].id}, ${inviteToken}, ${expiresAt.toISOString()})`
+          await sql`INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (${rows[0].id}, ${inviteTokenHash}, ${expiresAt.toISOString()})`
 
           const result = await sendInviteEmail({
             name: rows[0].name,
@@ -201,7 +202,10 @@ exports.handler = async (event) => {
         return { statusCode: 200, headers, body: JSON.stringify({ success: true }) }
       }
 
-      // Soft-delete (desativar)
+      // Soft-delete (desativar) — impede auto-desativação
+      if (String(adminPayload.userId) === String(id)) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Você não pode desativar sua própria conta' }) }
+      }
       const rows = await sql`UPDATE users SET active = false, updated_at = NOW() WHERE id = ${id} RETURNING id`
       if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Usuário não encontrado' }) }
 

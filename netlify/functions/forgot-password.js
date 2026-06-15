@@ -57,11 +57,13 @@ exports.handler = async (event) => {
     await sql`UPDATE password_reset_tokens SET used = true WHERE user_id = ${user.id} AND used = false`
 
     const token = crypto.randomBytes(40).toString('hex')
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000) // 1 hora
 
+    // Armazena o hash do token (não o token em si) para proteger contra vazamento do banco
     await sql`
       INSERT INTO password_reset_tokens (user_id, token, expires_at)
-      VALUES (${user.id}, ${token}, ${expiresAt.toISOString()})
+      VALUES (${user.id}, ${tokenHash}, ${expiresAt.toISOString()})
     `
 
     const siteUrl = process.env.SITE_URL

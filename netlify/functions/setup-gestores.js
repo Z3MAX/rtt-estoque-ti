@@ -1,4 +1,5 @@
 const { neon } = require('@neondatabase/serverless')
+const crypto = require('crypto')
 const { requireAdmin, makeHeaders, errorResponse } = require('./_auth')
 const { hashPassword } = require('./_hash')
 
@@ -43,7 +44,6 @@ exports.handler = async (event) => {
     const existingEmails = new Set(existingUsers.map(u => u.email.toLowerCase()))
     const existingNames  = new Set(existingUsers.map(u => u.name.toLowerCase()))
 
-    const defaultPwd = await hashPassword('Gestor@2025')
     const created = []
     const skipped = []
 
@@ -63,6 +63,10 @@ exports.handler = async (event) => {
       }
       existingEmails.add(email)
 
+      // Senha temporária aleatória por usuário (nunca compartilhada entre gestores)
+      const tempPwd = crypto.randomBytes(12).toString('hex')
+      const hash = await hashPassword(tempPwd)
+
       await sql`
         INSERT INTO users (name, email, role, area, password_hash, active, must_change_password)
         VALUES (
@@ -70,12 +74,12 @@ exports.handler = async (event) => {
           ${email},
           'Gestor',
           ${g.area_principal || null},
-          ${defaultPwd},
+          ${hash},
           true,
           true
         )
       `
-      created.push({ nome: g.nome, email, area: g.area_principal, total_colabs: g.total_colabs })
+      created.push({ nome: g.nome, email, area: g.area_principal, total_colabs: g.total_colabs, senha_temporaria: tempPwd })
     }
 
     return {
@@ -86,6 +90,7 @@ exports.handler = async (event) => {
         created: created.length,
         skipped: skipped.length,
         usuarios: created,
+        aviso: 'As senhas temporárias são exibidas apenas nesta resposta. Guarde-as antes de fechar.',
       }),
     }
   } catch (err) {
