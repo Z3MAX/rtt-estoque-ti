@@ -43,9 +43,10 @@ interface ModalProps {
   onClose: () => void
   onSaved: () => void
   currentUserRole?: string
+  knownAreas?: string[]
 }
 
-function UserModal({ user, onClose, onSaved, currentUserRole }: ModalProps) {
+function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }: ModalProps) {
   const isEdit = !!user
   const [name, setName]         = useState(user?.name ?? '')
   const [email, setEmail]       = useState(user?.email ?? '')
@@ -60,14 +61,21 @@ function UserModal({ user, onClose, onSaved, currentUserRole }: ModalProps) {
   const [emailWarning, setEmailWarning] = useState<string | null>(null)
 
   useEffect(() => {
+    // Começa com as áreas já conhecidas dos usuários existentes
+    const seed = new Set(knownAreas.filter(Boolean))
+    setAreas([...seed].sort())
+    if (user?.area && !seed.has(user.area)) setAreaCustom(true)
+
+    // Enriquece com áreas dos colaboradores (quando disponível)
     api.departamentos.list()
       .then((depts: { area: string }[]) => {
-        const list = depts.map(d => d.area).filter(a => a && a !== 'Sem área').sort()
-        setAreas(list)
-        // Se área atual do usuário editado não está na lista, ativa modo custom
-        if (user?.area && !list.includes(user.area)) setAreaCustom(true)
+        depts.forEach(d => { if (d.area && d.area !== 'Sem área') seed.add(d.area) })
+        const merged = [...seed].sort()
+        setAreas(merged)
+        if (user?.area && !merged.includes(user.area)) setAreaCustom(true)
+        else if (user?.area && merged.includes(user.area)) setAreaCustom(false)
       })
-      .catch(() => { /* falha silenciosa, usa input livre */ })
+      .catch(() => { /* mantém a lista seed */ })
   }, [])
 
   async function handleSubmit(e: FormEvent) {
@@ -531,6 +539,7 @@ export default function UsersPage() {
           onClose={() => setModalUser(undefined)}
           onSaved={async () => { setModalUser(undefined); await load() }}
           currentUserRole={currentUser?.role}
+          knownAreas={[...new Set(users.map(u => u.area).filter((a): a is string => !!a))].sort()}
         />
       )}
 
