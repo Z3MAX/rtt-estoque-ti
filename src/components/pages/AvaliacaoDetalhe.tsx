@@ -210,13 +210,17 @@ function CalibracaoModal({ avaliacao, onClose, onConcluido }: {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const temLideranca = avaliacao.tipo === 'lideranca'
+  // Detecta quais competências existem nas respostas originais (não usa tipo)
+  const respostasOriginais = (avaliacao.respostas as unknown as Record<string, { nota?: number; rating?: number; observacao?: string; observation?: string }>) || {}
+  const getOrigRating = (id: string) => respostasOriginais[id]?.nota ?? respostasOriginais[id]?.rating ?? 0
+  const temLideranca = COMP_LIDERANCA.some(c => getOrigRating(c.id) > 0)
+  // Se tem liderança, desempenho foi avaliado com 4 comps (sem "Evolução no período")
   const compDesempenho = temLideranca ? COMP_DESEMPENHO.slice(0, 4) : COMP_DESEMPENHO
   const compLideranca = temLideranca ? COMP_LIDERANCA : []
   const todasComps = [...compDesempenho, ...COMP_POTENCIAL, ...compLideranca]
 
   useEffect(() => {
-    const resps = (avaliacao.respostas as unknown as Record<string, { nota?: number; rating?: number; observacao?: string; observation?: string }>) || {}
+    const resps = respostasOriginais
     const r: Record<string, number> = {}
     const o: Record<string, string> = {}
     for (const [k, v] of Object.entries(resps)) {
