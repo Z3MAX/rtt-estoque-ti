@@ -60,7 +60,6 @@ function UserModal({ user, onClose, onSaved, currentUserRole }: ModalProps) {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!name.trim() || !email.trim()) { setError('Nome e e-mail são obrigatórios'); return }
-    if (!isEdit && !password) { setError('Senha obrigatória para novo usuário'); return }
     if (role === 'Gestor' && !area.trim()) { setError('Departamento é obrigatório para Gestores'); return }
 
     try {
@@ -71,7 +70,7 @@ function UserModal({ user, onClose, onSaved, currentUserRole }: ModalProps) {
         await api.users.update(user!.id, payload)
         onSaved()
       } else {
-        const result = await api.users.create({ name, email, password, role, area: area.trim() || null }) as { emailSent?: boolean; emailError?: string }
+        const result = await api.users.create({ name, email, role, area: area.trim() || null }) as { emailSent?: boolean; emailError?: string }
         // Se a conta foi criada mas o e-mail não foi enviado, avisa sem fechar o modal
         if (result.emailSent === false) {
           setEmailWarning(result.emailError || 'E-mail de convite não pôde ser enviado')
@@ -110,23 +109,25 @@ function UserModal({ user, onClose, onSaved, currentUserRole }: ModalProps) {
             <label className="label">E-mail</label>
             <input className="input" type="email" placeholder="joao@rttshop.com.br" value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading} />
           </div>
-          <div>
-            <label className="label">{isEdit ? 'Nova senha (deixe em branco para manter)' : 'Senha'}</label>
-            <div className="relative">
-              <input
-                className="input pr-10"
-                type={showPass ? 'text' : 'password'}
-                placeholder={isEdit ? '••••••••' : 'Mínimo 6 caracteres'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-              />
-              <button type="button" onClick={() => setShowPass((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors" tabIndex={-1}>
-                {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
+          {isEdit && (
+            <div>
+              <label className="label">Nova senha (deixe em branco para manter)</label>
+              <div className="relative">
+                <input
+                  className="input pr-10"
+                  type={showPass ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                />
+                <button type="button" onClick={() => setShowPass((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors" tabIndex={-1}>
+                  {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
-          </div>
+          )}
           <div>
             <label className="label">Perfil de acesso</label>
             <select className="input" value={role} onChange={(e) => setRole(e.target.value)} disabled={loading}>
@@ -161,7 +162,7 @@ function UserModal({ user, onClose, onSaved, currentUserRole }: ModalProps) {
                 </div>
               </div>
               <p className="text-xs text-amber-600 dark:text-amber-500 pl-5">
-                Verifique as variáveis <code className="font-mono bg-amber-100 dark:bg-amber-900/40 px-1 rounded">SITE_URL</code>, <code className="font-mono bg-amber-100 dark:bg-amber-900/40 px-1 rounded">GMAIL_USER</code> e <code className="font-mono bg-amber-100 dark:bg-amber-900/40 px-1 rounded">GMAIL_APP_PASSWORD</code> no Netlify.
+                Verifique as variáveis <code className="font-mono bg-amber-100 dark:bg-amber-900/40 px-1 rounded">SITE_URL</code>, <code className="font-mono bg-amber-100 dark:bg-amber-900/40 px-1 rounded">SMTP_USER</code> e <code className="font-mono bg-amber-100 dark:bg-amber-900/40 px-1 rounded">SMTP_PASS</code> no Netlify.
                 Use o botão <strong>Reenviar convite</strong> na lista de usuários após corrigir.
               </p>
               <button type="button" onClick={onClose} className="w-full text-xs font-medium text-amber-700 dark:text-amber-400 py-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors">
@@ -509,7 +510,7 @@ export default function UsersPage() {
             <p className="text-xs opacity-70 mt-0.5">
               {importResult.created} criado(s) · {importResult.skipped} já existiam
             </p>
-            <p className="text-xs opacity-50 mt-0.5">Senha padrão: <span className="font-mono">Gestor@2025</span></p>
+            <p className="text-xs opacity-50 mt-0.5">Senhas temporárias individuais retornadas na resposta da API.</p>
           </div>
           <button onClick={() => setImportResult(null)} className="ml-auto opacity-50 hover:opacity-100">
             <X size={14} />
