@@ -52,10 +52,23 @@ function UserModal({ user, onClose, onSaved, currentUserRole }: ModalProps) {
   const [password, setPassword] = useState('')
   const [role, setRole]         = useState(user?.role ?? 'Gestor')
   const [area, setArea]         = useState(user?.area ?? '')
+  const [areaCustom, setAreaCustom] = useState(false)
+  const [areas, setAreas]       = useState<string[]>([])
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
   const [emailWarning, setEmailWarning] = useState<string | null>(null)
+
+  useEffect(() => {
+    api.departamentos.list()
+      .then((depts: { area: string }[]) => {
+        const list = depts.map(d => d.area).filter(a => a && a !== 'Sem área').sort()
+        setAreas(list)
+        // Se área atual do usuário editado não está na lista, ativa modo custom
+        if (user?.area && !list.includes(user.area)) setAreaCustom(true)
+      })
+      .catch(() => { /* falha silenciosa, usa input livre */ })
+  }, [])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -139,13 +152,42 @@ function UserModal({ user, onClose, onSaved, currentUserRole }: ModalProps) {
               Departamento / Área
               {role === 'Gestor' && <span className="text-red-500 ml-0.5">*</span>}
             </label>
-            <input
-              className="input"
-              placeholder={role === 'Gestor' ? 'Ex: TI, Comercial, Financeiro...' : 'Opcional'}
-              value={area}
-              onChange={(e) => setArea(e.target.value)}
-              disabled={loading}
-            />
+            {!areaCustom && areas.length > 0 ? (
+              <select
+                className="input"
+                value={area}
+                onChange={(e) => {
+                  if (e.target.value === '__outro__') { setAreaCustom(true); setArea('') }
+                  else setArea(e.target.value)
+                }}
+                disabled={loading}
+              >
+                <option value="">Selecione um departamento...</option>
+                {areas.map(a => <option key={a} value={a}>{a}</option>)}
+                <option value="__outro__">Outro (digitar manualmente)</option>
+              </select>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  className="input flex-1"
+                  placeholder="Ex: TI, Comercial, Financeiro..."
+                  value={area}
+                  onChange={(e) => setArea(e.target.value)}
+                  disabled={loading}
+                  autoFocus={areaCustom}
+                />
+                {areaCustom && areas.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => { setAreaCustom(false); setArea('') }}
+                    className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 px-2 shrink-0"
+                    disabled={loading}
+                  >
+                    ← Lista
+                  </button>
+                )}
+              </div>
+            )}
             {role === 'Gestor' && (
               <p className="text-xs text-slate-400 mt-1">O Gestor só visualizará colaboradores desta área.</p>
             )}
