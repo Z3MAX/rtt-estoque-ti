@@ -84,7 +84,7 @@ exports.handler = async (event) => {
           ${nivel_cargo || null}, ${score_desempenho ?? null}, ${score_potencial ?? null},
           ${nivel_desempenho || null}, ${nivel_potencial || null},
           ${quadrante || null}, ${respostas ? JSON.stringify(respostas) : null},
-          ${isGestor ? 'aguardando_calibracao' : (status || 'concluido')}
+          'aguardando_calibracao'
         )
         RETURNING *
       `
