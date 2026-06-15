@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Search, X, RefreshCw, ClipboardList, ChevronRight, Filter,
-  Download, FileDown, CheckSquare, Square, Package,
+  Download, FileDown, CheckSquare, Square, Package, FileSpreadsheet,
 } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import { api } from '../../lib/api'
 import type { CicloAvaliacao } from '../../lib/types'
 import { exportarAvaliacaoUnica, exportarAvaliacoesZip } from '../../lib/exportAvaliacao'
@@ -39,6 +40,38 @@ const PERIODOS: Record<string, string> = {
 function formatDate(iso?: string) {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+function exportarExcel(avaliacoes: CicloAvaliacao[]) {
+  const rows = avaliacoes.map(a => ({
+    'Colaborador':       a.colaborador_nome ?? '—',
+    'Quadrante':         a.quadrante ?? '—',
+    'Classificação':     QUADRANTE_LABELS[a.quadrante ?? ''] ?? '—',
+    'Score Desempenho':  a.score_desempenho != null ? Number(Number(a.score_desempenho).toFixed(2)) : '',
+    'Nível Desempenho':  a.nivel_desempenho ?? '—',
+    'Score Potencial':   a.score_potencial != null ? Number(Number(a.score_potencial).toFixed(2)) : '',
+    'Nível Potencial':   a.nivel_potencial ?? '—',
+    'Período':           PERIODOS[a.periodo_inicial] || a.periodo_inicial || '—',
+    'Tipo':              TIPO_LABELS[a.tipo] || a.tipo || '—',
+    'Avaliador':         a.avaliador_nome ?? '—',
+    'Nível do Cargo':    a.nivel_cargo ?? '—',
+    'Data da Avaliação': a.created_at ? new Date(a.created_at).toLocaleDateString('pt-BR') : '—',
+  }))
+
+  const ws = XLSX.utils.json_to_sheet(rows)
+
+  // Largura das colunas
+  ws['!cols'] = [
+    { wch: 32 }, { wch: 10 }, { wch: 28 }, { wch: 16 }, { wch: 16 },
+    { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 18 }, { wch: 28 },
+    { wch: 16 }, { wch: 16 },
+  ]
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Avaliações')
+
+  const date = new Date().toISOString().slice(0, 10)
+  XLSX.writeFile(wb, `avaliacoes_${date}.xlsx`)
 }
 
 export default function AvaliacoesPage() {
@@ -170,15 +203,25 @@ export default function AvaliacoesPage() {
             <RefreshCw size={14} /> Atualizar
           </button>
           {filtered.length > 0 && (
-            <button
-              onClick={handleExportAll}
-              disabled={exporting}
-              className="btn-secondary gap-2"
-              title="Exportar todas as avaliações visíveis"
-            >
-              {exporting ? <RefreshCw size={14} className="animate-spin" /> : <Package size={14} />}
-              Exportar tudo {filtered.length > 1 ? '(.zip)' : '(.pdf)'}
-            </button>
+            <>
+              <button
+                onClick={() => exportarExcel(filtered)}
+                className="btn-secondary gap-2"
+                title="Exportar relatório Excel com todas as avaliações visíveis"
+              >
+                <FileSpreadsheet size={14} />
+                Exportar Excel
+              </button>
+              <button
+                onClick={handleExportAll}
+                disabled={exporting}
+                className="btn-secondary gap-2"
+                title="Exportar todas as avaliações visíveis em PDF/ZIP"
+              >
+                {exporting ? <RefreshCw size={14} className="animate-spin" /> : <Package size={14} />}
+                Exportar tudo {filtered.length > 1 ? '(.zip)' : '(.pdf)'}
+              </button>
+            </>
           )}
         </div>
       </div>
