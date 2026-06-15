@@ -43,10 +43,14 @@ export default function RealizarAvaliacaoPage() {
   const load = async () => {
     setLoading(true)
     try {
-      const [ciclo, data] = await Promise.all([
-        api.ciclos.getAtivo().catch(() => null) as Promise<{ periodo_inicial: string } | null>,
+      const [cicloResult, data] = await Promise.all([
+        api.ciclos.getAtivo().catch(() => null),
         (api as any).avaliacoesPendentes.list() as Promise<PendingColaborador[]>,
       ])
+      // Admin recebe array, gestor recebe objeto ou null — normaliza para objeto | null
+      const ciclo: { periodo_inicial: string; status?: string } | null = Array.isArray(cicloResult)
+        ? ((cicloResult as { periodo_inicial: string; status: string }[]).find(c => c.status === 'aberto') ?? null)
+        : (cicloResult as { periodo_inicial: string; status?: string } | null)
       setCicloAtivo(ciclo)
       setPendentes(ciclo ? data : [])
       // Para gestor: expande tudo automaticamente
