@@ -147,6 +147,9 @@ exports.handler = async (event) => {
 
     if (event.httpMethod === 'DELETE') {
       if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'ID necessário' }) }
+      if (!isAdminRole(authPayload.role)) {
+        return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado' }) }
+      }
       const existing = await sql`SELECT colaborador_nome, colaborador_id FROM ciclos_avaliacao WHERE id = ${id}`
       await sql`DELETE FROM ciclos_avaliacao WHERE id = ${id}`
       const userName = await getUserName(sql, authPayload.userId)

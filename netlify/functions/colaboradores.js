@@ -86,6 +86,7 @@ exports.handler = async (event) => {
       const body = JSON.parse(event.body || '{}')
 
       if (body.bulk && Array.isArray(body.colaboradores)) {
+        if (isGestor) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado' }) }
         const rawValid = body.colaboradores.filter(c => c.nome && c.nome.trim())
         if (rawValid.length === 0) {
           return { statusCode: 400, headers, body: JSON.stringify({ error: 'Nenhum colaborador válido' }) }
@@ -182,6 +183,11 @@ exports.handler = async (event) => {
 
     if (event.httpMethod === 'PUT') {
       if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'ID necessário' }) }
+      if (isGestor && gestorArea) {
+        const owner = await sql`SELECT area FROM colaboradores WHERE id = ${id}`
+        if (!owner.length || owner[0].area !== gestorArea)
+          return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado: colaborador não pertence ao seu departamento' }) }
+      }
       const body = JSON.parse(event.body || '{}')
       const { nome, cargo, nivel, area, email, gestor_nome } = body
       const before = await sql`SELECT nome, cargo, nivel, area, email, gestor_nome FROM colaboradores WHERE id = ${id}`

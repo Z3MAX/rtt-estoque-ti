@@ -1,4 +1,5 @@
 const { neon } = require('@neondatabase/serverless')
+const crypto = require('crypto')
 const { makeHeaders, errorResponse } = require('./_auth')
 const { hashPassword } = require('./_hash')
 
@@ -105,8 +106,10 @@ exports.handler = async (event) => {
 
     // Seed admin user if none exists
     const existingUsers = await sql`SELECT COUNT(*) AS count FROM users`
+    let tempPassword = null
     if (parseInt(existingUsers[0].count) === 0) {
-      const hash = await hashPassword('Admin@RTT2025')
+      tempPassword = crypto.randomBytes(16).toString('hex')
+      const hash = await hashPassword(tempPassword)
       await sql`
         INSERT INTO users (email, name, role, password_hash, must_change_password)
         VALUES ('admin@rtt.com.br', 'Administrador', 'Administrador de RH', ${hash}, true)
@@ -116,7 +119,11 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ success: true, message: 'Banco de dados configurado com sucesso!' }),
+      body: JSON.stringify({
+        success: true,
+        message: 'Banco de dados configurado com sucesso!',
+        ...(tempPassword ? { adminEmail: 'admin@rtt.com.br', tempPassword, note: 'Guarde esta senha temporária — ela não será exibida novamente.' } : {}),
+      }),
     }
   } catch (err) {
     return errorResponse(headers, err)

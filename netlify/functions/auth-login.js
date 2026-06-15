@@ -45,21 +45,20 @@ exports.handler = async (event) => {
 
     const user = rows[0]
 
-    // Migração transparente: SHA-256 → bcrypt
+    // Verifica se a conta ainda tem hash legado SHA-256 (sem salt) — invalidada por segurança
     const isBcrypt = user.password_hash.startsWith('$2b$') || user.password_hash.startsWith('$2a$')
+    const isInvalidated = user.password_hash === 'INVALIDATED'
     let valid = false
 
-    if (isBcrypt) {
+    if (isInvalidated) {
+      // Hash legado foi invalidado — força redefinição de senha
+      return { statusCode: 401, headers, body: JSON.stringify({ error: 'Sua senha expirou. Use "Esqueci minha senha" para criar uma nova.' }) }
+    } else if (isBcrypt) {
       valid = await comparePassword(password, user.password_hash)
     } else {
-      // Legado: SHA-256 sem salt
-      const sha256Hash = crypto.createHash('sha256').update(password).digest('hex')
-      valid = sha256Hash === user.password_hash
-      if (valid) {
-        // Faz upgrade automático para bcrypt na primeira autenticação bem-sucedida
-        const newHash = await hashPassword(password)
-        await sql`UPDATE users SET password_hash = ${newHash}, updated_at = NOW() WHERE id = ${user.id}`
-      }
+      // Hash SHA-256 legado ainda presente — invalida imediatamente e rejeita o login
+      await sql`UPDATE users SET password_hash = 'INVALIDATED', must_change_password = true, updated_at = NOW() WHERE id = ${user.id}`
+      return { statusCode: 401, headers, body: JSON.stringify({ error: 'Sua senha expirou por motivo de segurança. Use "Esqueci minha senha" para criar uma nova.' }) }
     }
 
     if (!valid) {

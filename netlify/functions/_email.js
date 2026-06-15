@@ -10,8 +10,8 @@ function createTransporter() {
       pass: process.env.SMTP_PASS,
     },
     tls: {
-      ciphers: 'SSLv3',
-      rejectUnauthorized: false,
+      minVersion: 'TLSv1.2',
+      rejectUnauthorized: true,
     },
   })
 }
