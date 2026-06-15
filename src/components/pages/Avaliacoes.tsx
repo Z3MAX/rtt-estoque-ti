@@ -107,11 +107,11 @@ export default function AvaliacoesPage() {
       (a.avaliador_nome ?? '').toLowerCase().includes(s) ||
       (a.quadrante ?? '').toLowerCase().includes(s)
     const matchQ = !filterQuadrante || a.quadrante === filterQuadrante
-    const matchP = !filterPeriodo || a.periodo_inicial === filterPeriodo || a.periodo_final === filterPeriodo
+    const matchP = !filterPeriodo || a.periodo_inicial === filterPeriodo
     return matchSearch && matchQ && matchP
   })
 
-  const periodos = [...new Set(avaliacoes.flatMap(a => [a.periodo_inicial, a.periodo_final].filter(Boolean)))]
+  const periodos = [...new Set(avaliacoes.map(a => a.periodo_inicial).filter(Boolean))]
     .sort().reverse() as string[]
   const quadrantes = [...new Set(avaliacoes.map(a => a.quadrante).filter(Boolean))] as string[]
   const hasFilters = !!filterQuadrante || !!filterPeriodo
@@ -333,7 +333,17 @@ export default function AvaliacoesPage() {
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 text-slate-400 gap-2">
             <ClipboardList size={32} className="opacity-40" />
-            <p className="text-sm">{search || hasFilters ? 'Nenhum resultado' : 'Nenhuma avaliação encontrada'}</p>
+            <p className="text-sm font-medium">
+              {search || hasFilters ? 'Nenhuma avaliação encontrada para os filtros aplicados' : 'Nenhuma avaliação cadastrada'}
+            </p>
+            {(search || hasFilters) && (
+              <button
+                className="text-xs text-primary-500 hover:text-primary-600 underline"
+                onClick={() => { setSearch(''); setFilterQuadrante(''); setFilterPeriodo('') }}
+              >
+                Limpar filtros
+              </button>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
