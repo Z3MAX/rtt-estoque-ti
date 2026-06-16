@@ -24,7 +24,12 @@ function requireAuth(event) {
 
 /** Retorna true para roles com acesso administrativo completo. */
 function isAdminRole(role) {
-  return role === 'Administrador de RH' || role === 'Administrador de TI' || role === 'Administrador Master'
+  return (
+    role === 'Administrador de RH' ||
+    role === 'Administrador de TI' ||
+    role === 'Administrador Master' ||
+    role === 'Administrador de RH / Gestor'
+  )
 }
 
 /** Retorna true somente para Administrador Master. */

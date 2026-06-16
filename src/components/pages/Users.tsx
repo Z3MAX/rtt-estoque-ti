@@ -15,14 +15,15 @@ interface AppUser {
   created_at: string
 }
 
-const ROLES = ['Administrador Master', 'Administrador de RH', 'Gestor']
+const ROLES = ['Administrador Master', 'Administrador de RH', 'Administrador de RH / Gestor', 'Gestor']
 
 const ROLE_STYLE: Record<string, string> = {
-  'Administrador Master': 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 border-violet-200 dark:border-violet-800',
-  'Administrador de RH':  'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 border-primary-200 dark:border-primary-800',
-  'Gestor':               'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800',
+  'Administrador Master':      'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 border-violet-200 dark:border-violet-800',
+  'Administrador de RH':       'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 border-primary-200 dark:border-primary-800',
+  'Administrador de RH / Gestor': 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800',
+  'Gestor':                    'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800',
   // backward compat
-  'Administrador de TI':  'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 border-primary-200 dark:border-primary-800',
+  'Administrador de TI':       'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 border-primary-200 dark:border-primary-800',
 }
 
 function initials(name: string) {
@@ -82,7 +83,7 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!name.trim() || !email.trim()) { setError('Nome e e-mail são obrigatórios'); return }
-    if (role === 'Gestor' && !area.trim()) { setError('Departamento é obrigatório para Gestores'); return }
+    if ((role === 'Gestor' || role === 'Administrador de RH / Gestor') && !area.trim()) { setError('Departamento é obrigatório para Gestores'); return }
 
     try {
       setLoading(true); setError(''); setEmailWarning(null)
@@ -159,7 +160,7 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
           <div>
             <label className="label">
               Departamento / Área
-              {role === 'Gestor' && <span className="text-red-500 ml-0.5">*</span>}
+              {(role === 'Gestor' || role === 'Administrador de RH / Gestor') && <span className="text-red-500 ml-0.5">*</span>}
             </label>
             {!areaCustom && areas.length > 0 ? (
               <select
@@ -197,7 +198,7 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
                 )}
               </div>
             )}
-            {role === 'Gestor' && (
+            {(role === 'Gestor' || role === 'Administrador de RH / Gestor') && (
               <p className="text-xs text-slate-400 mt-1">O Gestor só visualizará colaboradores desta área.</p>
             )}
           </div>
@@ -329,9 +330,9 @@ export default function UsersPage() {
     return u.name.toLowerCase().includes(s) || u.email.toLowerCase().includes(s) || u.role.toLowerCase().includes(s)
   })
 
-  const admins  = filtered.filter((u) => u.role === 'Administrador de RH' || u.role === 'Administrador de TI')
+  const admins  = filtered.filter((u) => u.role === 'Administrador de RH' || u.role === 'Administrador de TI' || u.role === 'Administrador de RH / Gestor')
   const gestores = filtered.filter((u) => u.role === 'Gestor')
-  const outros  = filtered.filter((u) => u.role !== 'Administrador de RH' && u.role !== 'Administrador de TI' && u.role !== 'Gestor')
+  const outros  = filtered.filter((u) => u.role !== 'Administrador de RH' && u.role !== 'Administrador de TI' && u.role !== 'Gestor' && u.role !== 'Administrador de RH / Gestor')
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -373,7 +374,7 @@ export default function UsersPage() {
       <div className="grid grid-cols-3 gap-4">
         {[
           { label: 'Total de usuários', value: users.length, color: 'text-slate-700 dark:text-slate-300', bg: 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700' },
-          { label: 'Gestores', value: users.filter(u => u.role === 'Gestor').length, color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' },
+          { label: 'Gestores', value: users.filter(u => u.role === 'Gestor' || u.role === 'Administrador de RH / Gestor').length, color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' },
           { label: 'Ativos', value: users.filter(u => u.active).length, color: 'text-primary-700 dark:text-primary-400', bg: 'bg-primary-50 dark:bg-primary-900/20 border-primary-200 dark:border-primary-800' },
         ].map(({ label, value, color, bg }) => (
           <div key={label} className={`card p-4 border ${bg}`}>

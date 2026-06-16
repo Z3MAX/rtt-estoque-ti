@@ -12,7 +12,12 @@ export interface User {
 }
 
 export function isAdmin(role?: string) {
-  return role === 'Administrador de RH' || role === 'Administrador de TI' || role === 'Administrador Master'
+  return (
+    role === 'Administrador de RH' ||
+    role === 'Administrador de TI' ||
+    role === 'Administrador Master' ||
+    role === 'Administrador de RH / Gestor'
+  )
 }
 
 export function isMaster(role?: string) {
@@ -20,7 +25,7 @@ export function isMaster(role?: string) {
 }
 
 export function isGestor(role?: string) {
-  return role === 'Gestor'
+  return role === 'Gestor' || role === 'Administrador de RH / Gestor'
 }
 
 interface AuthContextType {
