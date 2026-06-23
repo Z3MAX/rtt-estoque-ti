@@ -31,18 +31,18 @@ const CELL_STYLES: Record<string, { bg: string; border: string; badge: string; d
 }
 
 const QUADRANTE_LABELS: Record<string, string> = {
-  E3: 'Talento Top / Estrela',  E2: 'Potencial Forte',    E1: 'Enigma',
-  M3: 'Forte Desempenho',       M2: 'Mantenedor / Eficaz', M1: 'Questionável',
-  B3: 'Dedicado / Especialista', B2: 'Bom Profissional',   B1: 'Risco / Subpadrão',
+  E3: 'Talento Tip Top',  E2: 'Forte Desempenho', E1: 'Enigma',
+  M3: 'Forte Desempenho', M2: 'Mantenedor',        M1: 'Questionável',
+  B3: 'Comprometido',     B2: 'Eficaz',            B1: 'Insuficiente',
 }
 
 // Eixos da matriz: linhas = Potencial (Y), colunas = Desempenho (X)
 const MATRIX_ROWS = [
-  { label: 'Alto Potencial',  codes: ['E1', 'E2', 'E3'] },
-  { label: 'Médio Potencial', codes: ['M1', 'M2', 'M3'] },
-  { label: 'Baixo Potencial', codes: ['B1', 'B2', 'B3'] },
+  { label: 'Alto',  codes: ['E1', 'E2', 'E3'] },
+  { label: 'Médio', codes: ['M1', 'M2', 'M3'] },
+  { label: 'Baixo', codes: ['B1', 'B2', 'B3'] },
 ]
-const DESEMPENHO_LABELS = ['Baixo Desempenho', 'Médio Desempenho', 'Alto Desempenho']
+const DESEMPENHO_LABELS = ['Abaixo do Esperado', 'Esperado', 'Acima do Esperado']
 
 const AVATAR_COLORS = [
   'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
