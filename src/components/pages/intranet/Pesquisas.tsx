@@ -6,7 +6,7 @@ import {
 
 type Situacao = 'LIBERADA' | 'FINALIZADA' | 'RASCUNHO'
 type Status   = 'ATIVA'    | 'INATIVA'
-type Tipo     = 'Enquete'  | 'Pesquisa Padrão' | 'Pesquisa Temporal' | 'eNPS'
+type Tipo     = 'Desligamento' | 'Enquete' | 'Pesquisa de pulso' | 'Pesquisa Padrão' | 'Pesquisa Temporal' | 'eNPS' | 'Clima' | 'Satisfação'
 
 interface Pesquisa {
   id:       number
@@ -36,7 +36,16 @@ const STATUS_STYLE: Record<Status, string> = {
   INATIVA: 'bg-slate-400 text-white',
 }
 
-const TIPOS: Tipo[] = ['Enquete', 'Pesquisa Padrão', 'Pesquisa Temporal', 'eNPS']
+const TIPOS: Tipo[] = [
+  'Desligamento',
+  'Enquete',
+  'Pesquisa de pulso',
+  'Pesquisa Padrão',
+  'Pesquisa Temporal',
+  'Clima',
+  'Satisfação',
+  'eNPS',
+]
 
 /* ── Formulário Nova Pesquisa ── */
 interface FormState {
