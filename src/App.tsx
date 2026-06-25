@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth, isAdmin, isMaster } from './lib/auth'
 import { ThemeProvider, ForceLightMode } from './lib/theme'
@@ -6,6 +7,8 @@ import ForgotPasswordPage from './components/ForgotPasswordPage'
 import ResetPasswordPage from './components/ResetPasswordPage'
 import ChangePasswordPage from './components/ChangePasswordPage'
 import Layout from './components/Layout'
+import PortalSelector from './components/PortalSelector'
+import IntranetLayout from './components/IntranetLayout'
 import Dashboard from './components/pages/Dashboard'
 import ColaboradoresPage from './components/pages/Colaboradores'
 import ColaboradorPerfil from './components/pages/ColaboradorPerfil'
@@ -19,9 +22,20 @@ import AvaliacaoDetalhe from './components/pages/AvaliacaoDetalhe'
 import AvaliacoesPage from './components/pages/Avaliacoes'
 import AuditoriaPage from './components/pages/Auditoria'
 import CicloAvaliacaoPage from './components/pages/CicloAvaliacao'
+import MinhaVisao from './components/pages/intranet/MinhaVisao'
+import TreinamentosPage from './components/pages/intranet/Treinamentos'
+import ComunicadosPage from './components/pages/intranet/Comunicados'
+import PDIPage from './components/pages/intranet/PDI'
+import EquipePage from './components/pages/intranet/Equipe'
+
+type Portal = 'avaliacao' | 'intranet' | null
 
 function ProtectedRoutes() {
   const { user, loading } = useAuth()
+  const [portal, setPortal] = useState<Portal>(() => {
+    const stored = localStorage.getItem('rtt_portal')
+    return (stored === 'avaliacao' || stored === 'intranet') ? stored : null
+  })
 
   if (loading) {
     return (
@@ -42,6 +56,33 @@ function ProtectedRoutes() {
   if (!user) return <ForceLightMode><LoginPage /></ForceLightMode>
   if (user.mustChangePassword) return <ForceLightMode><ChangePasswordPage /></ForceLightMode>
 
+  // Portal selector
+  if (!portal) {
+    return (
+      <ForceLightMode>
+        <PortalSelector onSelect={p => setPortal(p)} />
+      </ForceLightMode>
+    )
+  }
+
+  // Intranet portal
+  if (portal === 'intranet') {
+    return (
+      <Routes>
+        <Route element={<IntranetLayout onSwitchPortal={() => setPortal(null)} />}>
+          <Route path="/" element={<Navigate to="/intranet" replace />} />
+          <Route path="/intranet" element={<MinhaVisao />} />
+          <Route path="/intranet/treinamentos" element={<TreinamentosPage />} />
+          <Route path="/intranet/comunicados" element={<ComunicadosPage />} />
+          <Route path="/intranet/pdi" element={<PDIPage />} />
+          <Route path="/intranet/equipe" element={<EquipePage />} />
+          <Route path="*" element={<Navigate to="/intranet" replace />} />
+        </Route>
+      </Routes>
+    )
+  }
+
+  // Avaliação portal (existing)
   return (
     <Routes>
       <Route element={<Layout />}>

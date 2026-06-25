@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, LogOut,
-  UserCircle, ChevronRight, Sun, Moon, ClipboardList, Building2, ClipboardCheck, ListChecks, Shield, CalendarRange,
+  UserCircle, ChevronRight, Sun, Moon, ClipboardList, Building2, ClipboardCheck, ListChecks, Shield, CalendarRange, ArrowLeftRight,
 } from 'lucide-react'
 import { useAuth, isAdmin, isMaster } from '../lib/auth'
 import { useTheme } from '../lib/theme'
@@ -84,6 +84,15 @@ export default function Sidebar() {
 
       {/* Bottom */}
       <div className="px-3 py-4 border-t border-slate-100 dark:border-slate-700/60 space-y-2">
+        <button
+          onClick={() => { localStorage.removeItem('rtt_portal'); window.location.reload() }}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
+                     text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800
+                     hover:text-slate-900 dark:hover:text-slate-100 transition-all"
+        >
+          <ArrowLeftRight size={17} />
+          <span>Trocar portal</span>
+        </button>
         <button
           onClick={toggle}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
