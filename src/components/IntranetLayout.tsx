@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
-  Home, BookOpen, Megaphone, GraduationCap, Users, ClipboardCheck,
+  Home, BookOpen, Megaphone, GraduationCap, Users, ClipboardCheck, ClipboardList,
   LogOut, ChevronDown, Menu, X, ArrowLeftRight, Bell,
 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
@@ -13,6 +13,7 @@ const NAV = [
   { to: '/intranet/comunicados', icon: Megaphone,       label: 'Comunicados' },
   { to: '/intranet/pdi',        icon: BookOpen,        label: 'PDI' },
   { to: '/intranet/equipe',     icon: Users,           label: 'Minha Equipe' },
+  { to: '/intranet/pesquisas', icon: ClipboardList,   label: 'Pesquisas' },
 ]
 
 function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' }) {
