@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Search, X, RefreshCw, ClipboardList, ChevronRight, Filter,
-  Download, FileDown, CheckSquare, Square, Package, FileSpreadsheet, CheckCircle2,
+  FileDown, CheckSquare, Square, Package, FileSpreadsheet, CheckCircle2, Trash2, AlertTriangle,
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { api } from '../../lib/api'
@@ -91,6 +91,11 @@ export default function AvaliacoesPage() {
   // selection
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [exporting, setExporting] = useState(false)
+
+  // delete
+  const [deleteTarget, setDeleteTarget] = useState<'single' | 'bulk' | null>(null)
+  const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -195,7 +200,78 @@ export default function AvaliacoesPage() {
 
   const selectedCount = allFilteredIds.filter(id => selected.has(id)).length
 
+  // ── delete handlers ──
+  async function confirmDelete() {
+    setDeleting(true)
+    try {
+      if (deleteTarget === 'single' && deleteId != null) {
+        await api.avaliacoes.delete(deleteId)
+      } else if (deleteTarget === 'bulk') {
+        const ids = allFilteredIds.filter(id => selected.has(id))
+        await Promise.all(ids.map(id => api.avaliacoes.delete(id)))
+      }
+      setDeleteTarget(null)
+      setDeleteId(null)
+      setSelected(new Set())
+      await load()
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  function requestDeleteSingle(id: number, e: React.MouseEvent) {
+    e.stopPropagation()
+    setDeleteId(id)
+    setDeleteTarget('single')
+  }
+
+  function requestDeleteBulk() {
+    setDeleteTarget('bulk')
+  }
+
   return (
+    <>
+      {/* Modal de confirmação de deleção */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+                <AlertTriangle size={18} className="text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Confirmar exclusão</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {deleteTarget === 'single'
+                    ? 'Esta avaliação será excluída permanentemente.'
+                    : `${selectedCount} avaliação(ões) serão excluídas permanentemente.`}
+                </p>
+              </div>
+            </div>
+            <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
+              Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => { setDeleteTarget(null); setDeleteId(null) }}
+                disabled={deleting}
+                className="btn-secondary"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+              >
+                {deleting ? <RefreshCw size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                {deleting ? 'Excluindo...' : 'Excluir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     <div className="p-6 space-y-5 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -341,6 +417,15 @@ export default function AvaliacoesPage() {
             }
             {exporting ? 'Gerando...' : selectedCount === 1 ? 'Exportar PDF' : `Exportar ${selectedCount} em ZIP`}
           </button>
+          {userIsAdmin && (
+            <button
+              onClick={requestDeleteBulk}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors"
+            >
+              <Trash2 size={14} />
+              Excluir {selectedCount > 1 ? `(${selectedCount})` : ''}
+            </button>
+          )}
         </div>
       )}
 
@@ -514,6 +599,15 @@ export default function AvaliacoesPage() {
                           >
                             <FileDown size={14} />
                           </button>
+                          {userIsAdmin && (
+                            <button
+                              onClick={e => a.id != null && requestDeleteSingle(a.id, e)}
+                              title="Excluir avaliação"
+                              className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                           <ChevronRight size={15} className="text-slate-300 dark:text-slate-600" />
                         </div>
                       </td>
@@ -526,5 +620,6 @@ export default function AvaliacoesPage() {
         )}
       </div>
     </div>
+    </>
   )
 }
