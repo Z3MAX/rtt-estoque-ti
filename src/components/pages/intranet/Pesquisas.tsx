@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   ClipboardList, Plus, Search, Filter, X, Pencil, BarChart2, Link2,
-  ChevronLeft, ToggleLeft, ToggleRight, ChevronDown, AlertCircle,
+  ChevronLeft, ChevronDown, AlertCircle, Info, Trash2,
 } from 'lucide-react'
 
 type Situacao = 'LIBERADA' | 'FINALIZADA' | 'RASCUNHO'
@@ -64,6 +64,25 @@ const FORM_INIT: FormState = {
   ativa: true, emailAuto: false, diasAviso: '',
 }
 
+const QUESTIONARIOS_DESLIGAMENTO = [
+  'Pesquisa de Desligamento',
+  'Pesquisa de desligamento involuntário',
+  'Pesquisa de desligamento voluntário',
+]
+
+const CATEGORIAS_DESLIGAMENTO = [
+  'Voluntário',
+  'Involuntário',
+  'Acordo',
+  'Aposentadoria',
+  'Término de contrato',
+]
+
+interface VinculoDesligamento {
+  questionario: string
+  categoria:    string
+}
+
 function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
   return (
     <button
@@ -79,6 +98,17 @@ function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
 function NovaPesquisaForm({ onBack }: { onBack: () => void }) {
   const [form, setForm] = useState<FormState>(FORM_INIT)
   const [saved, setSaved] = useState(false)
+  const [vinculos, setVinculos] = useState<VinculoDesligamento[]>([{ questionario: '', categoria: '' }])
+
+  function addVinculo() {
+    if (vinculos.length < 5) setVinculos(v => [...v, { questionario: '', categoria: '' }])
+  }
+  function removeVinculo(i: number) {
+    setVinculos(v => v.filter((_, idx) => idx !== i))
+  }
+  function setVinculo(i: number, field: keyof VinculoDesligamento, val: string) {
+    setVinculos(v => v.map((item, idx) => idx === i ? { ...item, [field]: val } : item))
+  }
 
   function set<K extends keyof FormState>(k: K, v: FormState[K]) {
     setForm(f => ({ ...f, [k]: v }))
@@ -183,6 +213,105 @@ function NovaPesquisaForm({ onBack }: { onBack: () => void }) {
             <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           </div>
         </div>
+
+        {/* Bloco exclusivo: Desligamento */}
+        {form.tipo === 'Desligamento' && (
+          <div className="space-y-4">
+            {/* Info box */}
+            <div className="flex gap-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+              <Info size={16} className="text-blue-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+                Você pode criar até cinco pesquisas distintas ao estabelecer vínculos entre categorias de desligamento e questionários. Além das categorias Voluntário e Involuntário, é possível criar novas categorias e atribuir questionários específicos a cada uma delas. Além disso,{' '}
+                <span className="text-blue-500 font-medium">um mesmo questionário pode ser selecionado mais de uma vez, mas com categorias diferentes.</span>
+              </p>
+            </div>
+
+            {/* Vínculos */}
+            <div className="space-y-3">
+              {vinculos.map((v, i) => (
+                <div key={i} className="flex items-end gap-3">
+                  {/* Questionário */}
+                  <div className="flex-1 space-y-1.5">
+                    {i === 0 && (
+                      <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                        Questionário <span className="text-red-500">*</span>
+                      </label>
+                    )}
+                    <div className="relative">
+                      <select
+                        value={v.questionario}
+                        onChange={e => setVinculo(i, 'questionario', e.target.value)}
+                        className="w-full appearance-none border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2.5 text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 transition"
+                      >
+                        <option value="">Selecionar</option>
+                        {QUESTIONARIOS_DESLIGAMENTO.map(q => (
+                          <option key={q} value={q}>{q}</option>
+                        ))}
+                      </select>
+                      <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Categoria */}
+                  <div className="flex-1 space-y-1.5">
+                    {i === 0 && (
+                      <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                        Categoria de desligamento <span className="text-red-500">*</span>
+                      </label>
+                    )}
+                    <div className="relative">
+                      <select
+                        value={v.categoria}
+                        onChange={e => setVinculo(i, 'categoria', e.target.value)}
+                        className="w-full appearance-none border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2.5 text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 transition"
+                      >
+                        <option value="">Selecione</option>
+                        {CATEGORIAS_DESLIGAMENTO.map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                      <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Add / Remove */}
+                  <div className={`flex items-center gap-1 ${i === 0 ? 'mt-5' : ''}`}>
+                    {i === 0 ? (
+                      <button
+                        type="button"
+                        onClick={addVinculo}
+                        disabled={vinculos.length >= 5}
+                        title="Adicionar vínculo"
+                        className="w-9 h-9 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-600 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 transition-colors text-lg font-light"
+                      >
+                        +
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => removeVinculo(i)}
+                        title="Remover vínculo"
+                        className="w-9 h-9 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-600 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Novo questionário */}
+            <div className="flex justify-end">
+              <button
+                type="button"
+                className="px-4 py-2 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-xs font-semibold transition-colors shadow-sm shadow-primary-500/30"
+              >
+                Novo questionário
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Anonimato */}
         <div className="border border-slate-100 dark:border-slate-700 rounded-xl p-4 space-y-3">
