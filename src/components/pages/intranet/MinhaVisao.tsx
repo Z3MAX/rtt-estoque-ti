@@ -1,6 +1,8 @@
 import { useAuth } from '../../../lib/auth'
-import { BookOpen, MessageSquare, Target, TrendingUp, Clock, CheckCircle2, AlertCircle, Smile, Meh, Frown, Angry, Star } from 'lucide-react'
+import { BookOpen, MessageSquare, Target, TrendingUp, Clock, CheckCircle2, AlertCircle, Star, Camera } from 'lucide-react'
 import { useState } from 'react'
+import Avatar from '../../ui/Avatar'
+import PhotoUploadModal from '../../ui/PhotoUploadModal'
 
 const MOODS = [
   { emoji: '😡', label: 'Zangado',   value: 'zangado',   color: 'hover:bg-red-100 dark:hover:bg-red-900/20'    },
@@ -36,8 +38,8 @@ export default function MinhaVisao() {
   const { user } = useAuth()
   const [mood, setMood] = useState<string | null>(null)
 
+  const [photoModal, setPhotoModal] = useState(false)
   const firstName = user?.name?.split(' ')[0] ?? 'Colaborador'
-  const initials  = (user?.name ?? 'U').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_260px] gap-5">
@@ -45,8 +47,15 @@ export default function MinhaVisao() {
       {/* ── Coluna esquerda: perfil ── */}
       <div className="space-y-4">
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 flex flex-col items-center text-center gap-3">
-          <div className="w-20 h-20 rounded-full bg-primary-600 text-white flex items-center justify-center text-2xl font-black shadow-lg">
-            {initials}
+          <div className="relative">
+            <Avatar name={user?.name ?? ''} photoUrl={user?.photo_url} size="lg" />
+            <button
+              onClick={() => setPhotoModal(true)}
+              className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-primary-600 hover:bg-primary-700 text-white flex items-center justify-center shadow-md transition-colors"
+              title="Alterar foto"
+            >
+              <Camera size={13} />
+            </button>
           </div>
           <div>
             <p className="text-base font-bold text-slate-900 dark:text-slate-100">{user?.name}</p>
@@ -246,5 +255,7 @@ export default function MinhaVisao() {
         </div>
       </div>
     </div>
+
+    {photoModal && <PhotoUploadModal onClose={() => setPhotoModal(false)} />}
   )
 }
