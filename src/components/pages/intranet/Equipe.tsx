@@ -22,11 +22,9 @@ export default function EquipePage() {
 
   useEffect(() => {
     api.colaboradores.list().then(all => {
-      const data = all as Colaborador[]
-      const minha = user?.area ? data.filter(c => c.area === user.area) : data
-      setColabs(minha)
+      setColabs(all as Colaborador[])
     }).finally(() => setLoading(false))
-  }, [user?.area])
+  }, [])
 
   const filtered = colabs.filter(c => !search || c.nome.toLowerCase().includes(search.toLowerCase()) || (c.cargo ?? '').toLowerCase().includes(search.toLowerCase()))
 

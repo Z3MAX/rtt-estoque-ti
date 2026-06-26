@@ -15,8 +15,15 @@ exports.handler = async (event) => {
 
   try {
     const authPayload = requireAuth(event)
-    const isGestor = authPayload.role === 'Gestor'
-    const gestorArea = authPayload.area || null
+    const userArea = authPayload.area || null
+
+    // Admins plenos veem todos; demais usuários com área definida veem só a sua área
+    const ADMIN_ROLES = ['Administrador de RH', 'Administrador de TI', 'Administrador Master', 'Administrador de RH / Gestor']
+    const isFullAdmin = ADMIN_ROLES.includes(authPayload.role)
+    const filterByArea = !isFullAdmin && !!userArea
+
+    // Manter retrocompatibilidade com variável anterior
+    const gestorArea = userArea
 
     if (event.httpMethod === 'GET') {
       if (id) {
@@ -32,7 +39,7 @@ exports.handler = async (event) => {
              ORDER BY ca3.created_at DESC LIMIT 1) AS ultima_avaliacao
           FROM colaboradores c
           WHERE c.id = ${id}
-            AND (${!isGestor} OR c.area = ${gestorArea})
+            AND (${!filterByArea} OR c.area = ${gestorArea})
         `
         if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Colaborador não encontrado' }) }
         return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
@@ -53,7 +60,7 @@ exports.handler = async (event) => {
              ORDER BY ca3.created_at DESC LIMIT 1) AS ultima_avaliacao
           FROM colaboradores c
           WHERE c.ativo = true
-            AND (${!isGestor} OR c.area = ${gestorArea})
+            AND (${!filterByArea} OR c.area = ${gestorArea})
             AND (
               LOWER(c.nome)        LIKE ${'%' + search + '%'} OR
               LOWER(c.cargo)       LIKE ${'%' + search + '%'} OR
@@ -75,7 +82,7 @@ exports.handler = async (event) => {
              ORDER BY ca3.created_at DESC LIMIT 1) AS ultima_avaliacao
           FROM colaboradores c
           WHERE c.ativo = true
-            AND (${!isGestor} OR c.area = ${gestorArea})
+            AND (${!filterByArea} OR c.area = ${gestorArea})
           ORDER BY c.nome ASC
         `
       }
