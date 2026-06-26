@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Plus, Edit2, X, Trash2, AlertCircle, RefreshCw, ClipboardList, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Plus, Edit2, X, Trash2, AlertCircle, RefreshCw, ClipboardList, ChevronRight, ShieldCheck, Info } from 'lucide-react'
 import { api } from '../../lib/api'
 import type { Colaborador, CicloAvaliacao, NivelCargo } from '../../lib/types'
 import { NIVEL_LABELS } from '../../lib/types'
@@ -35,6 +35,366 @@ const TIPO_LABELS: Record<string, string> = {
 function formatDate(iso?: string) {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+// ─── Sucessão ────────────────────────────────────────────────────────────────
+
+const PROB_CRITERIA = [
+  'Baixa – Demonstra satisfação, engajamento e perspectiva de futuro na empresa. Sem sinais de insatisfação ou busca por vagas externas.',
+  'Média – Já demonstrou sinal pontual de insatisfação (reclamações isoladas, comentários sobre salário/carreira), sem indícios concretos de movimentação no mercado.',
+  'Alta – Sinais consistentes de insatisfação (queda de engajamento, comentários recorrentes sobre saída, participação em processos seletivos externos).',
+  'Altíssima – Já comunicou intenção de saída (formal ou informalmente), está em processo seletivo avançado ou recebeu proposta concreta de outra empresa.',
+]
+const IMPACTO_CRITERIA = [
+  'Baixo – A saída não compromete entregas, prazos ou relacionamentos-chave. Atividades são redistribuíveis com facilidade.',
+  'Médio – Gera desorganização temporária ou sobrecarga no time, mas sem comprometer entregas críticas ou relacionamentos estratégicos.',
+  'Alto – Detém conhecimento técnico/processual relevante ou relacionamento estratégico com clientes/fornecedores; a saída impacta resultado ou prazo.',
+  'Altíssimo – Detentor de conhecimento crítico não documentado, referência única na função, ou figura-chave em relações estratégicas. Saída gera risco real ao negócio.',
+]
+const DIFICU_CRITERIA = [
+  'Baixa – Perfil amplamente disponível no mercado. Reposição estimada em até 30 dias, baixo custo de atração.',
+  'Média – Perfil disponível no mercado, mas com reposição entre 30 e 60 dias ou processo seletivo mais elaborado.',
+  'Alta – Perfil escasso (técnico, especializado ou de liderança). Reposição estimada entre 60 e 90 dias.',
+  'Altíssima – Perfil raro/estratégico, poucos profissionais qualificados disponíveis. Reposição superior a 90 dias e/ou alto custo de atração.',
+]
+
+const PRONTIDAO_OPTS = [
+  { key: 'interino',  label: 'Interino',      desc: 'Assume imediatamente em caráter emergencial' },
+  { key: '0_1',       label: '0 – 1 ano',     desc: 'Pronto no curto prazo' },
+  { key: '1_3',       label: '1 – 3 anos',    desc: 'Pronto no médio prazo' },
+  { key: '3_5',       label: '3 – 5 anos',    desc: 'Pronto no longo prazo' },
+  { key: '5mais',     label: 'Acima de 5 anos', desc: 'Desenvolvimento contínuo necessário' },
+]
+
+const STATUS_OPTS = ['Pendente', 'Em andamento', 'Concluído']
+
+interface AcaoDesenvolvimento {
+  id:            number
+  competencia:   string
+  acao:          string
+  prazo:         string
+  responsavel:   string
+  status:        string
+}
+
+interface SucessaoState {
+  candidato:     boolean
+  probabilidade: number
+  impacto:       number
+  dificuldade:   number
+  prontidao:     string
+  acoes:         AcaoDesenvolvimento[]
+}
+
+function RatingButton({ value, selected, label, tooltip, onClick }: {
+  value: number; selected: boolean; label: string; tooltip: string; onClick: () => void
+}) {
+  const [showTip, setShowTip] = useState(false)
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={onClick}
+        onMouseEnter={() => setShowTip(true)}
+        onMouseLeave={() => setShowTip(false)}
+        className={`w-10 h-10 rounded-xl text-sm font-bold border-2 transition-all ${
+          selected
+            ? 'bg-primary-500 border-primary-500 text-white shadow-md shadow-primary-500/30'
+            : 'border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-primary-300 hover:text-primary-600'
+        }`}
+      >
+        {value}
+      </button>
+      {showTip && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-slate-900 text-white text-xs rounded-xl p-3 z-50 shadow-xl leading-relaxed pointer-events-none">
+          <span className="font-semibold text-primary-300">{label}</span><br />
+          {tooltip}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RiskBadge({ score }: { score: number }) {
+  if (score === 0) return null
+  if (score > 16) return <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">Alto Risco</span>
+  if (score >= 12) return <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">Médio Risco</span>
+  return <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">Baixo Risco</span>
+}
+
+function SucessaoPanel({ colabNome, onSave }: { colabNome: string; onSave: (msg: string) => void }) {
+  const [state, setState] = useState<SucessaoState>({
+    candidato: false,
+    probabilidade: 0,
+    impacto: 0,
+    dificuldade: 0,
+    prontidao: '',
+    acoes: [],
+  })
+  const [saving, setSaving] = useState(false)
+
+  function set<K extends keyof SucessaoState>(k: K, v: SucessaoState[K]) {
+    setState(s => ({ ...s, [k]: v }))
+  }
+
+  function addAcao() {
+    setState(s => ({
+      ...s,
+      acoes: [...s.acoes, { id: Date.now(), competencia: '', acao: '', prazo: '', responsavel: '', status: 'Pendente' }],
+    }))
+  }
+
+  function removeAcao(id: number) {
+    setState(s => ({ ...s, acoes: s.acoes.filter(a => a.id !== id) }))
+  }
+
+  function setAcao(id: number, field: keyof AcaoDesenvolvimento, val: string) {
+    setState(s => ({ ...s, acoes: s.acoes.map(a => a.id === id ? { ...a, [field]: val } : a) }))
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    await new Promise(r => setTimeout(r, 600))
+    setSaving(false)
+    onSave('Plano de sucessão salvo com sucesso')
+  }
+
+  const resultado = state.probabilidade * state.impacto * state.dificuldade
+
+  const inputCls = 'w-full border border-slate-200 dark:border-slate-600 rounded-lg px-2.5 py-1.5 text-xs bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 transition'
+
+  return (
+    <div className="card overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+            <ShieldCheck size={15} className="text-violet-600 dark:text-violet-400" />
+          </div>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Plano de Sucessão & Risco</h2>
+        </div>
+        {/* Toggle candidato */}
+        <label className="flex items-center gap-2.5 cursor-pointer">
+          <span className="text-xs text-slate-500 dark:text-slate-400">Candidato a sucessor</span>
+          <button
+            type="button"
+            onClick={() => set('candidato', !state.candidato)}
+            className={`w-11 h-6 rounded-full flex items-center transition-colors shrink-0 ${state.candidato ? 'bg-violet-500' : 'bg-slate-200 dark:bg-slate-600'}`}
+          >
+            <span className={`w-5 h-5 rounded-full bg-white shadow transition-all mx-0.5 ${state.candidato ? 'translate-x-5' : 'translate-x-0'}`} />
+          </button>
+        </label>
+      </div>
+
+      {!state.candidato ? (
+        <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
+          <ShieldCheck size={28} className="opacity-25" />
+          <p className="text-sm">Ative o toggle para indicar {colabNome.split(' ')[0]} como candidato a sucessor</p>
+        </div>
+      ) : (
+        <div className="p-6 space-y-8">
+
+          {/* ── Risk Assessment ── */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Risk Assessment — Retenção de Talentos</h3>
+              <div className="flex-1 h-px bg-slate-100 dark:bg-slate-700" />
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Avalie de 1 a 4 cada dimensão. Passe o mouse sobre os números para ver os critérios. O resultado é calculado automaticamente.
+            </p>
+
+            <div className="grid sm:grid-cols-3 gap-5">
+              {/* Probabilidade */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">Probabilidade de Saída <span className="text-red-400">*</span></p>
+                <div className="flex gap-2">
+                  {[1,2,3,4].map(v => (
+                    <RatingButton key={v} value={v} selected={state.probabilidade === v}
+                      label={['Baixa','Média','Alta','Altíssima'][v-1]}
+                      tooltip={PROB_CRITERIA[v-1]}
+                      onClick={() => set('probabilidade', state.probabilidade === v ? 0 : v)} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Impacto */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">Impacto da Saída <span className="text-red-400">*</span></p>
+                <div className="flex gap-2">
+                  {[1,2,3,4].map(v => (
+                    <RatingButton key={v} value={v} selected={state.impacto === v}
+                      label={['Baixo','Médio','Alto','Altíssimo'][v-1]}
+                      tooltip={IMPACTO_CRITERIA[v-1]}
+                      onClick={() => set('impacto', state.impacto === v ? 0 : v)} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Dificuldade */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">Dificuldade de Recolocação <span className="text-red-400">*</span></p>
+                <div className="flex gap-2">
+                  {[1,2,3,4].map(v => (
+                    <RatingButton key={v} value={v} selected={state.dificuldade === v}
+                      label={['Baixa','Média','Alta','Altíssima'][v-1]}
+                      tooltip={DIFICU_CRITERIA[v-1]}
+                      onClick={() => set('dificuldade', state.dificuldade === v ? 0 : v)} />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Resultado */}
+            {resultado > 0 && (
+              <div className="flex items-center gap-4 mt-2 p-4 bg-slate-50 dark:bg-slate-700/40 rounded-xl border border-slate-200 dark:border-slate-700">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{resultado}</p>
+                  <p className="text-xs text-slate-400">Resultado</p>
+                </div>
+                <div className="w-px h-10 bg-slate-200 dark:bg-slate-600" />
+                <RiskBadge score={resultado} />
+                <p className="text-xs text-slate-400 ml-2">
+                  {state.probabilidade} × {state.impacto} × {state.dificuldade} = {resultado}
+                  {resultado > 16 && ' — Ação imediata necessária'}
+                  {resultado >= 12 && resultado <= 16 && ' — Monitorar de perto'}
+                  {resultado < 12 && resultado > 0 && ' — Risco administrável'}
+                </p>
+              </div>
+            )}
+
+            {/* Legenda compacta */}
+            <div className="flex gap-3 text-[10px] text-slate-400">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" /> &gt;16 Alto</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" /> 12–16 Médio</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400" /> &lt;12 Baixo</span>
+            </div>
+          </div>
+
+          {/* ── Plano de Sucessão ── */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Plano de Sucessão</h3>
+              <div className="flex-1 h-px bg-slate-100 dark:bg-slate-700" />
+            </div>
+
+            {/* Prontidão */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">Prontidão para Sucessão</p>
+              <div className="flex flex-wrap gap-2">
+                {PRONTIDAO_OPTS.map(opt => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => set('prontidao', state.prontidao === opt.key ? '' : opt.key)}
+                    title={opt.desc}
+                    className={`px-3 py-2 rounded-xl border text-xs font-medium transition-all ${
+                      state.prontidao === opt.key
+                        ? 'bg-violet-500 border-violet-500 text-white shadow-md shadow-violet-500/25'
+                        : 'border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-violet-300 hover:text-violet-600'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-start gap-2 mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+                <Info size={13} className="text-blue-500 shrink-0 mt-0.5" />
+                <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+                  O <strong>Interino</strong> assume em caráter emergencial/imediato, sem necessariamente ser o sucessor formal.
+                  Os demais horizontes indicam o prazo estimado para o colaborador assumir a posição em definitivo.
+                </p>
+              </div>
+            </div>
+
+            {/* Ações de Desenvolvimento */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">Ações de Desenvolvimento por Colaborador Elegível</p>
+                <button type="button" onClick={addAcao}
+                  className="flex items-center gap-1.5 text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 font-medium transition-colors">
+                  <Plus size={13} /> Adicionar ação
+                </button>
+              </div>
+
+              {state.acoes.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl text-slate-400 gap-2">
+                  <p className="text-xs">Nenhuma ação cadastrada</p>
+                  <button type="button" onClick={addAcao}
+                    className="text-xs text-violet-600 dark:text-violet-400 hover:underline font-medium">
+                    + Adicionar primeira ação
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+                  <table className="w-full text-xs min-w-[700px]">
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-slate-700/40 border-b border-slate-200 dark:border-slate-700">
+                        <th className="text-left px-3 py-2.5 font-semibold text-slate-500 dark:text-slate-400 w-[22%]">Competência / Gap</th>
+                        <th className="text-left px-3 py-2.5 font-semibold text-slate-500 dark:text-slate-400 w-[28%]">Ação de Desenvolvimento</th>
+                        <th className="text-left px-3 py-2.5 font-semibold text-slate-500 dark:text-slate-400 w-[14%]">Prazo Esperado</th>
+                        <th className="text-left px-3 py-2.5 font-semibold text-slate-500 dark:text-slate-400 w-[18%]">Responsável</th>
+                        <th className="text-left px-3 py-2.5 font-semibold text-slate-500 dark:text-slate-400 w-[13%]">Status</th>
+                        <th className="px-3 py-2.5 w-8" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                      {state.acoes.map(a => (
+                        <tr key={a.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-700/20 transition-colors">
+                          <td className="px-3 py-2">
+                            <input value={a.competencia} onChange={e => setAcao(a.id, 'competencia', e.target.value)}
+                              placeholder="Ex: Liderança de equipes" className={inputCls} />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input value={a.acao} onChange={e => setAcao(a.id, 'acao', e.target.value)}
+                              placeholder="Ex: Shadowing com o gestor" className={inputCls} />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input type="month" value={a.prazo} onChange={e => setAcao(a.id, 'prazo', e.target.value)}
+                              className={inputCls} />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input value={a.responsavel} onChange={e => setAcao(a.id, 'responsavel', e.target.value)}
+                              placeholder="Nome do responsável" className={inputCls} />
+                          </td>
+                          <td className="px-3 py-2">
+                            <select value={a.status} onChange={e => setAcao(a.id, 'status', e.target.value)}
+                              className={`${inputCls} ${
+                                a.status === 'Concluído' ? 'text-emerald-600 dark:text-emerald-400' :
+                                a.status === 'Em andamento' ? 'text-amber-600 dark:text-amber-400' :
+                                'text-slate-500'
+                              }`}>
+                              {STATUS_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                          </td>
+                          <td className="px-3 py-2">
+                            <button type="button" onClick={() => removeAcao(a.id)}
+                              className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                              <Trash2 size={12} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Save */}
+          <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-700">
+            <button type="button" onClick={handleSave} disabled={saving}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-500 hover:bg-violet-600 disabled:opacity-60 text-white text-sm font-semibold transition-colors shadow-sm shadow-violet-500/30">
+              {saving ? <RefreshCw size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
+              {saving ? 'Salvando...' : 'Salvar plano de sucessão'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ─── Edit Modal ───────────────────────────────────────────────────────────────
@@ -380,6 +740,9 @@ export default function ColaboradorPerfil() {
           </div>
         )}
       </div>
+
+      {/* Plano de Sucessão */}
+      <SucessaoPanel colabNome={colab.nome} onSave={showToast} />
 
       {showEdit && colab && <EditModal colab={colab} onSave={handleEdit} onClose={() => setShowEdit(false)} />}
 
