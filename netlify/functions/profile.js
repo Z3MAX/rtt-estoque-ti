@@ -17,7 +17,7 @@ exports.handler = async (event) => {
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT`
 
     if (event.httpMethod === 'GET') {
-      const rows = await sql`SELECT photo_url FROM users WHERE id = ${auth.id} LIMIT 1`
+      const rows = await sql`SELECT photo_url FROM users WHERE id = ${auth.userId} LIMIT 1`
       return { statusCode: 200, headers, body: JSON.stringify(rows[0] || {}) }
     }
 
@@ -29,7 +29,7 @@ exports.handler = async (event) => {
         return { statusCode: 413, headers, body: JSON.stringify({ error: 'Imagem muito grande' }) }
       }
 
-      await sql`UPDATE users SET photo_url = ${photo_url ?? null}, updated_at = NOW() WHERE id = ${auth.id}`
+      await sql`UPDATE users SET photo_url = ${photo_url ?? null}, updated_at = NOW() WHERE id = ${auth.userId}`
       return { statusCode: 200, headers, body: JSON.stringify({ success: true }) }
     }
 
