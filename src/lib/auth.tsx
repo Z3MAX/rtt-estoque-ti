@@ -94,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null)
     localStorage.removeItem('osiris_user')
     localStorage.removeItem('osiris_token')
+    localStorage.removeItem('rtt_portal')
   }
 
   function updateUser(updates: Partial<User>) {
