@@ -42,6 +42,7 @@ export default function MinhaVisao() {
   const firstName = user?.name?.split(' ')[0] ?? 'Colaborador'
 
   return (
+    <>
     <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_260px] gap-5">
 
       {/* ── Coluna esquerda: perfil ── */}
@@ -255,7 +256,7 @@ export default function MinhaVisao() {
         </div>
       </div>
     </div>
-
     {photoModal && <PhotoUploadModal onClose={() => setPhotoModal(false)} />}
+    </>
   )
 }
