@@ -72,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(mockToken)
       localStorage.setItem('osiris_user', JSON.stringify(u))
       localStorage.setItem('osiris_token', mockToken)
+      localStorage.removeItem('rtt_portal')
       return
     }
 
@@ -87,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(data.token)
     localStorage.setItem('osiris_user', JSON.stringify(data.user))
     localStorage.setItem('osiris_token', data.token)
+    localStorage.removeItem('rtt_portal')
   }
 
   function logout() {
