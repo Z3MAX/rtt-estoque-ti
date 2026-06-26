@@ -86,10 +86,21 @@ interface SucessaoState {
   acoes:         AcaoDesenvolvimento[]
 }
 
-function RatingButton({ value, selected, label, tooltip, onClick }: {
+function RatingButton({ value, selected, label, tooltip, onClick, tipAlign = 'center' }: {
   value: number; selected: boolean; label: string; tooltip: string; onClick: () => void
+  tipAlign?: 'left' | 'center' | 'right'
 }) {
   const [showTip, setShowTip] = useState(false)
+  const tipPos = tipAlign === 'left'
+    ? 'left-0'
+    : tipAlign === 'right'
+    ? 'right-0'
+    : 'left-1/2 -translate-x-1/2'
+  const arrowPos = tipAlign === 'left'
+    ? 'left-5'
+    : tipAlign === 'right'
+    ? 'right-5'
+    : 'left-1/2 -translate-x-1/2'
   return (
     <div className="relative">
       <button
@@ -106,10 +117,10 @@ function RatingButton({ value, selected, label, tooltip, onClick }: {
         {value}
       </button>
       {showTip && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-slate-900 text-white text-xs rounded-xl p-3 z-50 shadow-xl leading-relaxed pointer-events-none">
+        <div className={`absolute bottom-full ${tipPos} mb-2 w-64 bg-slate-900 text-white text-xs rounded-xl p-3 z-50 shadow-xl leading-relaxed pointer-events-none`}>
           <span className="font-semibold text-primary-300">{label}</span><br />
           {tooltip}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
+          <div className={`absolute top-full ${arrowPos} border-4 border-transparent border-t-slate-900`} />
         </div>
       )}
     </div>
@@ -123,7 +134,7 @@ function RiskBadge({ score }: { score: number }) {
   return <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">Baixo Risco</span>
 }
 
-function SucessaoPanel({ colabNome, onSave }: { colabNome: string; onSave: (msg: string) => void }) {
+function SucessaoPanel({ colabId, colabNome, onSave }: { colabId: number; colabNome: string; onSave: (msg: string) => void }) {
   const [state, setState] = useState<SucessaoState>({
     candidato: false,
     probabilidade: 0,
@@ -133,6 +144,23 @@ function SucessaoPanel({ colabNome, onSave }: { colabNome: string; onSave: (msg:
     acoes: [],
   })
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    api.sucessao.get(colabId)
+      .then((data: any) => {
+        if (data) {
+          setState({
+            candidato: data.candidato ?? false,
+            probabilidade: data.probabilidade ?? 0,
+            impacto: data.impacto ?? 0,
+            dificuldade: data.dificuldade ?? 0,
+            prontidao: data.prontidao ?? '',
+            acoes: data.acoes ?? [],
+          })
+        }
+      })
+      .catch(() => {})
+  }, [colabId])
 
   function set<K extends keyof SucessaoState>(k: K, v: SucessaoState[K]) {
     setState(s => ({ ...s, [k]: v }))
@@ -155,9 +183,14 @@ function SucessaoPanel({ colabNome, onSave }: { colabNome: string; onSave: (msg:
 
   async function handleSave() {
     setSaving(true)
-    await new Promise(r => setTimeout(r, 600))
-    setSaving(false)
-    onSave('Plano de sucessão salvo com sucesso')
+    try {
+      await api.sucessao.save(colabId, state)
+      onSave('Plano de sucessão salvo com sucesso')
+    } catch {
+      onSave('Erro ao salvar plano de sucessão')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const resultado = state.probabilidade * state.impacto * state.dificuldade
@@ -214,6 +247,7 @@ function SucessaoPanel({ colabNome, onSave }: { colabNome: string; onSave: (msg:
                     <RatingButton key={v} value={v} selected={state.probabilidade === v}
                       label={['Baixa','Média','Alta','Altíssima'][v-1]}
                       tooltip={PROB_CRITERIA[v-1]}
+                      tipAlign={v === 1 ? 'left' : v === 4 ? 'right' : 'center'}
                       onClick={() => set('probabilidade', state.probabilidade === v ? 0 : v)} />
                   ))}
                 </div>
@@ -227,6 +261,7 @@ function SucessaoPanel({ colabNome, onSave }: { colabNome: string; onSave: (msg:
                     <RatingButton key={v} value={v} selected={state.impacto === v}
                       label={['Baixo','Médio','Alto','Altíssimo'][v-1]}
                       tooltip={IMPACTO_CRITERIA[v-1]}
+                      tipAlign={v === 1 ? 'left' : v === 4 ? 'right' : 'center'}
                       onClick={() => set('impacto', state.impacto === v ? 0 : v)} />
                   ))}
                 </div>
@@ -240,6 +275,7 @@ function SucessaoPanel({ colabNome, onSave }: { colabNome: string; onSave: (msg:
                     <RatingButton key={v} value={v} selected={state.dificuldade === v}
                       label={['Baixa','Média','Alta','Altíssima'][v-1]}
                       tooltip={DIFICU_CRITERIA[v-1]}
+                      tipAlign={v === 1 ? 'left' : v === 4 ? 'right' : 'center'}
                       onClick={() => set('dificuldade', state.dificuldade === v ? 0 : v)} />
                   ))}
                 </div>
@@ -384,9 +420,9 @@ function SucessaoPanel({ colabNome, onSave }: { colabNome: string; onSave: (msg:
           </div>
 
           {/* Save */}
-          <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-700">
+          <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-700 overflow-visible">
             <button type="button" onClick={handleSave} disabled={saving}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-500 hover:bg-violet-600 disabled:opacity-60 text-white text-sm font-semibold transition-colors shadow-sm shadow-violet-500/30">
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-500 hover:bg-violet-600 disabled:opacity-60 text-white text-sm font-semibold transition-colors shadow-sm shadow-violet-500/30 whitespace-nowrap shrink-0">
               {saving ? <RefreshCw size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
               {saving ? 'Salvando...' : 'Salvar plano de sucessão'}
             </button>
@@ -742,7 +778,7 @@ export default function ColaboradorPerfil() {
       </div>
 
       {/* Plano de Sucessão */}
-      <SucessaoPanel colabNome={colab.nome} onSave={showToast} />
+      <SucessaoPanel colabId={colab.id} colabNome={colab.nome} onSave={showToast} />
 
       {showEdit && colab && <EditModal colab={colab} onSave={handleEdit} onClose={() => setShowEdit(false)} />}
 

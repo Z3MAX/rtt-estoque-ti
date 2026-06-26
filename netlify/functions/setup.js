@@ -100,6 +100,22 @@ exports.handler = async (event) => {
     await sql`CREATE INDEX IF NOT EXISTS audit_log_entity_idx ON audit_log(entity_type, entity_id)`
     await sql`CREATE INDEX IF NOT EXISTS audit_log_created_idx ON audit_log(created_at DESC)`
 
+    // Plano de Sucessão
+    await sql`
+      CREATE TABLE IF NOT EXISTS sucessao_colaborador (
+        id              SERIAL PRIMARY KEY,
+        colaborador_id  INTEGER UNIQUE REFERENCES colaboradores(id) ON DELETE CASCADE,
+        candidato       BOOLEAN DEFAULT false,
+        probabilidade   SMALLINT DEFAULT 0,
+        impacto         SMALLINT DEFAULT 0,
+        dificuldade     SMALLINT DEFAULT 0,
+        prontidao       VARCHAR(20) DEFAULT '',
+        acoes           JSONB DEFAULT '[]',
+        created_at      TIMESTAMP DEFAULT NOW(),
+        updated_at      TIMESTAMP DEFAULT NOW()
+      )
+    `
+
     // Migrations
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS area VARCHAR(200)`
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`

@@ -254,6 +254,17 @@ export const api = {
     return request(`${BASE}/setup-gestores`, { method: 'POST' })
   },
 
+  sucessao: {
+    get: async (colaboradorId: number) => {
+      if (MOCK) { await delay(200); return null }
+      return request(`${BASE}/sucessao?colaborador_id=${colaboradorId}`)
+    },
+    save: async (colaboradorId: number, data: any) => {
+      if (MOCK) { await delay(400); return data }
+      return request(`${BASE}/sucessao?colaborador_id=${colaboradorId}`, { method: 'POST', body: JSON.stringify(data) })
+    },
+  },
+
   audit: {
     list: async (entityType?: string, entityId?: number, limit?: number) => {
       if (MOCK) { await delay(150); return [] }
