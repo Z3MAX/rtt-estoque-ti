@@ -30,8 +30,10 @@ exports.handler = async (event) => {
 
   try {
     // Busca por e-mail (sem conferir senha no SQL para evitar timing attacks)
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT`
+
     const rows = await sql`
-      SELECT id, name, email, role, area, active, must_change_password, password_hash
+      SELECT id, name, email, role, area, active, must_change_password, password_hash, photo_url
       FROM users
       WHERE email = ${email.toLowerCase()}
     `
@@ -92,6 +94,7 @@ exports.handler = async (event) => {
           role: user.role,
           area: user.area || null,
           mustChangePassword: user.must_change_password ?? false,
+          photo_url: user.photo_url || null,
         },
       }),
     }

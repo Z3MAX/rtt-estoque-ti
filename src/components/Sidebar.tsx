@@ -1,10 +1,13 @@
+import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, LogOut,
-  UserCircle, ChevronRight, Sun, Moon, ClipboardList, Building2, ClipboardCheck, ListChecks, Shield, CalendarRange, ArrowLeftRight,
+  ChevronRight, Sun, Moon, ClipboardList, Building2, ClipboardCheck, ListChecks, Shield, CalendarRange, ArrowLeftRight,
 } from 'lucide-react'
 import { useAuth, isAdmin, isMaster } from '../lib/auth'
 import { useTheme } from '../lib/theme'
+import Avatar from './ui/Avatar'
+import PhotoUploadModal from './ui/PhotoUploadModal'
 
 const navItems = [
   { to: '/dashboard',          icon: LayoutDashboard, label: 'Dashboard',            adminOnly: false, masterOnly: false },
@@ -22,6 +25,7 @@ export default function Sidebar() {
   const { theme, toggle } = useTheme()
   const userIsAdmin  = isAdmin(user?.role)
   const userIsMaster = isMaster(user?.role)
+  const [photoModal, setPhotoModal] = useState(false)
 
   return (
     <aside className="w-64 h-screen sticky top-0 overflow-y-auto flex flex-col shrink-0
@@ -108,24 +112,27 @@ export default function Sidebar() {
           </span>
         </button>
 
-        <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
-          <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center shrink-0">
-            <UserCircle size={18} className="text-primary-600 dark:text-primary-400" />
-          </div>
+        <button
+          onClick={() => setPhotoModal(true)}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 hover:border-primary-200 dark:hover:border-primary-700 transition-colors group text-left"
+        >
+          <Avatar name={user?.name ?? ''} photoUrl={user?.photo_url} size="sm" />
           <div className="flex-1 min-w-0">
             <p className="text-slate-800 dark:text-slate-200 text-xs font-semibold truncate">{user?.name}</p>
-            <p className="text-slate-400 text-xs truncate">{user?.role}</p>
+            <p className="text-slate-400 text-[10px] truncate group-hover:text-primary-500 transition-colors">Alterar foto</p>
           </div>
           <button
-            onClick={logout}
+            onClick={e => { e.stopPropagation(); logout() }}
             title="Sair"
             className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-colors shrink-0"
           >
             <LogOut size={14} />
           </button>
-        </div>
+        </button>
         <p className="text-slate-400 text-xs mt-2 px-1">v2.0.0 &mdash; Rema Tip Top</p>
       </div>
+
+      {photoModal && <PhotoUploadModal onClose={() => setPhotoModal(false)} />}
     </aside>
   )
 }

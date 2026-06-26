@@ -9,6 +9,7 @@ export interface User {
   role: string
   area?: string | null
   mustChangePassword?: boolean
+  photo_url?: string | null
 }
 
 export function isAdmin(role?: string) {

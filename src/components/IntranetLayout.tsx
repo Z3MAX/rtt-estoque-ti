@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
-  Home, BookOpen, Megaphone, GraduationCap, Users, ClipboardCheck, ClipboardList,
+  Home, BookOpen, Megaphone, GraduationCap, Users, ClipboardList,
   LogOut, ChevronDown, Menu, X, ArrowLeftRight, Bell,
 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import ChatBot from './ChatBot'
+import Avatar from './ui/Avatar'
+import PhotoUploadModal from './ui/PhotoUploadModal'
 
 const NAV = [
   { to: '/intranet',             icon: Home,           label: 'Minha Visão' },
@@ -15,15 +17,6 @@ const NAV = [
   { to: '/intranet/equipe',     icon: Users,           label: 'Minha Equipe' },
   { to: '/intranet/pesquisas', icon: ClipboardList,   label: 'Pesquisas' },
 ]
-
-function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' }) {
-  const sz = size === 'sm' ? 'w-8 h-8 text-xs' : 'w-9 h-9 text-sm'
-  return (
-    <div className={`${sz} rounded-full bg-primary-600 text-white flex items-center justify-center font-bold shrink-0`}>
-      {name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
-    </div>
-  )
-}
 
 interface IntranetLayoutProps {
   onSwitchPortal: () => void
@@ -35,6 +28,7 @@ export default function IntranetLayout({ onSwitchPortal }: IntranetLayoutProps) 
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [photoModal, setPhotoModal] = useState(false)
 
   function switchPortal() {
     localStorage.removeItem('rtt_portal')
@@ -96,7 +90,7 @@ export default function IntranetLayout({ onSwitchPortal }: IntranetLayoutProps) 
                 onClick={() => setUserMenuOpen(v => !v)}
                 className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
               >
-                <Avatar name={user?.name ?? 'U'} size="sm" />
+                <Avatar name={user?.name ?? 'U'} photoUrl={user?.photo_url} size="sm" />
                 <span className="hidden sm:block text-sm font-medium text-slate-700 dark:text-slate-200 max-w-[120px] truncate">
                   {user?.name?.split(' ')[0]}
                 </span>
@@ -104,11 +98,20 @@ export default function IntranetLayout({ onSwitchPortal }: IntranetLayoutProps) 
               </button>
 
               {userMenuOpen && (
-                <div className="absolute right-0 top-full mt-1 w-52 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-1 z-50">
-                  <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-700">
-                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{user?.name}</p>
-                    <p className="text-xs text-slate-400">{user?.email}</p>
+                <div className="absolute right-0 top-full mt-1 w-56 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-1 z-50">
+                  <div className="px-3 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center gap-3">
+                    <Avatar name={user?.name ?? ''} photoUrl={user?.photo_url} size="md" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{user?.name}</p>
+                      <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+                    </div>
                   </div>
+                  <button
+                    onClick={() => { setUserMenuOpen(false); setPhotoModal(true) }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    <Users size={14} /> Alterar foto
+                  </button>
                   <button
                     onClick={switchPortal}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
@@ -173,6 +176,7 @@ export default function IntranetLayout({ onSwitchPortal }: IntranetLayoutProps) 
       </main>
 
       <ChatBot />
+      {photoModal && <PhotoUploadModal onClose={() => setPhotoModal(false)} />}
     </div>
   )
 }
