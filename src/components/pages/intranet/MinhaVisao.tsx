@@ -1,8 +1,22 @@
 import { useAuth } from '../../../lib/auth'
 import { BookOpen, MessageSquare, Target, TrendingUp, Clock, CheckCircle2, AlertCircle, Star, Camera } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Avatar from '../../ui/Avatar'
 import PhotoUploadModal from '../../ui/PhotoUploadModal'
+import { api } from '../../../lib/api'
+
+// ─── Catalog (same as Treinamentos.tsx) – used only for labels/icons ─────────
+const CATALOG: Record<number, { titulo: string; icone: string }> = {
+  1: { titulo: 'LGPD e Proteção de Dados',        icone: '🔒' },
+  2: { titulo: 'Cultura de Segurança no Trabalho', icone: '⛑️' },
+  3: { titulo: 'Excelência no Atendimento',        icone: '🤝' },
+  4: { titulo: 'Liderança Situacional',            icone: '🧭' },
+  5: { titulo: 'Excel Avançado para Gestores',     icone: '📊' },
+  6: { titulo: 'Comunicação Não-Violenta',         icone: '💬' },
+  7: { titulo: 'Normas de Segurança NR-12',        icone: '⚙️' },
+  8: { titulo: 'Gestão de Tempo e Produtividade',  icone: '⏱️' },
+}
+const MODULOS_TOTAL: Record<number, number> = { 1:5, 2:4, 3:5, 4:6, 5:5, 6:5, 7:3, 8:5 }
 
 const MOODS = [
   { emoji: '😡', label: 'Zangado',   value: 'zangado',   color: 'hover:bg-red-100 dark:hover:bg-red-900/20'    },
@@ -34,12 +48,43 @@ function SectionCard({ title, children, action }: { title: string; children: Rea
   )
 }
 
+interface PdiItem { status: string; pct: number }
+interface ProgItem { curso_id: number; modulo_id: number; concluido: boolean }
+
 export default function MinhaVisao() {
   const { user } = useAuth()
   const [mood, setMood] = useState<string | null>(null)
-
   const [photoModal, setPhotoModal] = useState(false)
   const firstName = user?.name?.split(' ')[0] ?? 'Colaborador'
+
+  const [pdiItems, setPdiItems] = useState<PdiItem[]>([])
+  const [progItems, setProgItems] = useState<ProgItem[]>([])
+
+  useEffect(() => {
+    api.pdi.list().then((d: unknown) => setPdiItems((d as PdiItem[]) || [])).catch(() => {})
+    api.treinamentoProgresso.list().then((d: unknown) => setProgItems((d as ProgItem[]) || [])).catch(() => {})
+  }, [])
+
+  // PDI stats
+  const pdiConcluidos = pdiItems.filter(i => i.status === 'concluido').length
+  const pdiAtrasados  = pdiItems.filter(i => i.status === 'atrasado').length
+  const pdiTotal      = pdiItems.length
+  const pdiPct        = pdiTotal === 0 ? 0 : Math.round(pdiItems.reduce((a, i) => a + i.pct, 0) / pdiTotal)
+
+  // Treinamentos stats — aggregate by curso_id
+  const cursosMap: Record<number, { feitos: number; total: number }> = {}
+  for (const r of progItems) {
+    if (!cursosMap[r.curso_id]) cursosMap[r.curso_id] = { feitos: 0, total: MODULOS_TOTAL[r.curso_id] ?? 1 }
+    if (r.concluido) cursosMap[r.curso_id].feitos++
+  }
+  // Include courses that appear in catalog but have no rows yet
+  for (const id of Object.keys(CATALOG).map(Number)) {
+    if (!cursosMap[id]) cursosMap[id] = { feitos: 0, total: MODULOS_TOTAL[id] ?? 1 }
+  }
+  const cursoEntries = Object.entries(cursosMap).map(([id, { feitos, total }]) => ({
+    id: Number(id), pct: Math.round((feitos / total) * 100),
+  }))
+  const treinosEmAndamento = cursoEntries.filter(c => c.pct > 0 && c.pct < 100)
 
   return (
     <>
@@ -177,26 +222,31 @@ export default function MinhaVisao() {
           action={<span className="text-xs text-primary-500 cursor-pointer hover:underline">Ver todos</span>}
         >
           <div className="divide-y divide-slate-100 dark:divide-slate-700">
-            {[
-              { label: 'LGPD e Proteção de Dados',         pct: 60, color: 'bg-blue-500'    },
-              { label: 'Cultura de Segurança no Trabalho',  pct: 30, color: 'bg-amber-500'   },
-              { label: 'Excelência no Atendimento',         pct: 85, color: 'bg-emerald-500' },
-            ].map(({ label, pct, color }) => (
-              <div key={label} className="px-5 py-3.5 flex items-center gap-4">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{label}</p>
-                  <div className="flex items-center gap-2 mt-1.5">
-                    <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                      <div className={`h-full ${color} rounded-full`} style={{ width: `${pct}%` }} />
-                    </div>
-                    <span className="text-xs text-slate-400 shrink-0">{pct}%</span>
-                  </div>
-                </div>
-                <button className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shrink-0">
-                  Continuar
-                </button>
+            {treinosEmAndamento.length === 0 ? (
+              <div className="px-5 py-6 text-center text-xs text-slate-400">
+                Nenhum treinamento em andamento. Acesse a aba Treinamentos para começar!
               </div>
-            ))}
+            ) : treinosEmAndamento.slice(0, 4).map(c => {
+              const info = CATALOG[c.id]
+              if (!info) return null
+              return (
+                <div key={c.id} className="px-5 py-3.5 flex items-center gap-4">
+                  <span className="text-xl shrink-0">{info.icone}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{info.titulo}</p>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div className="h-full bg-primary-500 rounded-full" style={{ width: `${c.pct}%` }} />
+                      </div>
+                      <span className="text-xs text-slate-400 shrink-0">{c.pct}%</span>
+                    </div>
+                  </div>
+                  <button className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shrink-0">
+                    Continuar
+                  </button>
+                </div>
+              )
+            })}
           </div>
         </SectionCard>
       </div>
@@ -226,18 +276,18 @@ export default function MinhaVisao() {
             <div className="relative w-14 h-14 shrink-0">
               <svg className="w-14 h-14 -rotate-90" viewBox="0 0 48 48">
                 <circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" strokeWidth="4" className="text-slate-100 dark:text-slate-700" />
-                <circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" strokeWidth="4" strokeDasharray={`${2 * Math.PI * 20}`} strokeDashoffset={`${2 * Math.PI * 20 * (1 - 0.11)}`} strokeLinecap="round" className="text-primary-500" />
+                <circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" strokeWidth="4" strokeDasharray={`${2 * Math.PI * 20}`} strokeDashoffset={`${2 * Math.PI * 20 * (1 - pdiPct / 100)}`} strokeLinecap="round" className="text-primary-500" />
               </svg>
-              <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-primary-600">11%</span>
+              <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-primary-600">{pdiPct}%</span>
             </div>
             <div>
               <p className="text-xs font-medium text-slate-700 dark:text-slate-200 leading-tight">Conclusão do plano de desenvolvimento</p>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center">
-            <StatCard label="Iniciativas" value={16} color="text-slate-700 dark:text-slate-200" />
-            <StatCard label="Atrasadas"   value={1}  color="text-red-500" />
-            <StatCard label="Concluídas"  value={7}  color="text-emerald-600" />
+            <StatCard label="Iniciativas" value={pdiTotal}     color="text-slate-700 dark:text-slate-200" />
+            <StatCard label="Atrasadas"   value={pdiAtrasados} color="text-red-500" />
+            <StatCard label="Concluídas"  value={pdiConcluidos} color="text-emerald-600" />
           </div>
         </div>
 

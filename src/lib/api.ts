@@ -254,6 +254,55 @@ export const api = {
     return request(`${BASE}/setup-gestores`, { method: 'POST' })
   },
 
+  pdi: {
+    list: async () => {
+      if (MOCK) { await delay(300); return [] }
+      return request<any[]>(`${BASE}/pdi`)
+    },
+    create: async (data: { titulo: string; competencia?: string; prazo?: string; status?: string; pct?: number }) => {
+      if (MOCK) { await delay(300); return { id: _nextId++, ...data, status: data.status ?? 'pendente', pct: data.pct ?? 0, created_at: new Date().toISOString() } }
+      return request(`${BASE}/pdi`, { method: 'POST', body: JSON.stringify(data) })
+    },
+    update: async (id: number, data: Partial<{ titulo: string; competencia: string; prazo: string; status: string; pct: number }>) => {
+      if (MOCK) { await delay(300); return { id, ...data } }
+      return request(`${BASE}/pdi?id=${id}`, { method: 'PUT', body: JSON.stringify(data) })
+    },
+    delete: async (id: number) => {
+      if (MOCK) { await delay(300); return { success: true } }
+      return request(`${BASE}/pdi?id=${id}`, { method: 'DELETE' })
+    },
+  },
+
+  comunicados: {
+    list: async () => {
+      if (MOCK) { await delay(300); return [] }
+      return request<any[]>(`${BASE}/comunicados`)
+    },
+    create: async (data: { titulo: string; resumo?: string; conteudo?: string; categoria?: string; fixado?: boolean }) => {
+      if (MOCK) { await delay(300); return { id: _nextId++, ...data, created_at: new Date().toISOString() } }
+      return request(`${BASE}/comunicados`, { method: 'POST', body: JSON.stringify(data) })
+    },
+    update: async (id: number, data: any) => {
+      if (MOCK) { await delay(300); return { id, ...data } }
+      return request(`${BASE}/comunicados?id=${id}`, { method: 'PUT', body: JSON.stringify(data) })
+    },
+    delete: async (id: number) => {
+      if (MOCK) { await delay(300); return { success: true } }
+      return request(`${BASE}/comunicados?id=${id}`, { method: 'DELETE' })
+    },
+  },
+
+  treinamentoProgresso: {
+    list: async () => {
+      if (MOCK) { await delay(200); return [] }
+      return request<any[]>(`${BASE}/treinamento-progresso`)
+    },
+    mark: async (cursoId: number, moduloId: number, concluido: boolean) => {
+      if (MOCK) { await delay(200); return { success: true } }
+      return request(`${BASE}/treinamento-progresso`, { method: 'POST', body: JSON.stringify({ curso_id: cursoId, modulo_id: moduloId, concluido }) })
+    },
+  },
+
   sucessao: {
     get: async (colaboradorId: number) => {
       if (MOCK) { await delay(200); return null }

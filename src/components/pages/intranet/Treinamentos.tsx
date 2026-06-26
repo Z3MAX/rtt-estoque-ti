@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Search, X, BookOpen, Clock, Star, CheckCircle2, Play, Award,
   ChevronRight, Users, BarChart2, ShieldCheck, Video, FileText,
@@ -6,6 +6,7 @@ import {
   AlertTriangle, Eye,
 } from 'lucide-react'
 import { useAuth, isAdmin, isGestor } from '../../../lib/auth'
+import { api } from '../../../lib/api'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -291,7 +292,11 @@ function CourseCard({ t, onClick }: { t: Treinamento; onClick: () => void }) {
 
 // ─── CourseModal ──────────────────────────────────────────────────────────────
 
-function CourseModal({ t, onClose }: { t: Treinamento; onClose: () => void }) {
+function CourseModal({ t, onClose, onToggle }: {
+  t: Treinamento
+  onClose: () => void
+  onToggle: (cursoId: number, moduloId: number, done: boolean) => Promise<void>
+}) {
   const [expanded, setExpanded] = useState(true)
   const pct = getProgresso(t)
 
@@ -360,9 +365,10 @@ function CourseModal({ t, onClose }: { t: Treinamento; onClose: () => void }) {
                   return (
                     <div
                       key={m.id}
+                      onClick={() => !bloqueado && onToggle(t.id, m.id, !m.concluido)}
                       className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
                         m.concluido
-                          ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/10'
+                          ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/10 cursor-pointer'
                           : bloqueado
                           ? 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30 opacity-60'
                           : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-700/50 hover:border-primary-300 cursor-pointer'
@@ -675,13 +681,43 @@ export default function TreinamentosPage() {
   const [filtroStatus, setFiltroStatus] = useState<'todos' | 'em-andamento' | 'concluidos' | 'nao-iniciados'>('todos')
   const [modalCurso, setModalCurso] = useState<Treinamento | null>(null)
   const [vistaLista, setVistaLista] = useState<'cursos' | 'trilhas'>('cursos')
+  const [cursos, setCursos] = useState<Treinamento[]>(TREINAMENTOS)
 
-  const concluidos   = TREINAMENTOS.filter(t => getProgresso(t) === 100).length
-  const emAndamento  = TREINAMENTOS.filter(t => { const p = getProgresso(t); return p > 0 && p < 100 }).length
-  const obrigPend    = TREINAMENTOS.filter(t => t.obrigatorio && getProgresso(t) < 100).length
-  const pctGeral     = Math.round(TREINAMENTOS.reduce((a, t) => a + getProgresso(t), 0) / TREINAMENTOS.length)
+  useEffect(() => {
+    api.treinamentoProgresso.list().then((rows: unknown) => {
+      if (!Array.isArray(rows)) return
+      const map: Record<string, boolean> = {}
+      for (const r of rows as { curso_id: number; modulo_id: number; concluido: boolean }[]) {
+        map[`${r.curso_id}_${r.modulo_id}`] = r.concluido
+      }
+      setCursos(TREINAMENTOS.map(t => ({
+        ...t,
+        modulos: t.modulos.map(m => ({
+          ...m,
+          concluido: map[`${t.id}_${m.id}`] ?? m.concluido,
+        })),
+      })))
+    }).catch(() => {})
+  }, [])
 
-  const filtered = TREINAMENTOS.filter(t => {
+  async function toggleModulo(cursoId: number, moduloId: number, done: boolean) {
+    await api.treinamentoProgresso.mark(cursoId, moduloId, done)
+    setCursos(prev => prev.map(t => t.id === cursoId ? {
+      ...t,
+      modulos: t.modulos.map(m => m.id === moduloId ? { ...m, concluido: done } : m),
+    } : t))
+    setModalCurso(prev => prev?.id === cursoId ? {
+      ...prev,
+      modulos: prev.modulos.map(m => m.id === moduloId ? { ...m, concluido: done } : m),
+    } : prev)
+  }
+
+  const concluidos   = cursos.filter(t => getProgresso(t) === 100).length
+  const emAndamento  = cursos.filter(t => { const p = getProgresso(t); return p > 0 && p < 100 }).length
+  const obrigPend    = cursos.filter(t => t.obrigatorio && getProgresso(t) < 100).length
+  const pctGeral     = cursos.length === 0 ? 0 : Math.round(cursos.reduce((a, t) => a + getProgresso(t), 0) / cursos.length)
+
+  const filtered = cursos.filter(t => {
     const matchSearch = !search || t.titulo.toLowerCase().includes(search.toLowerCase()) || t.instrutor.toLowerCase().includes(search.toLowerCase())
     const matchCat    = categoria === 'Todos' || t.categoria === categoria
     const pct = getProgresso(t)
@@ -729,7 +765,7 @@ export default function TreinamentosPage() {
             <div className="flex-1 min-w-0">
               <p className="text-white/70 text-sm mb-1">Seu progresso geral</p>
               <p className="text-4xl font-black">{pctGeral}%</p>
-              <p className="text-white/70 text-xs mt-1">{concluidos} de {TREINAMENTOS.length} cursos concluídos</p>
+              <p className="text-white/70 text-xs mt-1">{concluidos} de {cursos.length} cursos concluídos</p>
               <div className="mt-3 h-2 bg-white/20 rounded-full overflow-hidden w-full max-w-xs">
                 <div className="h-full bg-white rounded-full transition-all" style={{ width: `${pctGeral}%` }} />
               </div>
@@ -758,7 +794,7 @@ export default function TreinamentosPage() {
                 <span className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full">{obrigPend} restantes</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {TREINAMENTOS.filter(t => t.obrigatorio && getProgresso(t) < 100).map(t => {
+                {cursos.filter(t => t.obrigatorio && getProgresso(t) < 100).map(t => {
                   const pct = getProgresso(t)
                   return (
                     <button
@@ -831,6 +867,7 @@ export default function TreinamentosPage() {
           </div>
 
           {/* Lista de cursos ou trilhas */}
+          {/* eslint-disable-next-line no-nested-ternary */}
           {vistaLista === 'cursos' ? (
             filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-slate-400 gap-2">
@@ -845,22 +882,22 @@ export default function TreinamentosPage() {
           ) : (
             <div className="space-y-3">
               {TRILHAS.filter(tr => {
-                const cursosDaTrilha = TREINAMENTOS.filter(t => t.trilhaId === tr.id)
+                const cursosDaTrilha = cursos.filter(t => t.trilhaId === tr.id)
                 return categoria === 'Todos' || cursosDaTrilha.some(t => t.categoria === categoria)
               }).map(trilha => (
                 <TrilhaCard
                   key={trilha.id}
                   trilha={trilha}
-                  cursos={TREINAMENTOS.filter(t => t.trilhaId === trilha.id)}
+                  cursos={cursos.filter(t => t.trilhaId === trilha.id)}
                   onCursoClick={setModalCurso}
                 />
               ))}
               {/* Cursos sem trilha */}
-              {TREINAMENTOS.filter(t => !t.trilhaId && (categoria === 'Todos' || t.categoria === categoria)).length > 0 && (
+              {cursos.filter(t => !t.trilhaId && (categoria === 'Todos' || t.categoria === categoria)).length > 0 && (
                 <div className="space-y-2">
                   <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Cursos avulsos</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {TREINAMENTOS.filter(t => !t.trilhaId && (categoria === 'Todos' || t.categoria === categoria)).map(t => (
+                    {cursos.filter(t => !t.trilhaId && (categoria === 'Todos' || t.categoria === categoria)).map(t => (
                       <CourseCard key={t.id} t={t} onClick={() => setModalCurso(t)} />
                     ))}
                   </div>
@@ -872,7 +909,7 @@ export default function TreinamentosPage() {
       )}
 
       {/* Modal de detalhe */}
-      {modalCurso && <CourseModal t={modalCurso} onClose={() => setModalCurso(null)} />}
+      {modalCurso && <CourseModal t={modalCurso} onClose={() => setModalCurso(null)} onToggle={toggleModulo} />}
     </div>
   )
 }
