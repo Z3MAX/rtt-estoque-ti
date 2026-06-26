@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Plus, Edit2, X, Trash2, AlertCircle, RefreshCw, ClipboardList, ChevronRight, ShieldCheck, Info } from 'lucide-react'
 import { api } from '../../lib/api'
@@ -86,28 +86,30 @@ interface SucessaoState {
   acoes:         AcaoDesenvolvimento[]
 }
 
-function RatingButton({ value, selected, label, tooltip, onClick, tipAlign = 'center' }: {
+function RatingButton({ value, selected, label, tooltip, onClick }: {
   value: number; selected: boolean; label: string; tooltip: string; onClick: () => void
-  tipAlign?: 'left' | 'center' | 'right'
 }) {
-  const [showTip, setShowTip] = useState(false)
-  const tipPos = tipAlign === 'left'
-    ? 'left-0'
-    : tipAlign === 'right'
-    ? 'right-0'
-    : 'left-1/2 -translate-x-1/2'
-  const arrowPos = tipAlign === 'left'
-    ? 'left-5'
-    : tipAlign === 'right'
-    ? 'right-5'
-    : 'left-1/2 -translate-x-1/2'
+  const [tipStyle, setTipStyle] = useState<React.CSSProperties | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  function showTooltip() {
+    if (!btnRef.current) return
+    const rect = btnRef.current.getBoundingClientRect()
+    const tipW = 256
+    let left = rect.left + rect.width / 2 - tipW / 2
+    if (left < 8) left = 8
+    if (left + tipW > window.innerWidth - 8) left = window.innerWidth - tipW - 8
+    setTipStyle({ position: 'fixed', top: rect.top - 8, left, transform: 'translateY(-100%)', width: tipW })
+  }
+
   return (
     <div className="relative">
       <button
+        ref={btnRef}
         type="button"
         onClick={onClick}
-        onMouseEnter={() => setShowTip(true)}
-        onMouseLeave={() => setShowTip(false)}
+        onMouseEnter={showTooltip}
+        onMouseLeave={() => setTipStyle(null)}
         className={`w-10 h-10 rounded-xl text-sm font-bold border-2 transition-all ${
           selected
             ? 'bg-primary-500 border-primary-500 text-white shadow-md shadow-primary-500/30'
@@ -116,11 +118,10 @@ function RatingButton({ value, selected, label, tooltip, onClick, tipAlign = 'ce
       >
         {value}
       </button>
-      {showTip && (
-        <div className={`absolute bottom-full ${tipPos} mb-2 w-64 bg-slate-900 text-white text-xs rounded-xl p-3 z-50 shadow-xl leading-relaxed pointer-events-none`}>
+      {tipStyle && (
+        <div style={tipStyle} className="bg-slate-900 text-white text-xs rounded-xl p-3 z-[9999] shadow-xl leading-relaxed pointer-events-none">
           <span className="font-semibold text-primary-300">{label}</span><br />
           {tooltip}
-          <div className={`absolute top-full ${arrowPos} border-4 border-transparent border-t-slate-900`} />
         </div>
       )}
     </div>
@@ -247,7 +248,6 @@ function SucessaoPanel({ colabId, colabNome, onSave }: { colabId: number; colabN
                     <RatingButton key={v} value={v} selected={state.probabilidade === v}
                       label={['Baixa','Média','Alta','Altíssima'][v-1]}
                       tooltip={PROB_CRITERIA[v-1]}
-                      tipAlign={v === 1 ? 'left' : v === 4 ? 'right' : 'center'}
                       onClick={() => set('probabilidade', state.probabilidade === v ? 0 : v)} />
                   ))}
                 </div>
@@ -261,7 +261,6 @@ function SucessaoPanel({ colabId, colabNome, onSave }: { colabId: number; colabN
                     <RatingButton key={v} value={v} selected={state.impacto === v}
                       label={['Baixo','Médio','Alto','Altíssimo'][v-1]}
                       tooltip={IMPACTO_CRITERIA[v-1]}
-                      tipAlign={v === 1 ? 'left' : v === 4 ? 'right' : 'center'}
                       onClick={() => set('impacto', state.impacto === v ? 0 : v)} />
                   ))}
                 </div>
@@ -275,7 +274,6 @@ function SucessaoPanel({ colabId, colabNome, onSave }: { colabId: number; colabN
                     <RatingButton key={v} value={v} selected={state.dificuldade === v}
                       label={['Baixa','Média','Alta','Altíssima'][v-1]}
                       tooltip={DIFICU_CRITERIA[v-1]}
-                      tipAlign={v === 1 ? 'left' : v === 4 ? 'right' : 'center'}
                       onClick={() => set('dificuldade', state.dificuldade === v ? 0 : v)} />
                   ))}
                 </div>
