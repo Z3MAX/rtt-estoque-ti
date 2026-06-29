@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Megaphone, Pin, Clock, Plus, X, RefreshCw, Trash2, Edit2 } from 'lucide-react'
+import { Megaphone, Pin, Clock, Plus, X, RefreshCw, Trash2, Edit2, Search } from 'lucide-react'
 import { api } from '../../../lib/api'
 import { useAuth, isAdmin } from '../../../lib/auth'
 
@@ -96,61 +96,113 @@ export default function ComunicadosPage() {
   const canAdmin = isAdmin(user?.role)
   const [items, setItems] = useState<Comunicado[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [modal, setModal] = useState<'new' | Comunicado | null>(null)
   const [expanded, setExpanded] = useState<number | null>(null)
   const [deleting, setDeleting] = useState<number | null>(null)
+  const [search, setSearch] = useState('')
+
+  function fetchComunicados() {
+    setLoading(true)
+    setError(false)
+    api.comunicados.list()
+      .then(data => setItems((data as Comunicado[]) || []))
+      .catch(() => setError(true))
+      .finally(() => setLoading(false))
+  }
 
   useEffect(() => {
-    api.comunicados.list().then(data => setItems((data as Comunicado[]) || [])).finally(() => setLoading(false))
+    fetchComunicados()
   }, [])
 
   async function handleSave(form: typeof EMPTY) {
-    if (modal === 'new') {
-      const created = await api.comunicados.create(form) as Comunicado
-      setItems(prev => {
-        const next = [created, ...prev]
-        return next.sort((a, b) => Number(b.fixado) - Number(a.fixado))
-      })
-    } else if (modal && typeof modal === 'object') {
-      const updated = await api.comunicados.update(modal.id, form) as Comunicado
-      setItems(prev => prev.map(i => i.id === updated.id ? updated : i))
+    try {
+      if (modal === 'new') {
+        const created = await api.comunicados.create(form) as Comunicado
+        setItems(prev => {
+          const next = [created, ...prev]
+          return next.sort((a, b) => Number(b.fixado) - Number(a.fixado))
+        })
+      } else if (modal && typeof modal === 'object') {
+        const updated = await api.comunicados.update(modal.id, form) as Comunicado
+        setItems(prev => prev.map(i => i.id === updated.id ? updated : i))
+      }
+      setModal(null)
+    } catch {
+      alert('Erro ao salvar comunicado. Tente novamente.')
     }
-    setModal(null)
   }
 
   async function handleDelete(id: number) {
     setDeleting(id)
-    await api.comunicados.delete(id)
-    setItems(prev => prev.filter(i => i.id !== id))
-    setDeleting(null)
+    try {
+      await api.comunicados.delete(id)
+      setItems(prev => prev.filter(i => i.id !== id))
+    } catch {
+      alert('Erro ao excluir comunicado. Tente novamente.')
+    } finally {
+      setDeleting(null)
+    }
   }
+
+  const filtered = items.filter(c =>
+    !search || c.titulo.toLowerCase().includes(search.toLowerCase())
+  )
 
   return (
     <div className="space-y-5">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Comunicados</h1>
           <p className="text-sm text-slate-400 mt-0.5">Informações e avisos da empresa</p>
         </div>
-        {canAdmin && (
-          <button onClick={() => setModal('new')} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold transition-colors">
-            <Plus size={15} /> Novo comunicado
-          </button>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Campo de busca */}
+          <div className="relative">
+            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              className="pl-9 pr-9 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              placeholder="Buscar por título..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          {canAdmin && (
+            <button onClick={() => setModal('new')} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold transition-colors">
+              <Plus size={15} /> Novo comunicado
+            </button>
+          )}
+        </div>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center h-48 text-slate-400 gap-2">
           <RefreshCw size={16} className="animate-spin" /><span className="text-sm">Carregando...</span>
         </div>
-      ) : items.length === 0 ? (
+      ) : error ? (
         <div className="flex flex-col items-center justify-center h-48 text-slate-400 gap-3">
           <Megaphone size={32} className="opacity-40" />
-          <p className="text-sm">Nenhum comunicado publicado ainda.</p>
+          <p className="text-sm">Erro ao carregar comunicados. Tente novamente.</p>
+          <button
+            onClick={fetchComunicados}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+          >
+            <RefreshCw size={14} /> Tentar novamente
+          </button>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-48 text-slate-400 gap-3">
+          <Megaphone size={32} className="opacity-40" />
+          <p className="text-sm">{search ? 'Nenhum comunicado encontrado para esta busca.' : 'Nenhum comunicado publicado ainda.'}</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {items.map(c => {
+          {filtered.map(c => {
             const catCls = CAT_COLORS[c.categoria] ?? CAT_COLORS.Geral
             const data = new Date(c.created_at).toLocaleDateString('pt-BR')
             const open = expanded === c.id

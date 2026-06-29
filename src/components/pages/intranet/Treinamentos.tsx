@@ -1767,6 +1767,7 @@ export default function TreinamentosPage() {
   const [editCurso, setEditCurso] = useState<Treinamento | null | 'new'>(null)
   const [atribuidosIds, setAtribuidosIds] = useState<number[]>([])
   const [enviarCursos, setEnviarCursos] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.all([
@@ -1791,7 +1792,7 @@ export default function TreinamentosPage() {
       setModuloConfigs(configMap)
       setProgressoSegsMap(segsMap)
       setAtribuidosIds((atribuicao as any)?.curso_ids ?? [])
-    })
+    }).finally(() => setLoading(false))
   }, [])
 
   async function saveConfig(cursoId: number, moduloId: number, url: string | null) {
@@ -1859,6 +1860,14 @@ export default function TreinamentosPage() {
       filtroStatus === 'nao-iniciados' ? pct === 0 : true
     return matchSearch && matchCat && matchStatus
   })
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64 text-slate-400 gap-2">
+        <RefreshCw size={18} className="animate-spin" /><span className="text-sm">Carregando treinamentos...</span>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
