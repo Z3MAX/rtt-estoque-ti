@@ -43,6 +43,15 @@ exports.handler = async (event) => {
     `
 
     if (event.httpMethod === 'GET') {
+      if (params.minhas === '1') {
+        const rows = await sql`
+          SELECT id, nome, objetivo, tipo, situacao, data_inicio, data_fim, colaborador_ids, created_at
+          FROM pesquisas
+          WHERE ativo = true AND situacao = 'LIBERADA' AND status = 'ATIVA'
+          ORDER BY created_at DESC
+        `
+        return { statusCode: 200, headers, body: JSON.stringify(rows) }
+      }
       const rows = await sql`
         SELECT * FROM pesquisas
         WHERE ativo = true

@@ -403,6 +403,10 @@ export const api = {
       if (MOCK) { await delay(300); return [] }
       return request<any[]>(`${BASE}/pesquisas`)
     },
+    minhas: async () => {
+      if (MOCK) { await delay(300); return [] }
+      return request<any[]>(`${BASE}/pesquisas?minhas=1`)
+    },
     create: async (data: any) => {
       if (MOCK) { await delay(400); return { id: _nextId++, ...data, created_at: new Date().toISOString() } }
       return request(`${BASE}/pesquisas`, { method: 'POST', body: JSON.stringify(data) })

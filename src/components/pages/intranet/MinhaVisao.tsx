@@ -1,5 +1,5 @@
 import { useAuth } from '../../../lib/auth'
-import { BookOpen, MessageSquare, Target, TrendingUp, CheckCircle2, AlertCircle, Star, Camera } from 'lucide-react'
+import { BookOpen, MessageSquare, Target, TrendingUp, CheckCircle2, AlertCircle, Star, Camera, ClipboardList, Users } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Avatar from '../../ui/Avatar'
@@ -51,6 +51,13 @@ function SectionCard({ title, children, action }: { title: string; children: Rea
 
 interface PdiItem { status: string; pct: number }
 interface ProgItem { curso_id: number; modulo_id: number; concluido: boolean }
+interface PesquisaPendente { id: number; nome: string; tipo: string; data_fim: string | null }
+interface AvaliacaoPendente { id: number; nome: string; cargo: string }
+
+function isGestor(role?: string) {
+  if (!role) return false
+  return role.toLowerCase().includes('gestor') || role.toLowerCase().includes('administrador')
+}
 
 export default function MinhaVisao() {
   const { user } = useAuth()
@@ -61,11 +68,17 @@ export default function MinhaVisao() {
 
   const [pdiItems, setPdiItems] = useState<PdiItem[]>([])
   const [progItems, setProgItems] = useState<ProgItem[]>([])
+  const [pesquisasPendentes, setPesquisasPendentes] = useState<PesquisaPendente[]>([])
+  const [avaliacoesPendentes, setAvaliacoesPendentes] = useState<AvaliacaoPendente[]>([])
 
   useEffect(() => {
     api.pdi.list().then((d: unknown) => setPdiItems((d as PdiItem[]) || [])).catch(() => {})
     api.treinamentoProgresso.list().then((d: unknown) => setProgItems((d as ProgItem[]) || [])).catch(() => {})
-  }, [])
+    api.pesquisas.minhas().then((d: unknown) => setPesquisasPendentes((d as PesquisaPendente[]) || [])).catch(() => {})
+    if (isGestor(user?.role)) {
+      api.avaliacoesPendentes.list().then((d: unknown) => setAvaliacoesPendentes((d as AvaliacaoPendente[]) || [])).catch(() => {})
+    }
+  }, [user?.role])
 
   // PDI stats
   const pdiConcluidos = pdiItems.filter(i => i.status === 'concluido').length
@@ -180,11 +193,54 @@ export default function MinhaVisao() {
 
         {/* Pendências */}
         <SectionCard title="Pendências">
-          <div className="px-5 py-8 flex flex-col items-center gap-2 text-center">
-            <CheckCircle2 size={28} className="text-slate-200 dark:text-slate-600" />
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Nenhuma pendência no momento</p>
-            <p className="text-xs text-slate-400">As pendências de pesquisas e treinamentos aparecerão aqui.</p>
-          </div>
+          {pesquisasPendentes.length === 0 && avaliacoesPendentes.length === 0 ? (
+            <div className="px-5 py-8 flex flex-col items-center gap-2 text-center">
+              <CheckCircle2 size={28} className="text-slate-200 dark:text-slate-600" />
+              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Nenhuma pendência no momento</p>
+              <p className="text-xs text-slate-400">Pesquisas e avaliações pendentes aparecerão aqui.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 dark:divide-slate-700">
+              {pesquisasPendentes.map(p => (
+                <div key={`pesq-${p.id}`} className="px-5 py-3.5 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center shrink-0">
+                    <ClipboardList size={15} className="text-blue-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{p.nome}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Pesquisa{p.data_fim ? ` · até ${new Date(p.data_fim).toLocaleDateString('pt-BR')}` : ''}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => navigate('/intranet/pesquisas')}
+                    className="px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors shrink-0"
+                  >
+                    Responder
+                  </button>
+                </div>
+              ))}
+              {isGestor(user?.role) && avaliacoesPendentes.length > 0 && (
+                <div className="px-5 py-3.5 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center shrink-0">
+                    <Users size={15} className="text-amber-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                      {avaliacoesPendentes.length} avaliação{avaliacoesPendentes.length !== 1 ? 'ões' : ''} pendente{avaliacoesPendentes.length !== 1 ? 's' : ''}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5">Colaboradores aguardando avaliação</p>
+                  </div>
+                  <button
+                    onClick={() => navigate('/avaliacoes')}
+                    className="px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors shrink-0"
+                  >
+                    Avaliar
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </SectionCard>
 
         {/* Treinamentos em andamento */}
