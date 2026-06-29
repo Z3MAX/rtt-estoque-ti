@@ -4,6 +4,7 @@ import {
   ChevronRight, Users, BarChart2, ShieldCheck, Video, FileText,
   HelpCircle, Lock, ChevronDown, ChevronUp, Layers, BadgeCheck,
   AlertTriangle, Eye, Link, Edit2, Save, ExternalLink, RefreshCw,
+  Plus, Trash2, Pencil,
 } from 'lucide-react'
 import { useAuth, isAdmin, isGestor } from '../../../lib/auth'
 import { api } from '../../../lib/api'
@@ -248,6 +249,47 @@ const TREINAMENTOS: Treinamento[] = [
   },
 ]
 
+const CAPA_PRESETS = [
+  { from: 'from-rose-500',   to: 'to-red-600',     label: 'Rosa' },
+  { from: 'from-amber-500',  to: 'to-orange-600',  label: 'Âmbar' },
+  { from: 'from-emerald-500',to: 'to-teal-600',    label: 'Verde' },
+  { from: 'from-violet-500', to: 'to-purple-600',  label: 'Violeta' },
+  { from: 'from-sky-500',    to: 'to-blue-600',    label: 'Azul' },
+  { from: 'from-pink-500',   to: 'to-rose-600',    label: 'Pink' },
+  { from: 'from-orange-500', to: 'to-red-500',     label: 'Laranja' },
+  { from: 'from-indigo-500', to: 'to-blue-600',    label: 'Índigo' },
+  { from: 'from-teal-500',   to: 'to-cyan-600',    label: 'Teal' },
+  { from: 'from-green-500',  to: 'to-emerald-600', label: 'Verde escuro' },
+  { from: 'from-yellow-500', to: 'to-orange-500',  label: 'Amarelo' },
+  { from: 'from-slate-500',  to: 'to-slate-700',   label: 'Cinza' },
+]
+
+function dbToTreinamento(row: any, progressoMap: Record<string, boolean> = {}): Treinamento {
+  const modulos: Modulo[] = (row.modulos ?? []).map((m: any) => ({
+    id: m.id,
+    titulo: m.titulo ?? '',
+    duracao: m.duracao ?? '—',
+    tipo: m.tipo ?? 'video',
+    concluido: progressoMap[`${row.id}_${m.id}`] ?? false,
+  }))
+  return {
+    id: row.id,
+    titulo: row.titulo,
+    descricao: row.descricao ?? '',
+    categoria: row.categoria ?? 'Geral',
+    duracao: row.duracao ?? '',
+    nivel: row.nivel ?? 'Básico',
+    obrigatorio: row.obrigatorio ?? false,
+    instrutor: row.instrutor ?? '',
+    avaliacao: parseFloat(row.avaliacao) || 5.0,
+    totalAlunos: row.total_alunos ?? 0,
+    capa: { from: row.capa_from ?? 'from-slate-500', to: row.capa_to ?? 'to-slate-600' },
+    icone: row.icone ?? '📚',
+    modulos,
+    trilhaId: row.trilha_id ?? undefined,
+  }
+}
+
 const FUNCIONARIOS_MOCK: ProgressoFuncionario[] = [
   { id: 1, nome: 'Ana Silva',        cargo: 'Analista de RH',       area: 'Recursos Humanos',
     progresso: { 1: { pct: 60, validado: false }, 2: { pct: 30, validado: false }, 6: { pct: 100, validado: true, dataValidacao: '2025-05-20' }, 7: { pct: 100, validado: true, dataValidacao: '2025-05-18' } } },
@@ -307,9 +349,301 @@ function ProgressBar({ pct, sm }: { pct: number; sm?: boolean }) {
   )
 }
 
+// ─── EditCursoModal ───────────────────────────────────────────────────────────
+
+type ModuloEdit = { id: number; titulo: string; tipo: 'video' | 'pdf' | 'quiz'; duracao: string }
+
+function EditCursoModal({ curso, onClose, onSave, onDelete }: {
+  curso: Treinamento | null
+  onClose: () => void
+  onSave: (data: any) => Promise<void>
+  onDelete?: () => Promise<void>
+}) {
+  const isNew = !curso
+  const [titulo, setTitulo] = useState(curso?.titulo ?? '')
+  const [descricao, setDescricao] = useState(curso?.descricao ?? '')
+  const [categoria, setCategoria] = useState(curso?.categoria ?? 'Compliance')
+  const [nivel, setNivel] = useState(curso?.nivel ?? 'Básico')
+  const [duracao, setDuracao] = useState(curso?.duracao ?? '')
+  const [instrutor, setInstrutor] = useState(curso?.instrutor ?? '')
+  const [avaliacao, setAvaliacao] = useState(String(curso?.avaliacao ?? '5.0'))
+  const [icone, setIcone] = useState(curso?.icone ?? '📚')
+  const [obrigatorio, setObrigatorio] = useState(curso?.obrigatorio ?? false)
+  const [capa, setCapa] = useState(curso?.capa ?? { from: 'from-slate-500', to: 'to-slate-600' })
+  const [modulos, setModulos] = useState<ModuloEdit[]>(
+    (curso?.modulos ?? []).map(m => ({ id: m.id, titulo: m.titulo, tipo: m.tipo, duracao: m.duracao }))
+  )
+  const [saving, setSaving] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  function addModulo() {
+    const baseId = (curso?.id ?? 0) * 100
+    const maxId = modulos.length > 0 ? Math.max(...modulos.map(m => m.id)) : baseId
+    setModulos(prev => [...prev, { id: maxId + 1, titulo: '', tipo: 'video', duracao: '' }])
+  }
+
+  function updateModulo(idx: number, field: string, value: string) {
+    setModulos(prev => prev.map((m, i) => i === idx ? { ...m, [field]: value } : m))
+  }
+
+  async function handleSave() {
+    if (!titulo.trim()) return
+    setSaving(true)
+    try {
+      await onSave({
+        titulo: titulo.trim(),
+        descricao: descricao.trim(),
+        categoria,
+        nivel,
+        duracao: duracao.trim(),
+        instrutor: instrutor.trim(),
+        avaliacao: parseFloat(avaliacao) || 5.0,
+        obrigatorio,
+        capa_from: capa.from,
+        capa_to: capa.to,
+        icone: icone.trim() || '📚',
+        modulos: modulos.map(m => ({ id: m.id, titulo: m.titulo, tipo: m.tipo, duracao: m.duracao })),
+      })
+      onClose()
+    } catch {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!onDelete) return
+    setDeleting(true)
+    try {
+      await onDelete()
+      onClose()
+    } catch {
+      setDeleting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-hidden flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700 shrink-0">
+          <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+            {isNew ? 'Novo curso' : 'Editar curso'}
+          </h2>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+            <X size={15} />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-6 space-y-5">
+          {/* Preview */}
+          <div className={`bg-gradient-to-br ${capa.from} ${capa.to} rounded-xl p-4 flex items-center gap-3`}>
+            <span className="text-3xl">{icone || '📚'}</span>
+            <div>
+              <p className="text-white font-bold text-sm leading-tight">{titulo || 'Título do curso'}</p>
+              <p className="text-white/70 text-xs mt-0.5">{instrutor || 'Instrutor'}</p>
+            </div>
+          </div>
+
+          {/* Título + Descrição */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Título *</label>
+            <input
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              value={titulo}
+              onChange={e => setTitulo(e.target.value)}
+              placeholder="Nome do treinamento"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Descrição</label>
+            <textarea
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+              rows={3}
+              value={descricao}
+              onChange={e => setDescricao(e.target.value)}
+              placeholder="Descreva o objetivo e conteúdo do curso"
+            />
+          </div>
+
+          {/* Grade de campos */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: 'Categoria', value: categoria, set: setCategoria, opts: ['Compliance','Liderança','Técnico','Soft Skills','Segurança','Geral'] },
+              { label: 'Nível',     value: nivel,     set: setNivel,     opts: ['Básico','Intermediário','Avançado'] },
+            ].map(({ label, value, set, opts }) => (
+              <div key={label} className="space-y-1">
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-300">{label}</label>
+                <select
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  value={value}
+                  onChange={e => set(e.target.value)}
+                >
+                  {opts.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+            ))}
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Duração</label>
+              <input
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                value={duracao} onChange={e => setDuracao(e.target.value)} placeholder="ex: 2h"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Avaliação</label>
+              <input
+                type="number" min="0" max="5" step="0.1"
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                value={avaliacao} onChange={e => setAvaliacao(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Instrutor</label>
+              <input
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                value={instrutor} onChange={e => setInstrutor(e.target.value)} placeholder="Nome do instrutor"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Ícone (emoji)</label>
+              <input
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                value={icone} onChange={e => setIcone(e.target.value)} placeholder="🎓" maxLength={4}
+              />
+            </div>
+          </div>
+
+          {/* Obrigatório */}
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <div
+              onClick={() => setObrigatorio(v => !v)}
+              className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${obrigatorio ? 'bg-primary-500' : 'bg-slate-200 dark:bg-slate-600'}`}
+            >
+              <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${obrigatorio ? 'left-5' : 'left-1'}`} />
+            </div>
+            <span className="text-sm text-slate-700 dark:text-slate-200">Treinamento obrigatório</span>
+          </label>
+
+          {/* Capa */}
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Cor da capa</label>
+            <div className="grid grid-cols-6 gap-2">
+              {CAPA_PRESETS.map(p => (
+                <button
+                  key={p.from}
+                  onClick={() => setCapa({ from: p.from, to: p.to })}
+                  className={`h-8 rounded-lg bg-gradient-to-br ${p.from} ${p.to} transition-all ${capa.from === p.from ? 'ring-2 ring-offset-2 ring-primary-500' : 'hover:scale-105'}`}
+                  title={p.label}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Módulos */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                Módulos do curso ({modulos.length})
+              </label>
+              <button
+                onClick={addModulo}
+                className="flex items-center gap-1.5 text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
+              >
+                <Plus size={13} />Adicionar módulo
+              </button>
+            </div>
+            {modulos.length === 0 && (
+              <p className="text-xs text-slate-400 text-center py-4 border border-dashed border-slate-200 dark:border-slate-600 rounded-xl">
+                Nenhum módulo cadastrado
+              </p>
+            )}
+            {modulos.map((m, idx) => (
+              <div key={idx} className="flex items-center gap-2 p-2.5 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
+                <span className="text-[10px] text-slate-400 w-5 shrink-0 text-center font-semibold">{idx + 1}</span>
+                <input
+                  className="flex-1 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-primary-500 min-w-0"
+                  value={m.titulo}
+                  onChange={e => updateModulo(idx, 'titulo', e.target.value)}
+                  placeholder="Título do módulo"
+                />
+                <select
+                  className="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs text-slate-700 dark:text-slate-200 focus:outline-none shrink-0"
+                  value={m.tipo}
+                  onChange={e => updateModulo(idx, 'tipo', e.target.value)}
+                >
+                  <option value="video">Vídeo</option>
+                  <option value="pdf">PDF</option>
+                  <option value="quiz">Quiz</option>
+                </select>
+                <input
+                  className="w-16 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs text-slate-700 dark:text-slate-200 focus:outline-none shrink-0"
+                  value={m.duracao}
+                  onChange={e => updateModulo(idx, 'duracao', e.target.value)}
+                  placeholder="15min"
+                />
+                <button
+                  onClick={() => setModulos(prev => prev.filter((_, i) => i !== idx))}
+                  className="w-6 h-6 flex items-center justify-center rounded-lg text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shrink-0"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-700 flex gap-2 items-center shrink-0">
+          {!isNew && onDelete && (
+            confirmDelete ? (
+              <>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors disabled:opacity-60"
+                >
+                  {deleting ? <RefreshCw size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                  Confirmar exclusão
+                </button>
+                <button onClick={() => setConfirmDelete(false)} className="text-xs text-slate-400 hover:text-slate-600 px-2">Cancelar</button>
+              </>
+            ) : (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-red-600 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              >
+                <Trash2 size={12} />Excluir
+              </button>
+            )
+          )}
+          <div className="flex-1" />
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-xs font-medium text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!titulo.trim() || saving}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-primary-600 hover:bg-primary-700 text-white transition-colors disabled:opacity-60"
+          >
+            {saving ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />}
+            {isNew ? 'Criar curso' : 'Salvar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── CourseCard ───────────────────────────────────────────────────────────────
 
-function CourseCard({ t, onClick }: { t: Treinamento; onClick: () => void }) {
+function CourseCard({ t, onClick, onEdit, canAdmin }: { t: Treinamento; onClick: () => void; onEdit?: (e: React.MouseEvent) => void; canAdmin?: boolean }) {
   const pct = getProgresso(t)
   return (
     <div
@@ -324,7 +658,16 @@ function CourseCard({ t, onClick }: { t: Treinamento; onClick: () => void }) {
             Obrigatório
           </span>
         )}
-        {pct === 100 && (
+        {canAdmin && onEdit && (
+          <button
+            onClick={onEdit}
+            className="absolute top-2.5 right-2.5 w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm flex items-center justify-center text-white transition-colors"
+            title="Editar curso"
+          >
+            <Pencil size={13} />
+          </button>
+        )}
+        {pct === 100 && !canAdmin && (
           <div className="absolute top-2.5 right-2.5 w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center shadow">
             <CheckCircle2 size={14} className="text-white" />
           </div>
@@ -641,14 +984,14 @@ function TrilhaCard({ trilha, cursos, onCursoClick }: { trilha: Trilha; cursos: 
 
 // ─── RH View ─────────────────────────────────────────────────────────────────
 
-function RHView() {
+function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
   const [funcionarios, setFuncionarios] = useState<ProgressoFuncionario[]>(FUNCIONARIOS_MOCK)
-  const [cursoSelecionado, setCursoSelecionado] = useState<number>(TREINAMENTOS[0].id)
+  const [cursoSelecionado, setCursoSelecionado] = useState<number>(todosCursos[0]?.id ?? 0)
   const [search, setSearch] = useState('')
   const [apenasObrigatorios, setApenasObrigatorios] = useState(false)
 
-  const cursos = apenasObrigatorios ? TREINAMENTOS.filter(t => t.obrigatorio) : TREINAMENTOS
-  const curso = TREINAMENTOS.find(t => t.id === cursoSelecionado)!
+  const cursos = apenasObrigatorios ? todosCursos.filter(t => t.obrigatorio) : todosCursos
+  const curso = todosCursos.find(t => t.id === cursoSelecionado) ?? todosCursos[0]
 
   const lista = funcionarios.filter(f =>
     !search || f.nome.toLowerCase().includes(search.toLowerCase()) || f.area.toLowerCase().includes(search.toLowerCase())
@@ -695,7 +1038,7 @@ function RHView() {
       {pendentesValidacao > 0 && (
         <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-3 text-sm text-amber-700 dark:text-amber-400">
           <AlertTriangle size={16} className="shrink-0" />
-          <span><strong>{pendentesValidacao} colaborador(es)</strong> concluíram "{curso.titulo}" e aguardam validação.</span>
+          <span><strong>{pendentesValidacao} colaborador(es)</strong> concluíram "{curso?.titulo}" e aguardam validação.</span>
         </div>
       )}
 
@@ -725,20 +1068,22 @@ function RHView() {
       </div>
 
       {/* Sumário do curso selecionado */}
-      <div className={`bg-gradient-to-br ${curso.capa.from} ${curso.capa.to} rounded-2xl p-5 flex items-center gap-4`}>
-        <span className="text-4xl shrink-0">{curso.icone}</span>
-        <div className="flex-1 min-w-0 text-white">
-          <p className="font-bold text-base leading-tight">{curso.titulo}</p>
-          <p className="text-white/70 text-xs mt-0.5">{curso.modulos.length} módulos · {curso.duracao} · por {curso.instrutor}</p>
+      {curso && (
+        <div className={`bg-gradient-to-br ${curso.capa.from} ${curso.capa.to} rounded-2xl p-5 flex items-center gap-4`}>
+          <span className="text-4xl shrink-0">{curso.icone}</span>
+          <div className="flex-1 min-w-0 text-white">
+            <p className="font-bold text-base leading-tight">{curso.titulo}</p>
+            <p className="text-white/70 text-xs mt-0.5">{curso.modulos.length} módulos · {curso.duracao} · por {curso.instrutor}</p>
+          </div>
+          <div className="text-right text-white shrink-0">
+            <p className="text-2xl font-black">
+              {funcionarios.filter(f => (f.progresso[cursoSelecionado]?.pct ?? 0) === 100).length}
+              <span className="text-base font-normal opacity-70">/{funcionarios.length}</span>
+            </p>
+            <p className="text-xs text-white/70">concluíram</p>
+          </div>
         </div>
-        <div className="text-right text-white shrink-0">
-          <p className="text-2xl font-black">
-            {funcionarios.filter(f => (f.progresso[cursoSelecionado]?.pct ?? 0) === 100).length}
-            <span className="text-base font-normal opacity-70">/{funcionarios.length}</span>
-          </p>
-          <p className="text-xs text-white/70">concluíram</p>
-        </div>
-      </div>
+      )}
 
       {/* Tabela */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
@@ -843,33 +1188,29 @@ export default function TreinamentosPage() {
   const [filtroStatus, setFiltroStatus] = useState<'todos' | 'em-andamento' | 'concluidos' | 'nao-iniciados'>('todos')
   const [modalCurso, setModalCurso] = useState<Treinamento | null>(null)
   const [vistaLista, setVistaLista] = useState<'cursos' | 'trilhas'>('cursos')
-  const [cursos, setCursos] = useState<Treinamento[]>(TREINAMENTOS)
+  const [cursos, setCursos] = useState<Treinamento[]>([])
   const [moduloConfigs, setModuloConfigs] = useState<Record<string, string>>({})
+  const [editCurso, setEditCurso] = useState<Treinamento | null | 'new'>(null)
 
   useEffect(() => {
-    api.treinamentoProgresso.list().then((rows: unknown) => {
-      if (!Array.isArray(rows)) return
-      const map: Record<string, boolean> = {}
-      for (const r of rows as { curso_id: number; modulo_id: number; concluido: boolean }[]) {
-        map[`${r.curso_id}_${r.modulo_id}`] = r.concluido
+    Promise.all([
+      api.cursos.list().catch(() => []),
+      api.treinamentoProgresso.list().catch(() => []),
+      api.moduloConfig.list().catch(() => []),
+    ]).then(([cursosDb, progressoRows, configRows]) => {
+      const progressoMap: Record<string, boolean> = {}
+      for (const r of progressoRows as { curso_id: number; modulo_id: number; concluido: boolean }[]) {
+        progressoMap[`${r.curso_id}_${r.modulo_id}`] = r.concluido
       }
-      setCursos(TREINAMENTOS.map(t => ({
-        ...t,
-        modulos: t.modulos.map(m => ({
-          ...m,
-          concluido: map[`${t.id}_${m.id}`] ?? m.concluido,
-        })),
-      })))
-    }).catch(() => {})
 
-    api.moduloConfig.list().then((rows: unknown) => {
-      if (!Array.isArray(rows)) return
-      const map: Record<string, string> = {}
-      for (const r of rows as { curso_id: number; modulo_id: number; video_url: string }[]) {
-        if (r.video_url) map[`${r.curso_id}_${r.modulo_id}`] = r.video_url
+      const configMap: Record<string, string> = {}
+      for (const r of configRows as { curso_id: number; modulo_id: number; video_url: string }[]) {
+        if (r.video_url) configMap[`${r.curso_id}_${r.modulo_id}`] = r.video_url
       }
-      setModuloConfigs(map)
-    }).catch(() => {})
+
+      setCursos((cursosDb as any[]).map(row => dbToTreinamento(row, progressoMap)))
+      setModuloConfigs(configMap)
+    })
   }, [])
 
   async function saveConfig(cursoId: number, moduloId: number, url: string | null) {
@@ -881,6 +1222,27 @@ export default function TreinamentosPage() {
       else delete next[key]
       return next
     })
+  }
+
+  async function handleSaveCurso(data: any) {
+    if (editCurso === 'new') {
+      const row = await api.cursos.create(data)
+      setCursos(prev => [...prev, dbToTreinamento(row as any)])
+    } else if (editCurso) {
+      const row = await api.cursos.update(editCurso.id, data)
+      const updated = dbToTreinamento(row as any)
+      setCursos(prev => prev.map(c => c.id === updated.id ? { ...updated, modulos: updated.modulos.map(m => ({ ...m, concluido: c.modulos.find(om => om.id === m.id)?.concluido ?? false })) } : c))
+      if (modalCurso?.id === editCurso.id) {
+        setModalCurso(prev => prev ? { ...updated, modulos: updated.modulos.map(m => ({ ...m, concluido: prev.modulos.find(om => om.id === m.id)?.concluido ?? false })) } : null)
+      }
+    }
+  }
+
+  async function handleDeleteCurso() {
+    if (!editCurso || editCurso === 'new') return
+    await api.cursos.delete(editCurso.id)
+    setCursos(prev => prev.filter(c => c.id !== (editCurso as Treinamento).id))
+    if (modalCurso?.id === (editCurso as Treinamento).id) setModalCurso(null)
   }
 
   async function toggleModulo(cursoId: number, moduloId: number, done: boolean) {
@@ -920,28 +1282,38 @@ export default function TreinamentosPage() {
           <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Treinamentos</h1>
           <p className="text-sm text-slate-400 mt-0.5">Trilhas de desenvolvimento disponíveis para você</p>
         </div>
-        {podeGerenciar && (
-          <div className="flex gap-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-xl text-sm">
+        <div className="flex items-center gap-2">
+          {isAdmin(user?.role) && (
             <button
-              onClick={() => setView('meus')}
-              className={`px-4 py-1.5 rounded-lg font-medium transition-colors ${view === 'meus' ? 'bg-white dark:bg-slate-800 shadow text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+              onClick={() => setEditCurso('new')}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
             >
-              Meus cursos
+              <Plus size={13} />Novo curso
             </button>
-            <button
-              onClick={() => setView('gestao')}
-              className={`px-4 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${view === 'gestao' ? 'bg-white dark:bg-slate-800 shadow text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-            >
-              <BarChart2 size={14} />Gestão
-              {obrigPend > 0 && view === 'meus' && (
-                <span className="w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{obrigPend}</span>
-              )}
-            </button>
-          </div>
-        )}
+          )}
+          {podeGerenciar && (
+            <div className="flex gap-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-xl text-sm">
+              <button
+                onClick={() => setView('meus')}
+                className={`px-4 py-1.5 rounded-lg font-medium transition-colors ${view === 'meus' ? 'bg-white dark:bg-slate-800 shadow text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+              >
+                Meus cursos
+              </button>
+              <button
+                onClick={() => setView('gestao')}
+                className={`px-4 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${view === 'gestao' ? 'bg-white dark:bg-slate-800 shadow text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+              >
+                <BarChart2 size={14} />Gestão
+                {obrigPend > 0 && view === 'meus' && (
+                  <span className="w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{obrigPend}</span>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {view === 'gestao' ? <RHView /> : (
+      {view === 'gestao' ? <RHView todosCursos={cursos} /> : (
         <>
           {/* Hero de progresso */}
           <div className="bg-gradient-to-br from-primary-600 to-primary-700 rounded-2xl p-6 text-white flex flex-col sm:flex-row gap-6 items-center">
@@ -1059,7 +1431,7 @@ export default function TreinamentosPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {filtered.map(t => <CourseCard key={t.id} t={t} onClick={() => setModalCurso(t)} />)}
+                {filtered.map(t => <CourseCard key={t.id} t={t} onClick={() => setModalCurso(t)} canAdmin={isAdmin(user?.role)} onEdit={e => { e.stopPropagation(); setEditCurso(t) }} />)}
               </div>
             )
           ) : (
@@ -1100,6 +1472,16 @@ export default function TreinamentosPage() {
           moduloConfigs={moduloConfigs}
           onSaveConfig={saveConfig}
           canAdmin={podeGerenciar}
+        />
+      )}
+
+      {/* Modal de edição (admin) */}
+      {editCurso !== null && (
+        <EditCursoModal
+          curso={editCurso === 'new' ? null : editCurso}
+          onClose={() => setEditCurso(null)}
+          onSave={handleSaveCurso}
+          onDelete={editCurso !== 'new' ? handleDeleteCurso : undefined}
         />
       )}
     </div>

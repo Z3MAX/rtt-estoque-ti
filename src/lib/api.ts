@@ -314,6 +314,25 @@ export const api = {
     },
   },
 
+  cursos: {
+    list: async () => {
+      if (MOCK) { await delay(300); return [] }
+      return request<any[]>(`${BASE}/cursos`)
+    },
+    create: async (data: any) => {
+      if (MOCK) { await delay(400); return { id: _nextId++, ...data } }
+      return request(`${BASE}/cursos`, { method: 'POST', body: JSON.stringify(data) })
+    },
+    update: async (id: number, data: any) => {
+      if (MOCK) { await delay(400); return { id, ...data } }
+      return request(`${BASE}/cursos?id=${id}`, { method: 'PUT', body: JSON.stringify(data) })
+    },
+    delete: async (id: number) => {
+      if (MOCK) { await delay(300); return { success: true } }
+      return request(`${BASE}/cursos?id=${id}`, { method: 'DELETE' })
+    },
+  },
+
   sucessao: {
     get: async (colaboradorId: number) => {
       if (MOCK) { await delay(200); return null }
