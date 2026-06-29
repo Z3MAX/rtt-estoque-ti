@@ -62,8 +62,13 @@ exports.handler = async (event) => {
           LIMIT ${limit} OFFSET ${offset}
         `
       }
-      const total = await sql`SELECT COUNT(*)::int AS count FROM humor_feedbacks ${humor ? sql`WHERE humor = ${humor}` : sql``}`
-      return { statusCode: 200, headers, body: JSON.stringify({ items: rows, total: total[0].count }) }
+      let totalRows
+      if (humor) {
+        totalRows = await sql`SELECT COUNT(*)::int AS count FROM humor_feedbacks WHERE humor = ${humor}`
+      } else {
+        totalRows = await sql`SELECT COUNT(*)::int AS count FROM humor_feedbacks`
+      }
+      return { statusCode: 200, headers, body: JSON.stringify({ items: rows, total: totalRows[0].count }) }
     }
 
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) }
