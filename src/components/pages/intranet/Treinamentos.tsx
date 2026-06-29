@@ -23,6 +23,12 @@ function parseVideoUrl(url: string): { type: 'youtube' | 'vimeo' | 'direct' | nu
 
 // ─── VideoPlayer ──────────────────────────────────────────────────────────────
 
+function fmtTime(s: number) {
+  const m = Math.floor(s / 60)
+  const sec = Math.floor(s % 60)
+  return `${m}:${sec.toString().padStart(2, '0')}`
+}
+
 function VideoPlayer({
   url, titulo, concluido, onMarcarConcluido, onClose,
 }: {
@@ -32,63 +38,102 @@ function VideoPlayer({
   const { type, embedUrl } = parseVideoUrl(url)
   const videoRef = useRef<HTMLVideoElement>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
-  const [videoEnded, setVideoEnded] = useState(concluido)
-  // 0–1 watch progress; used for progress bar (Vimeo + direct video)
-  const [watchPct, setWatchPct] = useState(concluido ? 1 : 0)
+
+  // Refs for interval logic (avoids stale closures)
+  const watchedRef = useRef(concluido ? Infinity : 0)
+  const durationRef = useRef(0)
+  const unlockedRef = useRef(concluido)
+
+  const [watchedSec, setWatchedSec] = useState(concluido ? Infinity : 0)
+  const [totalDuration, setTotalDuration] = useState(0)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [unlocked, setUnlocked] = useState(concluido)
   const [showWarning, setShowWarning] = useState(false)
-  const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const warningTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const isUnlocked = videoEnded || concluido
+  // Wall-clock timer: counts real seconds while the video is playing
+  useEffect(() => {
+    if (!isPlaying) return
+    const interval = setInterval(() => {
+      watchedRef.current = Math.min(watchedRef.current + 1, durationRef.current || Infinity)
+      setWatchedSec(watchedRef.current)
+      // Unlock at 95% to account for end-screen/credits
+      if (!unlockedRef.current && durationRef.current > 0 && watchedRef.current >= durationRef.current * 0.95) {
+        unlockedRef.current = true
+        setUnlocked(true)
+        if (!concluido) onMarcarConcluido()
+      }
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [isPlaying, concluido, onMarcarConcluido])
 
-  // Subscribe to YouTube/Vimeo postMessage events
+  // postMessage handler for YouTube & Vimeo
   useEffect(() => {
     if (type !== 'youtube' && type !== 'vimeo') return
 
-    function handleMessage(e: MessageEvent) {
+    function handle(e: MessageEvent) {
       try {
-        const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data
-        if (type === 'youtube' && data.event === 'onStateChange' && data.info === 0) {
-          setVideoEnded(true); setWatchPct(1)
-          if (!concluido) onMarcarConcluido()
-        }
-        if (type === 'vimeo') {
-          if (data.event === 'playProgress') setWatchPct(data.data?.percent ?? 0)
-          if (data.event === 'finish') {
-            setVideoEnded(true); setWatchPct(1)
-            if (!concluido) onMarcarConcluido()
+        const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data
+
+        if (type === 'youtube') {
+          // infoDelivery carries duration + currentTime while playing
+          if (d.event === 'infoDelivery' && d.info?.duration && durationRef.current === 0) {
+            durationRef.current = d.info.duration
+            setTotalDuration(d.info.duration)
+          }
+          if (d.event === 'onStateChange') {
+            if (d.info === 1) setIsPlaying(true)   // playing
+            if (d.info === 2) setIsPlaying(false)  // paused
+            if (d.info === 0) setIsPlaying(false)  // ended — timer already handled unlock
           }
         }
-      } catch { /* ignore non-JSON messages */ }
+
+        if (type === 'vimeo') {
+          if (d.event === 'timeupdate') {
+            // duration arrives in first timeupdate
+            if (d.data?.duration && durationRef.current === 0) {
+              durationRef.current = d.data.duration
+              setTotalDuration(d.data.duration)
+            }
+            setIsPlaying(true)
+          }
+          if (d.event === 'play') setIsPlaying(true)
+          if (d.event === 'pause' || d.event === 'finish') setIsPlaying(false)
+        }
+      } catch { /* ignore */ }
     }
 
-    window.addEventListener('message', handleMessage)
-    return () => window.removeEventListener('message', handleMessage)
-  }, [type, concluido, onMarcarConcluido])
+    window.addEventListener('message', handle)
+    return () => window.removeEventListener('message', handle)
+  }, [type])
 
   function onIframeLoad() {
     const win = iframeRef.current?.contentWindow
     if (!win) return
     if (type === 'youtube') {
+      win.postMessage(JSON.stringify({ event: 'listening' }), '*')
       win.postMessage(JSON.stringify({ event: 'command', func: 'addEventListener', args: ['onStateChange'] }), '*')
     } else if (type === 'vimeo') {
-      win.postMessage(JSON.stringify({ method: 'addEventListener', value: 'playProgress' }), '*')
+      win.postMessage(JSON.stringify({ method: 'addEventListener', value: 'play' }), '*')
+      win.postMessage(JSON.stringify({ method: 'addEventListener', value: 'pause' }), '*')
+      win.postMessage(JSON.stringify({ method: 'addEventListener', value: 'timeupdate' }), '*')
       win.postMessage(JSON.stringify({ method: 'addEventListener', value: 'finish' }), '*')
     }
   }
 
   function handleButtonClick() {
-    if (isUnlocked) { onMarcarConcluido(); return }
+    if (unlocked) { onMarcarConcluido(); return }
     setShowWarning(true)
-    if (warningTimerRef.current) clearTimeout(warningTimerRef.current)
-    warningTimerRef.current = setTimeout(() => setShowWarning(false), 4500)
+    if (warningTimer.current) clearTimeout(warningTimer.current)
+    warningTimer.current = setTimeout(() => setShowWarning(false), 6000)
   }
 
-  // cleanup timer on unmount
-  useEffect(() => () => { if (warningTimerRef.current) clearTimeout(warningTimerRef.current) }, [])
+  useEffect(() => () => { if (warningTimer.current) clearTimeout(warningTimer.current) }, [])
 
+  const watchPct = totalDuration > 0 ? Math.min(watchedSec / totalDuration, 1) : 0
   const progressPct = Math.round(watchPct * 100)
-  // Vimeo and direct video give real progress; YouTube only snaps to 100% at end
-  const hasRealProgress = type === 'vimeo' || type === 'direct'
+  const hasDuration = totalDuration > 0
+  const remaining = hasDuration ? Math.max(0, totalDuration - watchedSec) : null
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
@@ -111,12 +156,14 @@ function VideoPlayer({
               controls
               autoPlay
               className="absolute inset-0 w-full h-full bg-black"
-              onLoadedMetadata={() => setWatchPct(0)}
-              onTimeUpdate={() => {
-                const v = videoRef.current
-                if (v && v.duration) setWatchPct(v.currentTime / v.duration)
+              onLoadedMetadata={() => {
+                const dur = videoRef.current?.duration ?? 0
+                durationRef.current = dur
+                setTotalDuration(dur)
               }}
-              onEnded={() => { setVideoEnded(true); setWatchPct(1); if (!concluido) onMarcarConcluido() }}
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onEnded={() => setIsPlaying(false)}
             />
           ) : embedUrl ? (
             <iframe
@@ -134,24 +181,27 @@ function VideoPlayer({
           )}
         </div>
 
-        {/* Watch progress bar — amber while watching, emerald when complete */}
+        {/* Watch progress bar */}
         {!concluido && (
           <div className="h-[3px] bg-white/10">
             <div
-              className={`h-full transition-all duration-500 ${isUnlocked ? 'bg-emerald-400' : 'bg-amber-400'}`}
-              style={{ width: `${isUnlocked ? 100 : progressPct}%` }}
+              className={`h-full transition-all duration-1000 ${unlocked ? 'bg-emerald-400' : 'bg-amber-400'}`}
+              style={{ width: `${unlocked ? 100 : progressPct}%` }}
             />
           </div>
         )}
 
-        {/* Warning banner — slides in when user clicks button before video ends */}
+        {/* Warning banner — shown when user clicks button while locked */}
         {showWarning && (
-          <div className="flex items-start gap-2.5 px-4 py-3 bg-amber-500/10 border-b border-amber-500/20">
-            <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex items-start gap-3 px-4 py-3 bg-amber-500/10 border-b border-amber-500/20">
+            <AlertTriangle size={15} className="text-amber-400 shrink-0 mt-0.5" />
             <div>
-              <p className="text-xs font-semibold text-amber-300">Assista o vídeo completo para concluir</p>
-              <p className="text-[11px] text-amber-400/70 mt-0.5">
-                O botão ficará disponível automaticamente ao final do conteúdo.
+              <p className="text-xs font-semibold text-amber-300">Avançar o vídeo não conta</p>
+              <p className="text-[11px] text-amber-400/80 mt-0.5 leading-relaxed">
+                O sistema mede o tempo real assistido — não a posição do vídeo.
+                {hasDuration && remaining !== null && remaining > 0
+                  ? ` Faltam aprox. ${fmtTime(remaining)} para desbloquear.`
+                  : ' Continue assistindo sem pular para desbloquear.'}
               </p>
             </div>
           </div>
@@ -159,15 +209,17 @@ function VideoPlayer({
 
         {/* Footer */}
         <div className="flex items-center justify-between px-4 py-3 gap-3">
-          {/* Left: source label + progress percentage */}
+          {/* Left: time watched */}
           <div className="flex items-center gap-2 text-xs text-white/35 min-w-0">
             <span>
               {type === 'youtube' && 'YouTube'}
               {type === 'vimeo' && 'Vimeo'}
               {type === 'direct' && 'Vídeo direto'}
             </span>
-            {hasRealProgress && !isUnlocked && progressPct > 0 && (
-              <span className="text-amber-400/80 font-medium">{progressPct}% assistido</span>
+            {hasDuration && !unlocked && watchedSec > 0 && (
+              <span className="text-amber-400/80 font-medium tabular-nums">
+                {fmtTime(watchedSec)} / {fmtTime(totalDuration)} assistido
+              </span>
             )}
           </div>
 
@@ -176,7 +228,7 @@ function VideoPlayer({
             <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 text-xs text-emerald-400 font-semibold shrink-0">
               <CheckCircle2 size={13} /> Concluído
             </span>
-          ) : isUnlocked ? (
+          ) : unlocked ? (
             <button
               onClick={handleButtonClick}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white text-xs font-semibold transition-all shrink-0"
@@ -186,13 +238,12 @@ function VideoPlayer({
           ) : (
             <button
               onClick={handleButtonClick}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-white/50 text-xs font-medium transition-all shrink-0 group"
-              title="Assista o vídeo completo para desbloquear"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-amber-500/10 hover:border-amber-500/30 text-white/50 hover:text-amber-300 text-xs font-medium transition-all shrink-0 group"
             >
-              <Lock size={12} className="group-hover:text-amber-400 transition-colors" />
+              <Lock size={12} className="transition-colors" />
               <span>Bloqueado</span>
-              {hasRealProgress && progressPct > 0 && (
-                <span className="text-white/30">· {progressPct}%</span>
+              {hasDuration && progressPct > 0 && (
+                <span className="text-white/30 group-hover:text-amber-400/50 tabular-nums">· {progressPct}%</span>
               )}
             </button>
           )}
