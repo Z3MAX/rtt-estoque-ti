@@ -292,6 +292,17 @@ export const api = {
     },
   },
 
+  moduloConfig: {
+    list: async () => {
+      if (MOCK) { await delay(150); return [] }
+      return request<any[]>(`${BASE}/modulo-config`)
+    },
+    save: async (cursoId: number, moduloId: number, videoUrl: string | null) => {
+      if (MOCK) { await delay(200); return { success: true } }
+      return request(`${BASE}/modulo-config`, { method: 'PUT', body: JSON.stringify({ curso_id: cursoId, modulo_id: moduloId, video_url: videoUrl }) })
+    },
+  },
+
   treinamentoProgresso: {
     list: async () => {
       if (MOCK) { await delay(200); return [] }

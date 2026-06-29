@@ -1,12 +1,97 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Search, X, BookOpen, Clock, Star, CheckCircle2, Play, Award,
   ChevronRight, Users, BarChart2, ShieldCheck, Video, FileText,
   HelpCircle, Lock, ChevronDown, ChevronUp, Layers, BadgeCheck,
-  AlertTriangle, Eye,
+  AlertTriangle, Eye, Link, Edit2, Save, ExternalLink, RefreshCw,
 } from 'lucide-react'
 import { useAuth, isAdmin, isGestor } from '../../../lib/auth'
 import { api } from '../../../lib/api'
+
+// ─── Video helpers ────────────────────────────────────────────────────────────
+
+function parseVideoUrl(url: string): { type: 'youtube' | 'vimeo' | 'direct' | null; embedUrl: string | null } {
+  if (!url) return { type: null, embedUrl: null }
+  const yt = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
+  if (yt) return { type: 'youtube', embedUrl: `https://www.youtube.com/embed/${yt[1]}?autoplay=1&rel=0` }
+  const vi = url.match(/vimeo\.com\/(\d+)/)
+  if (vi) return { type: 'vimeo', embedUrl: `https://player.vimeo.com/video/${vi[1]}?autoplay=1` }
+  if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(url)) return { type: 'direct', embedUrl: url }
+  return { type: null, embedUrl: null }
+}
+
+// ─── VideoPlayer ──────────────────────────────────────────────────────────────
+
+function VideoPlayer({
+  url, titulo, concluido, onMarcarConcluido, onClose,
+}: {
+  url: string; titulo: string; concluido: boolean
+  onMarcarConcluido: () => void; onClose: () => void
+}) {
+  const { type, embedUrl } = parseVideoUrl(url)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [ended, setEnded] = useState(false)
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+          <p className="text-sm font-semibold text-white truncate pr-4">{titulo}</p>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-white/60 hover:bg-white/10 transition-colors shrink-0">
+            <X size={15} />
+          </button>
+        </div>
+
+        {/* Player */}
+        <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
+          {type === 'direct' ? (
+            <video
+              ref={videoRef}
+              src={embedUrl!}
+              controls
+              autoPlay
+              className="absolute inset-0 w-full h-full bg-black"
+              onEnded={() => { setEnded(true); if (!concluido) onMarcarConcluido() }}
+            />
+          ) : embedUrl ? (
+            <iframe
+              src={embedUrl}
+              className="absolute inset-0 w-full h-full"
+              allow="autoplay; fullscreen; picture-in-picture"
+              allowFullScreen
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-white/40 text-sm">
+              URL de vídeo inválida
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between px-4 py-3 border-t border-white/10 gap-3">
+          <p className="text-xs text-white/40">
+            {type === 'youtube' && 'YouTube'}
+            {type === 'vimeo' && 'Vimeo'}
+            {type === 'direct' && 'Vídeo direto'}
+          </p>
+          {concluido ? (
+            <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold">
+              <CheckCircle2 size={14} /> Concluído
+            </span>
+          ) : (
+            <button
+              onClick={() => { onMarcarConcluido(); setEnded(true) }}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition-colors"
+            >
+              <CheckCircle2 size={13} /> Marcar como concluído
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -292,13 +377,31 @@ function CourseCard({ t, onClick }: { t: Treinamento; onClick: () => void }) {
 
 // ─── CourseModal ──────────────────────────────────────────────────────────────
 
-function CourseModal({ t, onClose, onToggle }: {
+function CourseModal({ t, onClose, onToggle, moduloConfigs, onSaveConfig, canAdmin }: {
   t: Treinamento
   onClose: () => void
   onToggle: (cursoId: number, moduloId: number, done: boolean) => Promise<void>
+  moduloConfigs: Record<string, string>
+  onSaveConfig: (cursoId: number, moduloId: number, url: string | null) => Promise<void>
+  canAdmin: boolean
 }) {
   const [expanded, setExpanded] = useState(true)
+  const [videoAberto, setVideoAberto] = useState<number | null>(null)
+  const [editando, setEditando] = useState<number | null>(null)
+  const [editUrl, setEditUrl] = useState('')
+  const [savingUrl, setSavingUrl] = useState(false)
   const pct = getProgresso(t)
+
+  function getVideoUrl(moduloId: number) {
+    return moduloConfigs[`${t.id}_${moduloId}`] ?? ''
+  }
+
+  async function saveUrl(moduloId: number) {
+    setSavingUrl(true)
+    await onSaveConfig(t.id, moduloId, editUrl.trim() || null)
+    setSavingUrl(false)
+    setEditando(null)
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
@@ -362,32 +465,91 @@ function CourseModal({ t, onClose, onToggle }: {
               <div className="space-y-2 mt-1">
                 {t.modulos.map((m, idx) => {
                   const bloqueado = idx > 0 && !t.modulos[idx - 1].concluido
+                  const videoUrl = getVideoUrl(m.id)
+                  const temVideo = !!videoUrl
+                  const isEditando = editando === m.id
+                  const isVideoAberto = videoAberto === m.id
+
                   return (
-                    <div
-                      key={m.id}
-                      onClick={() => !bloqueado && onToggle(t.id, m.id, !m.concluido)}
-                      className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                        m.concluido
-                          ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/10 cursor-pointer'
-                          : bloqueado
-                          ? 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30 opacity-60'
-                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-700/50 hover:border-primary-300 cursor-pointer'
-                      }`}
-                    >
-                      <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0">
-                        {m.concluido
-                          ? <CheckCircle2 size={20} className="text-emerald-500" />
-                          : bloqueado
-                          ? <Lock size={13} className="text-slate-400" />
-                          : TIPO_ICON[m.tipo]
-                        }
+                    <div key={m.id} className="space-y-0">
+                      <div
+                        onClick={() => {
+                          if (bloqueado) return
+                          if (m.tipo === 'video' && temVideo) { setVideoAberto(isVideoAberto ? null : m.id); return }
+                          if (m.tipo !== 'video') onToggle(t.id, m.id, !m.concluido)
+                        }}
+                        className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
+                          m.concluido
+                            ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/10'
+                            : bloqueado
+                            ? 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30 opacity-60'
+                            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-700/50 hover:border-primary-300 cursor-pointer'
+                        }`}
+                      >
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0">
+                          {m.concluido ? <CheckCircle2 size={20} className="text-emerald-500" />
+                            : bloqueado ? <Lock size={13} className="text-slate-400" />
+                            : TIPO_ICON[m.tipo]}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">{m.titulo}</p>
+                          <p className="text-[10px] text-slate-400 capitalize">{m.tipo} · {m.duracao}</p>
+                        </div>
+                        {/* Estado do vídeo */}
+                        {!bloqueado && m.tipo === 'video' && (
+                          temVideo
+                            ? <Play size={13} className="text-primary-500 shrink-0" />
+                            : canAdmin
+                            ? <span className="text-[10px] text-amber-500 shrink-0">sem vídeo</span>
+                            : <span className="text-[10px] text-slate-300 shrink-0">em breve</span>
+                        )}
+                        {!bloqueado && m.tipo !== 'video' && !m.concluido && (
+                          <ChevronRight size={14} className="text-slate-400 shrink-0" />
+                        )}
+                        {/* Botão editar URL (admin) */}
+                        {canAdmin && !bloqueado && m.tipo === 'video' && (
+                          <button
+                            onClick={e => {
+                              e.stopPropagation()
+                              setEditando(isEditando ? null : m.id)
+                              setEditUrl(videoUrl)
+                            }}
+                            className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600 hover:text-primary-500 transition-colors shrink-0"
+                            title="Editar URL do vídeo"
+                          >
+                            <Edit2 size={11} />
+                          </button>
+                        )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">{m.titulo}</p>
-                        <p className="text-[10px] text-slate-400 capitalize">{m.tipo} · {m.duracao}</p>
-                      </div>
-                      {!m.concluido && !bloqueado && (
-                        <ChevronRight size={14} className="text-slate-400 shrink-0" />
+
+                      {/* Editor de URL (admin) */}
+                      {isEditando && (
+                        <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-600 mt-1">
+                          <Link size={13} className="text-slate-400 shrink-0" />
+                          <input
+                            autoFocus
+                            className="flex-1 text-xs bg-transparent outline-none text-slate-700 dark:text-slate-200 placeholder-slate-400"
+                            placeholder="Cole a URL do YouTube, Vimeo ou MP4..."
+                            value={editUrl}
+                            onChange={e => setEditUrl(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') saveUrl(m.id); if (e.key === 'Escape') setEditando(null) }}
+                          />
+                          <button onClick={() => saveUrl(m.id)} disabled={savingUrl} className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary-600 text-white text-[10px] font-semibold disabled:opacity-60 transition-colors">
+                            {savingUrl ? <RefreshCw size={10} className="animate-spin" /> : <Save size={10} />} Salvar
+                          </button>
+                          <button onClick={() => setEditando(null)} className="text-[10px] text-slate-400 hover:text-slate-600">Cancelar</button>
+                        </div>
+                      )}
+
+                      {/* Player inline */}
+                      {isVideoAberto && temVideo && (
+                        <VideoPlayer
+                          url={videoUrl}
+                          titulo={m.titulo}
+                          concluido={m.concluido}
+                          onMarcarConcluido={() => { onToggle(t.id, m.id, true); setVideoAberto(null) }}
+                          onClose={() => setVideoAberto(null)}
+                        />
                       )}
                     </div>
                   )
@@ -682,6 +844,7 @@ export default function TreinamentosPage() {
   const [modalCurso, setModalCurso] = useState<Treinamento | null>(null)
   const [vistaLista, setVistaLista] = useState<'cursos' | 'trilhas'>('cursos')
   const [cursos, setCursos] = useState<Treinamento[]>(TREINAMENTOS)
+  const [moduloConfigs, setModuloConfigs] = useState<Record<string, string>>({})
 
   useEffect(() => {
     api.treinamentoProgresso.list().then((rows: unknown) => {
@@ -698,7 +861,27 @@ export default function TreinamentosPage() {
         })),
       })))
     }).catch(() => {})
+
+    api.moduloConfig.list().then((rows: unknown) => {
+      if (!Array.isArray(rows)) return
+      const map: Record<string, string> = {}
+      for (const r of rows as { curso_id: number; modulo_id: number; video_url: string }[]) {
+        if (r.video_url) map[`${r.curso_id}_${r.modulo_id}`] = r.video_url
+      }
+      setModuloConfigs(map)
+    }).catch(() => {})
   }, [])
+
+  async function saveConfig(cursoId: number, moduloId: number, url: string | null) {
+    await api.moduloConfig.save(cursoId, moduloId, url)
+    setModuloConfigs(prev => {
+      const next = { ...prev }
+      const key = `${cursoId}_${moduloId}`
+      if (url) next[key] = url
+      else delete next[key]
+      return next
+    })
+  }
 
   async function toggleModulo(cursoId: number, moduloId: number, done: boolean) {
     await api.treinamentoProgresso.mark(cursoId, moduloId, done)
@@ -909,7 +1092,16 @@ export default function TreinamentosPage() {
       )}
 
       {/* Modal de detalhe */}
-      {modalCurso && <CourseModal t={modalCurso} onClose={() => setModalCurso(null)} onToggle={toggleModulo} />}
+      {modalCurso && (
+        <CourseModal
+          t={modalCurso}
+          onClose={() => setModalCurso(null)}
+          onToggle={toggleModulo}
+          moduloConfigs={moduloConfigs}
+          onSaveConfig={saveConfig}
+          canAdmin={podeGerenciar}
+        />
+      )}
     </div>
   )
 }
