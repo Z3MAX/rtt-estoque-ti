@@ -937,7 +937,26 @@ function CourseModal({ t, onClose, onToggle, moduloConfigs, onSaveConfig, canAdm
   const [editando, setEditando] = useState<number | null>(null)
   const [editUrl, setEditUrl] = useState('')
   const [savingUrl, setSavingUrl] = useState(false)
+  const [avaliacaoNota, setAvaliacaoNota] = useState<number | null>(null)
+  const [avaliacaoComentario, setAvaliacaoComentario] = useState('')
+  const [avaliacaoEnviada, setAvaliacaoEnviada] = useState(false)
+  const [savingAvaliacao, setSavingAvaliacao] = useState(false)
   const pct = getProgresso(t)
+
+  useEffect(() => {
+    if (pct < 100) return
+    api.cursoAvaliacao.get(t.id).then(r => {
+      if (r) { setAvaliacaoNota(r.nota); setAvaliacaoComentario(r.comentario ?? ''); setAvaliacaoEnviada(true) }
+    }).catch(() => {})
+  }, [t.id, pct])
+
+  async function handleEnviarAvaliacao() {
+    if (!avaliacaoNota) return
+    setSavingAvaliacao(true)
+    await api.cursoAvaliacao.save(t.id, avaliacaoNota, avaliacaoComentario || undefined).catch(() => {})
+    setSavingAvaliacao(false)
+    setAvaliacaoEnviada(true)
+  }
 
   function getVideoUrl(moduloId: number) {
     return moduloConfigs[`${t.id}_${moduloId}`] ?? ''
@@ -1116,13 +1135,62 @@ function CourseModal({ t, onClose, onToggle, moduloConfigs, onSaveConfig, canAdm
 
         {/* Footer CTA */}
         <div className="p-4 border-t border-slate-100 dark:border-slate-700 shrink-0">
-          <button className={`w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors ${
-            pct === 100
-              ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 border border-emerald-200 dark:border-emerald-800'
-              : 'bg-primary-600 hover:bg-primary-700 text-white shadow-md shadow-primary-500/30'
-          }`}>
-            {pct === 100 ? <><Award size={15} />Ver certificado</> : pct > 0 ? <><Play size={15} />Continuar de onde parou</> : <><Play size={15} />Começar agora</>}
-          </button>
+          {pct === 100 ? (
+            <div className="space-y-3">
+              {avaliacaoEnviada ? (
+                <div className="flex flex-col items-center gap-1 py-2">
+                  <span className="text-2xl">{['😞','😕','😐','🙂','🤩'][avaliacaoNota! - 1]}</span>
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Avaliação enviada — obrigado!</p>
+                  {avaliacaoComentario && <p className="text-[11px] text-slate-400 text-center italic">"{avaliacaoComentario}"</p>}
+                  <button onClick={() => setAvaliacaoEnviada(false)} className="text-[11px] text-slate-400 hover:text-slate-600 underline mt-1">Alterar avaliação</button>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-2 text-center">O que achou do curso?</p>
+                    <div className="flex justify-center gap-2">
+                      {[{emoji:'😞',label:'Ruim',nota:1},{emoji:'😕',label:'Regular',nota:2},{emoji:'😐',label:'Ok',nota:3},{emoji:'🙂',label:'Bom',nota:4},{emoji:'🤩',label:'Excelente',nota:5}].map(({emoji,label,nota}) => (
+                        <button
+                          key={nota}
+                          onClick={() => setAvaliacaoNota(nota)}
+                          title={label}
+                          className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl transition-all ${
+                            avaliacaoNota === nota
+                              ? 'bg-primary-50 dark:bg-primary-900/30 ring-2 ring-primary-400 scale-110'
+                              : 'hover:bg-slate-100 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          <span className="text-xl leading-none">{emoji}</span>
+                          <span className="text-[9px] text-slate-400">{label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {avaliacaoNota && (
+                    <textarea
+                      value={avaliacaoComentario}
+                      onChange={e => setAvaliacaoComentario(e.target.value)}
+                      placeholder="Comentário opcional..."
+                      rows={2}
+                      className="w-full text-xs rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-primary-400 placeholder:text-slate-300"
+                    />
+                  )}
+                  <button
+                    onClick={handleEnviarAvaliacao}
+                    disabled={!avaliacaoNota || savingAvaliacao}
+                    className="w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {savingAvaliacao ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
+                    Enviar avaliação
+                  </button>
+                </>
+              )}
+            </div>
+          ) : (
+            <button className="w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors bg-primary-600 hover:bg-primary-700 text-white shadow-md shadow-primary-500/30">
+              {pct > 0 ? <><Play size={15} />Continuar de onde parou</> : <><Play size={15} />Começar agora</>}
+            </button>
+          )}
         </div>
       </div>
     </div>

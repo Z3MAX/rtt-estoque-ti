@@ -386,4 +386,15 @@ export const api = {
       return request<AuditEntry[]>(`${BASE}/audit${q ? `?${q}` : ''}`)
     },
   },
+
+  cursoAvaliacao: {
+    get: async (cursoId: number) => {
+      if (MOCK) { await delay(100); return null }
+      return request<{ nota: number; comentario: string | null } | null>(`${BASE}/curso-avaliacao?curso_id=${cursoId}`)
+    },
+    save: async (cursoId: number, nota: number, comentario?: string) => {
+      if (MOCK) { await delay(100); return { success: true } }
+      return request(`${BASE}/curso-avaliacao`, { method: 'POST', body: JSON.stringify({ curso_id: cursoId, nota, comentario: comentario || null }) })
+    },
+  },
 }
