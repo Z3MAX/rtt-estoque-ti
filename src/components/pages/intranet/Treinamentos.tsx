@@ -1316,52 +1316,79 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
 // ─── EnviarCursosModal ────────────────────────────────────────────────────────
 
 function EnviarCursosModal({ todosCursos, onClose }: { todosCursos: Treinamento[]; onClose: () => void }) {
-  const [colabs, setColabs] = useState<any[]>([])
-  const [search, setSearch] = useState('')
-  const [selected, setSelected] = useState<any | null>(null)
-  const [cursoIds, setCursoIds] = useState<number[]>([])
-  const [todosOsCursos, setTodosOsCursos] = useState(true)
+  const [cursoBusca, setCursoBusca] = useState('')
+  const [cursoSelecionado, setCursoSelecionado] = useState<Treinamento | null>(null)
+  const [inscritos, setInscritos] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [showAdd, setShowAdd] = useState(false)
+  const [todosColabs, setTodosColabs] = useState<any[]>([])
+  const [colabsLoaded, setColabsLoaded] = useState(false)
+  const [adicionando, setAdicionando] = useState<number[]>([])
+  const [searchAdd, setSearchAdd] = useState('')
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
 
-  useEffect(() => {
-    api.colaboradores.list().then((rows: any) => setColabs((rows as any[]).filter((c: any) => c.ativo !== false)))
-  }, [])
-
-  async function selectColab(colab: any) {
-    setSelected(colab)
-    setSaved(false)
+  async function selecionarCurso(curso: Treinamento) {
+    setCursoSelecionado(curso)
+    setShowAdd(false)
     setLoading(true)
     try {
-      const res = await api.cursoAtribuicao.getForColab(colab.id) as any
-      const ids: number[] = res?.curso_ids ?? []
-      setCursoIds(ids)
-      setTodosOsCursos(ids.length === 0)
+      const res = await api.cursoAtribuicao.getForCurso(curso.id) as any
+      setInscritos(res?.inscritos ?? [])
     } finally {
       setLoading(false)
     }
   }
 
-  async function save() {
-    if (!selected) return
+  async function openAdd() {
+    setShowAdd(true)
+    setAdicionando([])
+    setSearchAdd('')
+    if (!colabsLoaded) {
+      const rows = await api.colaboradores.list() as any
+      setTodosColabs((rows as any[]).filter((c: any) => c.ativo !== false))
+      setColabsLoaded(true)
+    }
+  }
+
+  async function confirmarAdd() {
+    if (!cursoSelecionado || adicionando.length === 0) return
     setSaving(true)
     try {
-      await api.cursoAtribuicao.set(selected.id, todosOsCursos ? [] : cursoIds)
-      setSaved(true)
+      const novosIds = [...new Set([...inscritos.map((i: any) => i.colaborador_id), ...adicionando])]
+      await api.cursoAtribuicao.setForCurso(cursoSelecionado.id, novosIds)
+      const res = await api.cursoAtribuicao.getForCurso(cursoSelecionado.id) as any
+      setInscritos(res?.inscritos ?? [])
+      setShowAdd(false)
     } finally {
       setSaving(false)
     }
   }
 
-  const filteredColabs = colabs.filter(c =>
-    c.nome?.toLowerCase().includes(search.toLowerCase()) ||
-    c.cargo?.toLowerCase().includes(search.toLowerCase())
+  async function remover(colaboradorId: number) {
+    if (!cursoSelecionado || saving) return
+    setSaving(true)
+    try {
+      const novosIds = inscritos.filter((i: any) => i.colaborador_id !== colaboradorId).map((i: any) => i.colaborador_id)
+      await api.cursoAtribuicao.setForCurso(cursoSelecionado.id, novosIds)
+      setInscritos(prev => prev.filter((i: any) => i.colaborador_id !== colaboradorId))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const cursosFiltered = todosCursos.filter(c =>
+    c.titulo.toLowerCase().includes(cursoBusca.toLowerCase())
+  )
+
+  const inscritosIds = new Set(inscritos.map((i: any) => i.colaborador_id))
+  const disponiveis = todosColabs.filter(c =>
+    !inscritosIds.has(c.id) &&
+    (c.nome?.toLowerCase().includes(searchAdd.toLowerCase()) || c.cargo?.toLowerCase().includes(searchAdd.toLowerCase()))
   )
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden" style={{ maxHeight: '88vh' }} onClick={e => e.stopPropagation()}>
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden" style={{ maxWidth: '800px', maxHeight: '88vh' }} onClick={e => e.stopPropagation()}>
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
@@ -1369,7 +1396,7 @@ function EnviarCursosModal({ todosCursos, onClose }: { todosCursos: Treinamento[
             <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <Send size={15} className="text-primary-500" /> Enviar Cursos
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">Selecione um colaborador e defina quais cursos estarão disponíveis</p>
+            <p className="text-xs text-slate-400 mt-0.5">Selecione um curso para ver quem tem acesso e gerenciar as inscrições</p>
           </div>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0">
             <X size={15} />
@@ -1377,124 +1404,203 @@ function EnviarCursosModal({ todosCursos, onClose }: { todosCursos: Treinamento[
         </div>
 
         <div className="flex flex-1 overflow-hidden min-h-0">
-          {/* Left: collaborator list */}
-          <div className="w-56 border-r border-slate-100 dark:border-slate-800 flex flex-col shrink-0">
+
+          {/* ── LEFT: course list ── */}
+          <div className="w-60 border-r border-slate-100 dark:border-slate-800 flex flex-col shrink-0">
             <div className="p-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                 <Search size={12} className="text-slate-400 shrink-0" />
                 <input
                   type="text"
-                  placeholder="Buscar..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar curso..."
+                  value={cursoBusca}
+                  onChange={e => setCursoBusca(e.target.value)}
                   className="flex-1 text-xs bg-transparent text-slate-800 dark:text-slate-200 outline-none placeholder:text-slate-400 min-w-0"
                 />
               </div>
             </div>
             <div className="overflow-y-auto flex-1">
-              {filteredColabs.map(c => (
-                <button
-                  key={c.id}
-                  onClick={() => selectColab(c)}
-                  className={`w-full text-left px-3 py-2.5 transition-colors border-b border-slate-50 dark:border-slate-800/60 ${selected?.id === c.id ? 'bg-primary-50 dark:bg-primary-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'}`}
-                >
-                  <p className={`text-xs font-medium truncate ${selected?.id === c.id ? 'text-primary-700 dark:text-primary-300' : 'text-slate-700 dark:text-slate-300'}`}>{c.nome}</p>
-                  <p className="text-[10px] text-slate-400 truncate">{c.cargo}</p>
-                </button>
-              ))}
-              {filteredColabs.length === 0 && (
-                <p className="text-xs text-slate-400 text-center py-8">Nenhum colaborador encontrado</p>
-              )}
+              {cursosFiltered.map(curso => {
+                const ativo = cursoSelecionado?.id === curso.id
+                return (
+                  <button
+                    key={curso.id}
+                    onClick={() => selecionarCurso(curso)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors border-b border-slate-50 dark:border-slate-800/60 ${ativo ? 'bg-primary-50 dark:bg-primary-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'}`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${curso.capa.from} ${curso.capa.to} flex items-center justify-center text-sm shrink-0`}>
+                      {curso.icone}
+                    </div>
+                    <div className="min-w-0">
+                      <p className={`text-xs font-medium truncate ${ativo ? 'text-primary-700 dark:text-primary-300' : 'text-slate-700 dark:text-slate-300'}`}>{curso.titulo}</p>
+                      <p className="text-[10px] text-slate-400">{curso.categoria}</p>
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           </div>
 
-          {/* Right: course checkboxes */}
+          {/* ── RIGHT: inscritos panel ── */}
           <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-            {!selected ? (
+            {!cursoSelecionado ? (
               <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-300 dark:text-slate-600">
-                <Users size={36} />
-                <p className="text-sm text-slate-400">Selecione um colaborador à esquerda</p>
+                <BookOpen size={36} />
+                <p className="text-sm text-slate-400">Selecione um curso para gerenciar os acessos</p>
               </div>
+
             ) : loading ? (
               <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">Carregando...</div>
-            ) : (
-              <>
-                {/* Colaborador header + toggle */}
-                <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
-                  <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{selected.nome}</p>
-                  <p className="text-[10px] text-slate-400 mb-2">{selected.cargo}{selected.area ? ` · ${selected.area}` : ''}</p>
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
+
+            ) : showAdd ? (
+              /* ── Add picker ── */
+              <div className="flex flex-col h-full overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">Adicionar colaboradores</p>
+                  <button onClick={() => setShowAdd(false)} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 transition-colors">
+                    <X size={13} /> Cancelar
+                  </button>
+                </div>
+                <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                    <Search size={12} className="text-slate-400 shrink-0" />
                     <input
-                      type="checkbox"
-                      checked={todosOsCursos}
-                      onChange={e => { setTodosOsCursos(e.target.checked); if (e.target.checked) setCursoIds([]); setSaved(false) }}
-                      className="rounded accent-primary-600"
+                      type="text"
+                      placeholder="Buscar colaborador..."
+                      value={searchAdd}
+                      onChange={e => setSearchAdd(e.target.value)}
+                      className="flex-1 text-xs bg-transparent text-slate-800 dark:text-slate-200 outline-none placeholder:text-slate-400 min-w-0"
                     />
-                    <span className="text-xs text-slate-600 dark:text-slate-400">Acesso a todos os cursos (sem restrição)</span>
-                  </label>
+                  </div>
+                </div>
+                <div className="overflow-y-auto flex-1">
+                  {!colabsLoaded && (
+                    <p className="text-xs text-slate-400 text-center py-8">Carregando colaboradores...</p>
+                  )}
+                  {colabsLoaded && disponiveis.length === 0 && (
+                    <p className="text-xs text-slate-400 text-center py-8">Todos os colaboradores já têm acesso a este curso</p>
+                  )}
+                  {disponiveis.map(c => (
+                    <label key={c.id} className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 border-b border-slate-50 dark:border-slate-800/60 select-none">
+                      <input
+                        type="checkbox"
+                        checked={adicionando.includes(c.id)}
+                        onChange={e => setAdicionando(prev => e.target.checked ? [...prev, c.id] : prev.filter(id => id !== c.id))}
+                        className="rounded accent-primary-600 shrink-0"
+                      />
+                      <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${cursoSelecionado.capa.from} ${cursoSelecionado.capa.to} flex items-center justify-center shrink-0`}>
+                        <span className="text-[11px] font-bold text-white">{c.nome?.[0] ?? '?'}</span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate">{c.nome}</p>
+                        <p className="text-[10px] text-slate-400 truncate">{c.cargo}{c.area ? ` · ${c.area}` : ''}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 shrink-0 flex items-center justify-between">
+                  <p className="text-xs text-slate-400">{adicionando.length} selecionado{adicionando.length !== 1 ? 's' : ''}</p>
+                  <button
+                    onClick={confirmarAdd}
+                    disabled={adicionando.length === 0 || saving}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-40 text-white text-xs font-semibold transition-colors"
+                  >
+                    <Plus size={12} /> {saving ? 'Adicionando...' : `Adicionar${adicionando.length > 0 ? ` (${adicionando.length})` : ''}`}
+                  </button>
+                </div>
+              </div>
+
+            ) : (
+              /* ── Inscritos list ── */
+              <div className="flex flex-col h-full overflow-hidden">
+                {/* Course gradient header with stats */}
+                <div className={`px-5 py-4 bg-gradient-to-r ${cursoSelecionado.capa.from} ${cursoSelecionado.capa.to} shrink-0`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-white truncate">{cursoSelecionado.titulo}</p>
+                      <p className="text-[11px] text-white/70 mt-0.5">{cursoSelecionado.categoria} · {cursoSelecionado.nivel} · {cursoSelecionado.modulos.length} módulo{cursoSelecionado.modulos.length !== 1 ? 's' : ''}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-2xl font-black text-white leading-none">{inscritos.length}</p>
+                      <p className="text-[10px] text-white/70">inscrito{inscritos.length !== 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+                  {inscritos.length > 0 && (() => {
+                    const avg = Math.round(inscritos.reduce((a: number, i: any) =>
+                      a + (i.total_modulos > 0 ? (i.modulos_concluidos / i.total_modulos) * 100 : 0), 0
+                    ) / inscritos.length)
+                    return (
+                      <div className="mt-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-[10px] text-white/70">Progresso médio da turma</p>
+                          <p className="text-[11px] text-white font-semibold">{avg}%</p>
+                        </div>
+                        <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
+                          <div className="h-full bg-white/80 rounded-full transition-all duration-500" style={{ width: `${avg}%` }} />
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
 
-                {/* Course list */}
-                <div className="overflow-y-auto flex-1 p-3 space-y-1">
-                  {todosCursos.map(curso => {
-                    const checked = todosOsCursos || cursoIds.includes(curso.id)
+                {/* Collaborator rows */}
+                <div className="overflow-y-auto flex-1">
+                  {inscritos.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full gap-2 py-12 text-slate-400">
+                      <Users size={28} className="opacity-30" />
+                      <p className="text-sm font-medium">Nenhum colaborador inscrito</p>
+                      <p className="text-xs text-slate-400 text-center max-w-[220px]">Clique em "+ Adicionar colaboradores" para incluir profissionais neste curso</p>
+                    </div>
+                  ) : inscritos.map((i: any) => {
+                    const pct = i.total_modulos > 0 ? Math.round((i.modulos_concluidos / i.total_modulos) * 100) : 0
+                    const concluido = pct === 100
                     return (
-                      <label
-                        key={curso.id}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors select-none ${
-                          todosOsCursos ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          disabled={todosOsCursos}
-                          onChange={e => {
-                            if (todosOsCursos) return
-                            setSaved(false)
-                            setCursoIds(prev => e.target.checked ? [...prev, curso.id] : prev.filter(id => id !== curso.id))
-                          }}
-                          className="rounded accent-primary-600 shrink-0"
-                        />
-                        <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${curso.capa.from} ${curso.capa.to} flex items-center justify-center text-sm shrink-0`}>
-                          {curso.icone}
+                      <div key={i.colaborador_id} className="flex items-center gap-3 px-4 py-3 border-b border-slate-50 dark:border-slate-800/60 group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                        <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${cursoSelecionado.capa.from} ${cursoSelecionado.capa.to} flex items-center justify-center shrink-0`}>
+                          <span className="text-sm font-bold text-white">{i.nome?.[0] ?? '?'}</span>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate">{curso.titulo}</p>
-                          <p className="text-[10px] text-slate-400">{curso.categoria} · {curso.nivel}</p>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 mb-0.5">
+                            <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">{i.nome}</p>
+                            <span className={`text-[11px] font-bold shrink-0 ${concluido ? 'text-emerald-500' : 'text-slate-400'}`}>
+                              {concluido ? '✓ 100%' : `${pct}%`}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 truncate mb-1.5">{i.cargo}{i.area ? ` · ${i.area}` : ''}</p>
+                          <div className="h-1 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${concluido ? 'bg-emerald-400' : 'bg-primary-400'}`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-1">{i.modulos_concluidos}/{i.total_modulos} módulos concluídos</p>
                         </div>
-                        {curso.obrigatorio && (
-                          <span className="shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">Obrigatório</span>
-                        )}
-                      </label>
+                        <button
+                          onClick={() => remover(i.colaborador_id)}
+                          disabled={saving}
+                          title="Remover acesso"
+                          className="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all shrink-0 disabled:pointer-events-none"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     )
                   })}
                 </div>
-              </>
+
+                {/* Add button footer */}
+                <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 shrink-0">
+                  <button
+                    onClick={openAdd}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-xs font-semibold hover:border-primary-300 dark:hover:border-primary-700 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/10 transition-all w-full justify-center"
+                  >
+                    <Plus size={14} /> Adicionar colaboradores
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>
-
-        {/* Footer */}
-        {selected && !loading && (
-          <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 shrink-0">
-            <p className="text-xs text-slate-400">
-              {saved
-                ? <span className="text-emerald-500 font-semibold flex items-center gap-1"><CheckCircle2 size={12} /> Salvo com sucesso</span>
-                : todosOsCursos
-                  ? 'Todos os cursos disponíveis'
-                  : `${cursoIds.length} curso${cursoIds.length !== 1 ? 's' : ''} selecionado${cursoIds.length !== 1 ? 's' : ''}`
-              }
-            </p>
-            <button
-              onClick={save}
-              disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white text-xs font-semibold transition-colors"
-            >
-              <Save size={12} /> {saving ? 'Salvando...' : 'Salvar'}
-            </button>
-          </div>
-        )}
       </div>
     </div>
   )

@@ -22,16 +22,53 @@ exports.handler = async (event) => {
     const auth = requireAuth(event)
     const params = event.queryStringParameters || {}
 
-    // GET — returns course assignments for a colaborador
     if (event.httpMethod === 'GET') {
+      const cursoId = params.curso_id ? parseInt(params.curso_id) : null
+
+      // ── Course-centric GET: who has access to course X + their progress ──
+      if (cursoId) {
+        if (!isAdminRole(auth.role)) {
+          return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
+        }
+        const rows = await sql`
+          SELECT
+            ca.colaborador_id,
+            col.nome,
+            col.cargo,
+            col.area,
+            jsonb_array_length(cu.modulos) AS total_modulos,
+            COALESCE(COUNT(tp.modulo_id) FILTER (WHERE tp.concluido = true), 0) AS modulos_concluidos
+          FROM curso_atribuicao ca
+          JOIN colaboradores col ON col.id = ca.colaborador_id
+          JOIN cursos cu ON cu.id = ca.curso_id
+          LEFT JOIN users u ON u.colaborador_id = ca.colaborador_id
+          LEFT JOIN treinamento_progresso tp
+            ON tp.user_id = u.id AND tp.curso_id = ca.curso_id
+          WHERE ca.curso_id = ${cursoId}
+          GROUP BY ca.colaborador_id, col.nome, col.cargo, col.area, jsonb_array_length(cu.modulos)
+          ORDER BY col.nome
+        `
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({
+            curso_id: cursoId,
+            inscritos: rows.map(r => ({
+              ...r,
+              modulos_concluidos: parseInt(r.modulos_concluidos),
+              total_modulos: parseInt(r.total_modulos),
+            })),
+          }),
+        }
+      }
+
+      // ── Collaborator-centric GET: which courses are assigned to current user ──
       let colaboradorId = params.colaborador_id ? parseInt(params.colaborador_id) : null
 
-      // Only admins can query other users' assignments
       if (colaboradorId && !isAdminRole(auth.role)) {
         return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
       }
 
-      // No colaborador_id param → look up the current user's colaborador_id
       if (!colaboradorId) {
         const rows = await sql`SELECT colaborador_id FROM users WHERE id = ${auth.userId}`
         colaboradorId = rows[0]?.colaborador_id ?? null
@@ -49,27 +86,40 @@ exports.handler = async (event) => {
       }
     }
 
-    // PUT — replace all assignments for a colaborador (admin only)
     if (event.httpMethod === 'PUT') {
       if (!isAdminRole(auth.role)) {
         return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
       }
-      const { colaborador_id, curso_ids } = JSON.parse(event.body || '{}')
-      if (!colaborador_id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'colaborador_id obrigatório' }) }
 
-      await sql`DELETE FROM curso_atribuicao WHERE colaborador_id = ${colaborador_id}`
+      const body = JSON.parse(event.body || '{}')
 
-      if (Array.isArray(curso_ids) && curso_ids.length > 0) {
-        for (const cursoId of curso_ids) {
+      // ── Course-centric PUT: set which colaboradors have access to a course ──
+      if (body.curso_id !== undefined) {
+        const { curso_id, colaborador_ids } = body
+        await sql`DELETE FROM curso_atribuicao WHERE curso_id = ${curso_id}`
+        for (const colId of (colaborador_ids ?? [])) {
           await sql`
             INSERT INTO curso_atribuicao (colaborador_id, curso_id)
-            VALUES (${colaborador_id}, ${cursoId})
+            VALUES (${colId}, ${curso_id})
             ON CONFLICT DO NOTHING
           `
         }
+        return { statusCode: 200, headers, body: JSON.stringify({ success: true }) }
       }
 
-      return { statusCode: 200, headers, body: JSON.stringify({ success: true, curso_ids: curso_ids ?? [] }) }
+      // ── Collaborator-centric PUT: set which courses a colaborador can access ──
+      const { colaborador_id, curso_ids } = body
+      if (!colaborador_id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'colaborador_id ou curso_id obrigatório' }) }
+
+      await sql`DELETE FROM curso_atribuicao WHERE colaborador_id = ${colaborador_id}`
+      for (const cursoId of (curso_ids ?? [])) {
+        await sql`
+          INSERT INTO curso_atribuicao (colaborador_id, curso_id)
+          VALUES (${colaborador_id}, ${cursoId})
+          ON CONFLICT DO NOTHING
+        `
+      }
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true }) }
     }
 
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) }

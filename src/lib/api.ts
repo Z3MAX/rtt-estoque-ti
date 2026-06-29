@@ -342,9 +342,17 @@ export const api = {
       if (MOCK) { await delay(200); return { colaborador_id: colaboradorId, curso_ids: [] } }
       return request<{ colaborador_id: number; curso_ids: number[] }>(`${BASE}/curso-atribuicao?colaborador_id=${colaboradorId}`)
     },
+    getForCurso: async (cursoId: number) => {
+      if (MOCK) { await delay(200); return { curso_id: cursoId, inscritos: [] } }
+      return request<{ curso_id: number; inscritos: any[] }>(`${BASE}/curso-atribuicao?curso_id=${cursoId}`)
+    },
     set: async (colaboradorId: number, cursoIds: number[]) => {
       if (MOCK) { await delay(400); return { success: true } }
       return request(`${BASE}/curso-atribuicao`, { method: 'PUT', body: JSON.stringify({ colaborador_id: colaboradorId, curso_ids: cursoIds }) })
+    },
+    setForCurso: async (cursoId: number, colaboradorIds: number[]) => {
+      if (MOCK) { await delay(400); return { success: true } }
+      return request(`${BASE}/curso-atribuicao`, { method: 'PUT', body: JSON.stringify({ curso_id: cursoId, colaborador_ids: colaboradorIds }) })
     },
   },
 
