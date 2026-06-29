@@ -53,6 +53,12 @@ exports.handler = async (event) => {
       return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
     }
 
+    if (event.httpMethod === 'DELETE') {
+      if (!colaboradorId) return { statusCode: 400, headers, body: JSON.stringify({ error: 'colaborador_id required' }) }
+      await sql`DELETE FROM sucessao_colaborador WHERE colaborador_id = ${colaboradorId}`
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true }) }
+    }
+
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) }
   } catch (err) {
     if (err.statusCode) return { statusCode: err.statusCode, headers, body: JSON.stringify({ error: err.message }) }

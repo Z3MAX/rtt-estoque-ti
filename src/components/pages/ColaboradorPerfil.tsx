@@ -135,21 +135,22 @@ function RiskBadge({ score }: { score: number }) {
   return <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">Baixo Risco</span>
 }
 
+const EMPTY_SUCESSAO: SucessaoState = {
+  candidato: false, probabilidade: 0, impacto: 0, dificuldade: 0, prontidao: '', acoes: [],
+}
+
 function SucessaoPanel({ colabId, colabNome, onSave }: { colabId: number; colabNome: string; onSave: (msg: string) => void }) {
-  const [state, setState] = useState<SucessaoState>({
-    candidato: false,
-    probabilidade: 0,
-    impacto: 0,
-    dificuldade: 0,
-    prontidao: '',
-    acoes: [],
-  })
+  const [state, setState] = useState<SucessaoState>(EMPTY_SUCESSAO)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [hasSavedPlan, setHasSavedPlan] = useState(false)
 
   useEffect(() => {
     api.sucessao.get(colabId)
       .then((data: any) => {
         if (data) {
+          setHasSavedPlan(true)
           setState({
             candidato: data.candidato ?? false,
             probabilidade: data.probabilidade ?? 0,
@@ -182,15 +183,39 @@ function SucessaoPanel({ colabId, colabNome, onSave }: { colabId: number; colabN
     setState(s => ({ ...s, acoes: s.acoes.map(a => a.id === id ? { ...a, [field]: val } : a) }))
   }
 
-  async function handleSave() {
+  async function handleSave(overrideState?: SucessaoState) {
     setSaving(true)
     try {
-      await api.sucessao.save(colabId, state)
+      await api.sucessao.save(colabId, overrideState ?? state)
+      setHasSavedPlan(true)
       onSave('Plano de sucessão salvo com sucesso')
     } catch {
       onSave('Erro ao salvar plano de sucessão')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleToggleCandidato() {
+    const newVal = !state.candidato
+    const newState = { ...state, candidato: newVal }
+    setState(newState)
+    // Auto-save imediato ao alterar o toggle
+    await handleSave(newState)
+  }
+
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      await api.sucessao.delete(colabId)
+      setState(EMPTY_SUCESSAO)
+      setHasSavedPlan(false)
+      setConfirmDelete(false)
+      onSave('Plano de sucessão removido')
+    } catch {
+      onSave('Erro ao remover plano de sucessão')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -201,24 +226,58 @@ function SucessaoPanel({ colabId, colabNome, onSave }: { colabId: number; colabN
   return (
     <div className="card overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex-wrap gap-3">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
             <ShieldCheck size={15} className="text-violet-600 dark:text-violet-400" />
           </div>
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Plano de Sucessão & Risco</h2>
         </div>
-        {/* Toggle candidato */}
-        <label className="flex items-center gap-2.5 cursor-pointer">
-          <span className="text-xs text-slate-500 dark:text-slate-400">Candidato a sucessor</span>
-          <button
-            type="button"
-            onClick={() => set('candidato', !state.candidato)}
-            className={`w-11 h-6 rounded-full flex items-center transition-colors shrink-0 ${state.candidato ? 'bg-violet-500' : 'bg-slate-200 dark:bg-slate-600'}`}
-          >
-            <span className={`w-5 h-5 rounded-full bg-white shadow transition-all mx-0.5 ${state.candidato ? 'translate-x-5' : 'translate-x-0'}`} />
-          </button>
-        </label>
+        <div className="flex items-center gap-3">
+          {/* Botão deletar */}
+          {hasSavedPlan && !confirmDelete && (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 px-2.5 py-1.5 rounded-lg border border-red-200 dark:border-red-800 transition-colors"
+            >
+              <Trash2 size={12} /> Deletar plano
+            </button>
+          )}
+          {confirmDelete && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500 dark:text-slate-400">Confirmar exclusão?</span>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white font-medium transition-colors disabled:opacity-60"
+              >
+                {deleting ? <RefreshCw size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                {deleting ? 'Removendo...' : 'Sim, deletar'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                className="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          )}
+          {/* Toggle candidato */}
+          <label className="flex items-center gap-2.5 cursor-pointer">
+            <span className="text-xs text-slate-500 dark:text-slate-400">Candidato a sucessor</span>
+            <button
+              type="button"
+              onClick={handleToggleCandidato}
+              disabled={saving}
+              className={`w-11 h-6 rounded-full flex items-center transition-colors shrink-0 disabled:opacity-60 ${state.candidato ? 'bg-violet-500' : 'bg-slate-200 dark:bg-slate-600'}`}
+            >
+              <span className={`w-5 h-5 rounded-full bg-white shadow transition-all mx-0.5 ${state.candidato ? 'translate-x-5' : 'translate-x-0'}`} />
+            </button>
+          </label>
+        </div>
       </div>
 
       {!state.candidato ? (
@@ -419,7 +478,7 @@ function SucessaoPanel({ colabId, colabNome, onSave }: { colabId: number; colabN
 
           {/* Save */}
           <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-700 overflow-visible">
-            <button type="button" onClick={handleSave} disabled={saving}
+            <button type="button" onClick={() => handleSave()} disabled={saving}
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-500 hover:bg-violet-600 disabled:opacity-60 text-white text-sm font-semibold transition-colors shadow-sm shadow-violet-500/30 whitespace-nowrap shrink-0">
               {saving ? <RefreshCw size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
               {saving ? 'Salvando...' : 'Salvar plano de sucessão'}

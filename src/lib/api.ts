@@ -312,6 +312,10 @@ export const api = {
       if (MOCK) { await delay(400); return data }
       return request(`${BASE}/sucessao?colaborador_id=${colaboradorId}`, { method: 'POST', body: JSON.stringify(data) })
     },
+    delete: async (colaboradorId: number) => {
+      if (MOCK) { await delay(300); return { success: true } }
+      return request(`${BASE}/sucessao?colaborador_id=${colaboradorId}`, { method: 'DELETE' })
+    },
   },
 
   audit: {
