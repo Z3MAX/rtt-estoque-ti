@@ -22,7 +22,9 @@ export interface Colaborador {
   email?: string
   gestor_nome?: string
   data_nascimento?: string
+  data_admissao?: string
   photo_url?: string
+  bio?: string
   ativo: boolean
   created_at: string
   updated_at: string

@@ -27,7 +27,9 @@ exports.handler = async (event) => {
 
     // Add new columns if table predates them
     await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS data_nascimento DATE`
+    await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS data_admissao DATE`
     await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS photo_url TEXT`
+    await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS bio TEXT`
 
     if (event.httpMethod === 'GET') {
       if (id) {
@@ -177,15 +179,16 @@ exports.handler = async (event) => {
         return { statusCode: 201, headers, body: JSON.stringify({ success: true, inserted, updated }) }
       }
 
-      const { nome, cargo, nivel, area, email, gestor_nome, data_nascimento, photo_url } = body
+      const { nome, cargo, nivel, area, email, gestor_nome, data_nascimento, data_admissao, photo_url, bio } = body
       if (!nome || !nome.trim()) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Nome é obrigatório' }) }
       }
       const rows = await sql`
-        INSERT INTO colaboradores (nome, cargo, nivel, area, email, gestor_nome, data_nascimento, photo_url)
+        INSERT INTO colaboradores (nome, cargo, nivel, area, email, gestor_nome, data_nascimento, data_admissao, photo_url, bio)
         VALUES (${nome.trim()}, ${cargo || null}, ${nivel || null},
                 ${area || null}, ${email || null}, ${gestor_nome || null},
-                ${data_nascimento || null}, ${photo_url || null})
+                ${data_nascimento || null}, ${data_admissao || null},
+                ${photo_url || null}, ${bio || null})
         RETURNING *
       `
       const userName = await getUserName(sql, authPayload.userId)
@@ -201,7 +204,7 @@ exports.handler = async (event) => {
           return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado: colaborador não pertence ao seu departamento' }) }
       }
       const body = JSON.parse(event.body || '{}')
-      const { nome, cargo, nivel, area, email, gestor_nome, data_nascimento, photo_url } = body
+      const { nome, cargo, nivel, area, email, gestor_nome, data_nascimento, data_admissao, photo_url, bio } = body
       const before = await sql`SELECT nome, cargo, nivel, area, email, gestor_nome FROM colaboradores WHERE id = ${id}`
       const rows = await sql`
         UPDATE colaboradores
@@ -212,7 +215,9 @@ exports.handler = async (event) => {
             email           = ${email           ?? null},
             gestor_nome     = ${gestor_nome     ?? null},
             data_nascimento = ${data_nascimento ?? null},
+            data_admissao   = ${data_admissao   ?? null},
             photo_url       = ${photo_url       ?? null},
+            bio             = ${bio             ?? null},
             updated_at      = NOW()
         WHERE id = ${id}
         RETURNING *
