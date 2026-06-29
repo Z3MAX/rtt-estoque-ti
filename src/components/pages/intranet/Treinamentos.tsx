@@ -4,7 +4,7 @@ import {
   ChevronRight, Users, BarChart2, ShieldCheck, Video, FileText,
   HelpCircle, Lock, ChevronDown, ChevronUp, Layers, BadgeCheck,
   AlertTriangle, Eye, Link, Edit2, Save, ExternalLink, RefreshCw,
-  Plus, Trash2, Pencil,
+  Plus, Trash2, Pencil, Send,
 } from 'lucide-react'
 import { useAuth, isAdmin, isGestor } from '../../../lib/auth'
 import { api } from '../../../lib/api'
@@ -1313,6 +1313,193 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
   )
 }
 
+// ─── EnviarCursosModal ────────────────────────────────────────────────────────
+
+function EnviarCursosModal({ todosCursos, onClose }: { todosCursos: Treinamento[]; onClose: () => void }) {
+  const [colabs, setColabs] = useState<any[]>([])
+  const [search, setSearch] = useState('')
+  const [selected, setSelected] = useState<any | null>(null)
+  const [cursoIds, setCursoIds] = useState<number[]>([])
+  const [todosOsCursos, setTodosOsCursos] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    api.colaboradores.list().then((rows: any) => setColabs((rows as any[]).filter((c: any) => c.ativo !== false)))
+  }, [])
+
+  async function selectColab(colab: any) {
+    setSelected(colab)
+    setSaved(false)
+    setLoading(true)
+    try {
+      const res = await api.cursoAtribuicao.getForColab(colab.id) as any
+      const ids: number[] = res?.curso_ids ?? []
+      setCursoIds(ids)
+      setTodosOsCursos(ids.length === 0)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function save() {
+    if (!selected) return
+    setSaving(true)
+    try {
+      await api.cursoAtribuicao.set(selected.id, todosOsCursos ? [] : cursoIds)
+      setSaved(true)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const filteredColabs = colabs.filter(c =>
+    c.nome?.toLowerCase().includes(search.toLowerCase()) ||
+    c.cargo?.toLowerCase().includes(search.toLowerCase())
+  )
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden" style={{ maxHeight: '88vh' }} onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <Send size={15} className="text-primary-500" /> Enviar Cursos
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">Selecione um colaborador e defina quais cursos estarão disponíveis</p>
+          </div>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0">
+            <X size={15} />
+          </button>
+        </div>
+
+        <div className="flex flex-1 overflow-hidden min-h-0">
+          {/* Left: collaborator list */}
+          <div className="w-56 border-r border-slate-100 dark:border-slate-800 flex flex-col shrink-0">
+            <div className="p-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                <Search size={12} className="text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Buscar..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="flex-1 text-xs bg-transparent text-slate-800 dark:text-slate-200 outline-none placeholder:text-slate-400 min-w-0"
+                />
+              </div>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              {filteredColabs.map(c => (
+                <button
+                  key={c.id}
+                  onClick={() => selectColab(c)}
+                  className={`w-full text-left px-3 py-2.5 transition-colors border-b border-slate-50 dark:border-slate-800/60 ${selected?.id === c.id ? 'bg-primary-50 dark:bg-primary-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'}`}
+                >
+                  <p className={`text-xs font-medium truncate ${selected?.id === c.id ? 'text-primary-700 dark:text-primary-300' : 'text-slate-700 dark:text-slate-300'}`}>{c.nome}</p>
+                  <p className="text-[10px] text-slate-400 truncate">{c.cargo}</p>
+                </button>
+              ))}
+              {filteredColabs.length === 0 && (
+                <p className="text-xs text-slate-400 text-center py-8">Nenhum colaborador encontrado</p>
+              )}
+            </div>
+          </div>
+
+          {/* Right: course checkboxes */}
+          <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+            {!selected ? (
+              <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-300 dark:text-slate-600">
+                <Users size={36} />
+                <p className="text-sm text-slate-400">Selecione um colaborador à esquerda</p>
+              </div>
+            ) : loading ? (
+              <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">Carregando...</div>
+            ) : (
+              <>
+                {/* Colaborador header + toggle */}
+                <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                  <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{selected.nome}</p>
+                  <p className="text-[10px] text-slate-400 mb-2">{selected.cargo}{selected.area ? ` · ${selected.area}` : ''}</p>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={todosOsCursos}
+                      onChange={e => { setTodosOsCursos(e.target.checked); if (e.target.checked) setCursoIds([]); setSaved(false) }}
+                      className="rounded accent-primary-600"
+                    />
+                    <span className="text-xs text-slate-600 dark:text-slate-400">Acesso a todos os cursos (sem restrição)</span>
+                  </label>
+                </div>
+
+                {/* Course list */}
+                <div className="overflow-y-auto flex-1 p-3 space-y-1">
+                  {todosCursos.map(curso => {
+                    const checked = todosOsCursos || cursoIds.includes(curso.id)
+                    return (
+                      <label
+                        key={curso.id}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors select-none ${
+                          todosOsCursos ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={todosOsCursos}
+                          onChange={e => {
+                            if (todosOsCursos) return
+                            setSaved(false)
+                            setCursoIds(prev => e.target.checked ? [...prev, curso.id] : prev.filter(id => id !== curso.id))
+                          }}
+                          className="rounded accent-primary-600 shrink-0"
+                        />
+                        <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${curso.capa.from} ${curso.capa.to} flex items-center justify-center text-sm shrink-0`}>
+                          {curso.icone}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate">{curso.titulo}</p>
+                          <p className="text-[10px] text-slate-400">{curso.categoria} · {curso.nivel}</p>
+                        </div>
+                        {curso.obrigatorio && (
+                          <span className="shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">Obrigatório</span>
+                        )}
+                      </label>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        {selected && !loading && (
+          <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 shrink-0">
+            <p className="text-xs text-slate-400">
+              {saved
+                ? <span className="text-emerald-500 font-semibold flex items-center gap-1"><CheckCircle2 size={12} /> Salvo com sucesso</span>
+                : todosOsCursos
+                  ? 'Todos os cursos disponíveis'
+                  : `${cursoIds.length} curso${cursoIds.length !== 1 ? 's' : ''} selecionado${cursoIds.length !== 1 ? 's' : ''}`
+              }
+            </p>
+            <button
+              onClick={save}
+              disabled={saving}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white text-xs font-semibold transition-colors"
+            >
+              <Save size={12} /> {saving ? 'Salvando...' : 'Salvar'}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function TreinamentosPage() {
@@ -1328,13 +1515,16 @@ export default function TreinamentosPage() {
   const [cursos, setCursos] = useState<Treinamento[]>([])
   const [moduloConfigs, setModuloConfigs] = useState<Record<string, string>>({})
   const [editCurso, setEditCurso] = useState<Treinamento | null | 'new'>(null)
+  const [atribuidosIds, setAtribuidosIds] = useState<number[]>([])
+  const [enviarCursos, setEnviarCursos] = useState(false)
 
   useEffect(() => {
     Promise.all([
       api.cursos.list().catch(() => []),
       api.treinamentoProgresso.list().catch(() => []),
       api.moduloConfig.list().catch(() => []),
-    ]).then(([cursosDb, progressoRows, configRows]) => {
+      api.cursoAtribuicao.getMy().catch(() => ({ curso_ids: [] })),
+    ]).then(([cursosDb, progressoRows, configRows, atribuicao]) => {
       const progressoMap: Record<string, boolean> = {}
       for (const r of progressoRows as { curso_id: number; modulo_id: number; concluido: boolean }[]) {
         progressoMap[`${r.curso_id}_${r.modulo_id}`] = r.concluido
@@ -1347,6 +1537,7 @@ export default function TreinamentosPage() {
 
       setCursos((cursosDb as any[]).map(row => dbToTreinamento(row, progressoMap)))
       setModuloConfigs(configMap)
+      setAtribuidosIds((atribuicao as any)?.curso_ids ?? [])
     })
   }, [])
 
@@ -1394,12 +1585,17 @@ export default function TreinamentosPage() {
     } : prev)
   }
 
-  const concluidos   = cursos.filter(t => getProgresso(t) === 100).length
-  const emAndamento  = cursos.filter(t => { const p = getProgresso(t); return p > 0 && p < 100 }).length
-  const obrigPend    = cursos.filter(t => t.obrigatorio && getProgresso(t) < 100).length
-  const pctGeral     = cursos.length === 0 ? 0 : Math.round(cursos.reduce((a, t) => a + getProgresso(t), 0) / cursos.length)
+  // Non-admins only see courses explicitly assigned to them (if any assignments exist)
+  const cursosVisiveis = (isAdmin(user?.role) || atribuidosIds.length === 0)
+    ? cursos
+    : cursos.filter(c => atribuidosIds.includes(c.id))
 
-  const filtered = cursos.filter(t => {
+  const concluidos   = cursosVisiveis.filter(t => getProgresso(t) === 100).length
+  const emAndamento  = cursosVisiveis.filter(t => { const p = getProgresso(t); return p > 0 && p < 100 }).length
+  const obrigPend    = cursosVisiveis.filter(t => t.obrigatorio && getProgresso(t) < 100).length
+  const pctGeral     = cursosVisiveis.length === 0 ? 0 : Math.round(cursosVisiveis.reduce((a, t) => a + getProgresso(t), 0) / cursosVisiveis.length)
+
+  const filtered = cursosVisiveis.filter(t => {
     const matchSearch = !search || t.titulo.toLowerCase().includes(search.toLowerCase()) || t.instrutor.toLowerCase().includes(search.toLowerCase())
     const matchCat    = categoria === 'Todos' || t.categoria === categoria
     const pct = getProgresso(t)
@@ -1421,12 +1617,20 @@ export default function TreinamentosPage() {
         </div>
         <div className="flex items-center gap-2">
           {isAdmin(user?.role) && (
-            <button
-              onClick={() => setEditCurso('new')}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
-            >
-              <Plus size={13} />Novo curso
-            </button>
+            <>
+              <button
+                onClick={() => setEnviarCursos(true)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-700 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white transition-colors"
+              >
+                <Send size={13} />Enviar Cursos
+              </button>
+              <button
+                onClick={() => setEditCurso('new')}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
+              >
+                <Plus size={13} />Novo curso
+              </button>
+            </>
           )}
           {podeGerenciar && (
             <div className="flex gap-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-xl text-sm">
@@ -1632,6 +1836,12 @@ export default function TreinamentosPage() {
           onClose={() => setEditCurso(null)}
           onSave={handleSaveCurso}
           onDelete={editCurso !== 'new' ? handleDeleteCurso : undefined}
+        />
+      )}
+      {enviarCursos && (
+        <EnviarCursosModal
+          todosCursos={cursos}
+          onClose={() => setEnviarCursos(false)}
         />
       )}
     </div>
