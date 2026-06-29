@@ -319,43 +319,44 @@ function ProfileModal({ colab, canEdit, token, onClose, onEdited }: ProfileModal
         className="relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header colorido */}
-        <div className={`${color} px-6 pt-8 pb-16 relative rounded-t-3xl overflow-hidden`}>
-          <div className="flex items-center justify-end gap-2">
-            {canEdit && (
+        {/* Header colorido + avatar em wrapper relativo sem overflow-hidden */}
+        <div className="relative rounded-t-3xl">
+          <div className={`${color} px-6 pt-8 pb-14 rounded-t-3xl`}>
+            <div className="flex items-center justify-end gap-2">
+              {canEdit && (
+                <button
+                  onClick={() => setEditing(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-medium transition-colors"
+                >
+                  <Pencil size={13} /> Editar perfil
+                </button>
+              )}
               <button
-                onClick={() => setEditing(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-medium transition-colors"
+                onClick={onClose}
+                className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-colors"
               >
-                <Pencil size={13} /> Editar perfil
+                <X size={16} />
               </button>
+            </div>
+          </div>
+          {/* Avatar absolutamente posicionado na borda inferior do header */}
+          <div className="absolute left-6 bottom-0 translate-y-1/2 z-10">
+            {colab.photo_url ? (
+              <img
+                src={colab.photo_url}
+                alt={colab.nome}
+                className="w-24 h-24 rounded-2xl object-cover border-4 border-white dark:border-slate-800 shadow-lg"
+              />
+            ) : (
+              <div className={`w-24 h-24 rounded-2xl ${color} text-white flex items-center justify-center text-3xl font-bold border-4 border-white dark:border-slate-800 shadow-lg`}>
+                {initials(colab.nome)}
+              </div>
             )}
-            <button
-              onClick={onClose}
-              className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-colors"
-            >
-              <X size={16} />
-            </button>
           </div>
         </div>
 
-        {/* Avatar sobreposto */}
-        <div className="px-6 -mt-12">
-          {colab.photo_url ? (
-            <img
-              src={colab.photo_url}
-              alt={colab.nome}
-              className="w-24 h-24 rounded-2xl object-cover border-4 border-white dark:border-slate-800 shadow-lg"
-            />
-          ) : (
-            <div className={`w-24 h-24 rounded-2xl ${color} text-white flex items-center justify-center text-3xl font-bold border-4 border-white dark:border-slate-800 shadow-lg`}>
-              {initials(colab.nome)}
-            </div>
-          )}
-        </div>
-
-        {/* Conteúdo */}
-        <div className="px-6 pt-3 pb-6 space-y-4 max-h-[60vh] overflow-y-auto">
+        {/* Conteúdo — pt-16 para dar espaço ao avatar que sobrepõe */}
+        <div className="px-6 pt-16 pb-6 space-y-4 max-h-[60vh] overflow-y-auto">
           {/* Nome e cargo */}
           <div>
             <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{colab.nome}</h2>
