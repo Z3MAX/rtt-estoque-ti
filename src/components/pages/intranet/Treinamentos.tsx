@@ -11,12 +11,13 @@ import { api } from '../../../lib/api'
 
 // ─── Video helpers ────────────────────────────────────────────────────────────
 
-function parseVideoUrl(url: string): { type: 'youtube' | 'vimeo' | 'direct' | null; embedUrl: string | null } {
+function parseVideoUrl(url: string, startSec = 0): { type: 'youtube' | 'vimeo' | 'direct' | null; embedUrl: string | null } {
   if (!url) return { type: null, embedUrl: null }
+  const start = Math.floor(startSec)
   const yt = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
-  if (yt) return { type: 'youtube', embedUrl: `https://www.youtube.com/embed/${yt[1]}?autoplay=1&rel=0&enablejsapi=1` }
+  if (yt) return { type: 'youtube', embedUrl: `https://www.youtube.com/embed/${yt[1]}?autoplay=1&rel=0&enablejsapi=1${start > 0 ? `&start=${start}` : ''}` }
   const vi = url.match(/vimeo\.com\/(\d+)/)
-  if (vi) return { type: 'vimeo', embedUrl: `https://player.vimeo.com/video/${vi[1]}?autoplay=1&api=1` }
+  if (vi) return { type: 'vimeo', embedUrl: `https://player.vimeo.com/video/${vi[1]}?autoplay=1&api=1${start > 0 ? `#t=${start}s` : ''}` }
   if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(url)) return { type: 'direct', embedUrl: url }
   return { type: null, embedUrl: null }
 }
@@ -36,7 +37,7 @@ function VideoPlayer({
   onMarcarConcluido: () => void; onClose: () => void
   cursoId: number; moduloId: number; segundosInicial: number
 }) {
-  const { type, embedUrl } = parseVideoUrl(url)
+  const { type, embedUrl } = parseVideoUrl(url, concluido ? 0 : segundosInicial)
   const videoRef = useRef<HTMLVideoElement>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
@@ -176,6 +177,9 @@ function VideoPlayer({
                 const dur = videoRef.current?.duration ?? 0
                 durationRef.current = dur
                 setTotalDuration(dur)
+                if (!concluido && segundosInicial > 0 && videoRef.current) {
+                  videoRef.current.currentTime = segundosInicial
+                }
               }}
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
