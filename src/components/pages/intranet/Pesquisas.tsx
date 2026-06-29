@@ -1,24 +1,40 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   ClipboardList, Plus, Search, Filter, X, Pencil, BarChart2, Link2,
   ChevronLeft, ChevronDown, AlertCircle, Info, Trash2, Users, Calendar, Clock,
+  Loader2,
 } from 'lucide-react'
+import { api } from '../../../lib/api'
 
 /* ─── Types ─── */
 type Situacao = 'LIBERADA' | 'FINALIZADA' | 'RASCUNHO'
 type Status   = 'ATIVA'    | 'INATIVA'
 type Tipo     = 'Desligamento' | 'Enquete' | 'Pesquisa de pulso' | 'Pesquisa Padrão' | 'Pesquisa Temporal' | 'eNPS' | 'Clima' | 'Satisfação'
 
-interface Pesquisa { id: number; nome: string; tipo: Tipo; situacao: Situacao; status: Status }
-
-const MOCK: Pesquisa[] = [
-  { id: 1, nome: 'Pesquisa período de experiência (90 dias)', tipo: 'Pesquisa Temporal', situacao: 'LIBERADA',   status: 'ATIVA'   },
-  { id: 2, nome: 'Enquete satisfação TI',                    tipo: 'Enquete',            situacao: 'FINALIZADA', status: 'ATIVA'   },
-  { id: 3, nome: 'eNPS 2026',                                tipo: 'eNPS',               situacao: 'FINALIZADA', status: 'ATIVA'   },
-  { id: 4, nome: 'Pesquisa de Clima 2026',                   tipo: 'Pesquisa Padrão',    situacao: 'FINALIZADA', status: 'ATIVA'   },
-  { id: 5, nome: 'Enquete benefícios',                       tipo: 'Enquete',            situacao: 'FINALIZADA', status: 'ATIVA'   },
-  { id: 6, nome: 'Pesquisa de pulso Q2',                     tipo: 'Pesquisa de pulso',  situacao: 'RASCUNHO',   status: 'INATIVA' },
-]
+interface Pesquisa {
+  id: number
+  nome: string
+  objetivo?: string
+  tipo: Tipo
+  situacao: Situacao
+  status: Status
+  anonima: boolean
+  ocultar_min: boolean
+  data_inicio?: string
+  data_fim?: string
+  frequencia_pulso?: string
+  perguntas_por_pulso?: number
+  questionario?: string
+  email_auto: boolean
+  dias_aviso?: number
+  relatorio_permissao: boolean
+  relatorio_selecionados: boolean
+  notif_respondido: boolean
+  autenticacao_codigo: boolean
+  vinculos_desligamento: VinculoDesligamento[]
+  colaborador_ids: number[]
+  created_at: string
+}
 
 const SIT_STYLE: Record<Situacao, string> = {
   LIBERADA:   'text-emerald-600 font-semibold',
@@ -37,15 +53,12 @@ interface FormState {
   objetivo:              string
   tipo:                  Tipo | ''
   questionario:          string
-  // Pulso
   frequenciaPulso:       string
   perguntasPorPulso:     string
-  // Padrão / Temporal
   dataInicio:            string
   horaInicio:            string
   dataFim:               string
   horaFim:               string
-  // Comum
   anonima:               boolean
   ocultarMin:            boolean
   ativa:                 boolean
@@ -135,20 +148,30 @@ function TimeField({ label, value, onChange, required }: { label: string; value:
 }
 
 /* ─── Seleção de Público ─── */
-const MOCK_COLABORADORES = [
-  { ini: 'C', nome: 'Cida',         cargo: 'Coordenadora', time: 'CS'        },
-  { ini: 'C', nome: 'Claudia',      cargo: 'Supervisora',  time: 'CS'        },
-  { ini: 'M', nome: 'Manoel',       cargo: 'Assistente',   time: 'Marketing' },
-  { ini: 'M', nome: 'Marina',       cargo: 'Coordenador',  time: 'Marketing' },
-  { ini: 'M', nome: 'Mel',          cargo: 'Analista',     time: 'Marketing' },
-  { ini: 'M', nome: 'Milla',        cargo: 'Supervisora',  time: 'Marketing' },
-  { ini: 'M', nome: 'Milton',       cargo: 'Gestor',       time: 'Marketing' },
-  { ini: 'M', nome: 'Márcia',       cargo: 'Diretora',     time: 'CS'        },
-  { ini: 'MB',nome: 'Márcia Borges',cargo: 'Consultor de RH', time: 'RH'    },
-]
+interface ColaboradorBasico { id: number; nome: string; cargo?: string; area?: string }
 
-function SelecaoPublico({ tipo }: { tipo: Tipo | '' }) {
+function SelecaoPublico({ tipo, selectedIds, onChangeIds }: {
+  tipo: Tipo | ''
+  selectedIds: number[]
+  onChangeIds: (ids: number[]) => void
+}) {
+  const [colaboradores, setColaboradores] = useState<ColaboradorBasico[]>([])
+  const [busca, setBusca] = useState('')
   const isPulso = tipo === 'Pesquisa de pulso'
+
+  useEffect(() => {
+    api.colaboradores.list().then(list => setColaboradores(list as ColaboradorBasico[])).catch(() => {})
+  }, [])
+
+  const filtrados = colaboradores.filter(c =>
+    !busca || c.nome.toLowerCase().includes(busca.toLowerCase())
+  )
+
+  function toggle(id: number) {
+    if (selectedIds.includes(id)) onChangeIds(selectedIds.filter(x => x !== id))
+    else onChangeIds([...selectedIds, id])
+  }
+
   return (
     <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
       <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-100 dark:border-slate-700 pb-3">
@@ -164,67 +187,66 @@ function SelecaoPublico({ tipo }: { tipo: Tipo | '' }) {
         </div>
       )}
 
-      {/* Filter bar */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-2 text-xs text-slate-500 border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2">
           <Filter size={12} />
           <span className="font-medium">Selecionar público</span>
-          <span className="bg-primary-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">1</span>
+          {selectedIds.length > 0 && (
+            <span className="bg-primary-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{selectedIds.length}</span>
+          )}
         </div>
-        <span className="flex items-center gap-1.5 text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-3 py-1.5 rounded-full">
-          {isPulso ? 'Times: Todos' : 'Usuários: Todos'}
-          <button className="hover:text-red-500 transition-colors ml-1"><X size={11} /></button>
-        </span>
+        {selectedIds.length > 0 && (
+          <span className="flex items-center gap-1.5 text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-3 py-1.5 rounded-full">
+            {selectedIds.length} selecionado{selectedIds.length !== 1 ? 's' : ''}
+            <button onClick={() => onChangeIds([])} className="hover:text-red-500 transition-colors ml-1"><X size={11} /></button>
+          </span>
+        )}
       </div>
 
-      {/* Table header */}
       <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
         <div className="flex items-center gap-4 px-4 py-2.5 border-b border-slate-100 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-700/30 text-xs text-slate-500">
-          <span className="font-semibold text-emerald-600">Selecionados (32)</span>
-          <span className="text-slate-400">Não Selecionadas (0)</span>
-          {!isPulso && (
-            <button className="ml-2 flex items-center gap-1 text-slate-400 hover:text-red-400 transition-colors">
-              <Trash2 size={11} /> Remover todos os usuários
+          <span className="font-semibold text-emerald-600">Selecionados ({selectedIds.length})</span>
+          <span className="text-slate-400">Não Selecionados ({colaboradores.length - selectedIds.length})</span>
+          {!isPulso && selectedIds.length > 0 && (
+            <button onClick={() => onChangeIds([])} className="ml-2 flex items-center gap-1 text-slate-400 hover:text-red-400 transition-colors">
+              <Trash2 size={11} /> Remover todos
             </button>
           )}
-          <span className="ml-auto text-slate-400">Colunas adicionais 3</span>
+          <div className="ml-auto relative">
+            <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar"
+              className="pl-6 pr-2 py-1 text-xs border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-primary-500/30 w-36" />
+          </div>
         </div>
 
-        {/* Column headers */}
         <div className="grid text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-2 border-b border-slate-100 dark:border-slate-700 bg-slate-50/40 dark:bg-slate-700/20"
-          style={{ gridTemplateColumns: isPulso ? '1fr 1fr 1fr' : '1fr 1fr 1fr 1fr' }}>
+          style={{ gridTemplateColumns: isPulso ? '2rem 1fr 1fr 1fr' : '2rem 1fr 1fr 1fr' }}>
+          <span />
           <span className="flex items-center gap-1"><Users size={11} /> Usuários</span>
           <span>Cargo</span>
-          <span>Time</span>
-          {!isPulso && <span>Gestor</span>}
+          <span>Área</span>
         </div>
 
-        {/* Rows */}
-        {MOCK_COLABORADORES.map(c => (
-          <div key={c.nome} className="grid items-center px-4 py-2.5 border-b border-slate-100/60 dark:border-slate-700/40 hover:bg-slate-50/60 dark:hover:bg-slate-700/20 transition-colors text-sm"
-            style={{ gridTemplateColumns: isPulso ? '1fr 1fr 1fr' : '1fr 1fr 1fr 1fr' }}>
+        {filtrados.map(c => (
+          <div key={c.id} onClick={() => toggle(c.id)}
+            className="grid items-center px-4 py-2.5 border-b border-slate-100/60 dark:border-slate-700/40 hover:bg-slate-50/60 dark:hover:bg-slate-700/20 transition-colors text-sm cursor-pointer"
+            style={{ gridTemplateColumns: '2rem 1fr 1fr 1fr' }}>
+            <input type="checkbox" checked={selectedIds.includes(c.id)} onChange={() => toggle(c.id)}
+              onClick={e => e.stopPropagation()}
+              className="w-3.5 h-3.5 rounded border-slate-300 text-primary-500 focus:ring-primary-400" />
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center text-[10px] font-bold text-slate-600 dark:text-slate-300 shrink-0">
-                {c.ini}
+                {c.nome.charAt(0).toUpperCase()}
               </div>
               <span className="text-xs text-slate-700 dark:text-slate-300">{c.nome}</span>
             </div>
-            <span className="text-xs text-slate-500 dark:text-slate-400">{c.cargo}</span>
-            <span className="text-xs text-slate-500 dark:text-slate-400">{c.time}</span>
-            {!isPulso && <span className="text-xs text-slate-400">—</span>}
+            <span className="text-xs text-slate-500 dark:text-slate-400">{c.cargo ?? '—'}</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">{c.area ?? '—'}</span>
           </div>
         ))}
 
-        {/* Footer */}
-        <div className="flex items-center justify-between px-4 py-2.5 text-xs text-slate-400 bg-slate-50/40 dark:bg-slate-700/20">
-          {isPulso && <span>Inserir automaticamente novos times vinculados abaixo de time já selecionados</span>}
-          <span className="ml-auto flex items-center gap-2">
-            Linhas por página
-            <select className="border border-slate-200 dark:border-slate-600 rounded-lg px-1.5 py-0.5 text-xs bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-400">
-              <option>10</option><option>20</option><option>50</option>
-            </select>
-            1 - {Math.min(10, MOCK_COLABORADORES.length)} de {MOCK_COLABORADORES.length}
-          </span>
+        <div className="flex items-center justify-end px-4 py-2.5 text-xs text-slate-400 bg-slate-50/40 dark:bg-slate-700/20">
+          <span>{filtrados.length} colaborador{filtrados.length !== 1 ? 'es' : ''}</span>
         </div>
       </div>
     </section>
@@ -372,50 +394,118 @@ function Mensagem({ tipo, form, set }: {
 }
 
 /* ─── Nova Pesquisa Form ─── */
-function NovaPesquisaForm({ onBack }: { onBack: () => void }) {
-  const [form, setForm] = useState<FormState>(INIT)
-  const [saved, setSaved] = useState(false)
-  const [vinculos, setVinculos] = useState<VinculoDesligamento[]>([{ questionario: '', categoria: '' }])
+function pesquisaToForm(p: Pesquisa): FormState {
+  const toDate = (dt?: string) => dt ? dt.split('T')[0] : ''
+  const toTime = (dt?: string) => {
+    if (!dt) return ''
+    const d = new Date(dt)
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+  }
+  return {
+    nome: p.nome,
+    objetivo: p.objetivo ?? '',
+    tipo: p.tipo,
+    questionario: p.questionario ?? '',
+    frequenciaPulso: p.frequencia_pulso ?? '',
+    perguntasPorPulso: p.perguntas_por_pulso ? String(p.perguntas_por_pulso) : '',
+    dataInicio: toDate(p.data_inicio),
+    horaInicio: toTime(p.data_inicio),
+    dataFim: toDate(p.data_fim),
+    horaFim: toTime(p.data_fim),
+    anonima: p.anonima,
+    ocultarMin: p.ocultar_min,
+    ativa: p.status === 'ATIVA',
+    emailAuto: p.email_auto,
+    diasAviso: p.dias_aviso ? String(p.dias_aviso) : '',
+    relatorioPermissao: p.relatorio_permissao,
+    relatorioSelecionados: p.relatorio_selecionados,
+    notifRespondido: p.notif_respondido,
+    autenticacaoCodigo: p.autenticacao_codigo,
+  }
+}
+
+function NovaPesquisaForm({ onBack, pesquisaInicial }: { onBack: (recarregar?: boolean) => void; pesquisaInicial?: Pesquisa }) {
+  const [form, setForm] = useState<FormState>(pesquisaInicial ? pesquisaToForm(pesquisaInicial) : INIT)
+  const [vinculos, setVinculos] = useState<VinculoDesligamento[]>(
+    pesquisaInicial?.vinculos_desligamento?.length ? pesquisaInicial.vinculos_desligamento : [{ questionario: '', categoria: '' }]
+  )
+  const [selectedIds, setSelectedIds] = useState<number[]>(pesquisaInicial?.colaborador_ids ?? [])
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   function set<K extends keyof FormState>(k: K, v: FormState[K]) { setForm(f => ({ ...f, [k]: v })) }
 
-  function addVinculo()           { if (vinculos.length < 5) setVinculos(v => [...v, { questionario: '', categoria: '' }]) }
-  function removeVinculo(i: number) { setVinculos(v => v.filter((_, idx) => idx !== i)) }
+  function addVinculo()              { if (vinculos.length < 5) setVinculos(v => [...v, { questionario: '', categoria: '' }]) }
+  function removeVinculo(i: number)  { setVinculos(v => v.filter((_, idx) => idx !== i)) }
   function setVinculo(i: number, field: keyof VinculoDesligamento, val: string) {
     setVinculos(v => v.map((item, idx) => idx === i ? { ...item, [field]: val } : item))
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.nome.trim() || !form.tipo) return
-    setSaved(true)
-    setTimeout(onBack, 1200)
+    setSaving(true)
+    setError('')
+    try {
+      const buildDatetime = (date: string, time: string) => date ? `${date}T${time || '00:00'}:00` : null
+      const payload = {
+        nome: form.nome,
+        objetivo: form.objetivo || null,
+        tipo: form.tipo,
+        situacao: 'RASCUNHO',
+        status: form.ativa ? 'ATIVA' : 'INATIVA',
+        anonima: form.anonima,
+        ocultar_min: form.ocultarMin,
+        data_inicio: buildDatetime(form.dataInicio, form.horaInicio),
+        data_fim: buildDatetime(form.dataFim, form.horaFim),
+        frequencia_pulso: form.frequenciaPulso || null,
+        perguntas_por_pulso: form.perguntasPorPulso ? parseInt(form.perguntasPorPulso) : null,
+        questionario: form.questionario || null,
+        email_auto: form.emailAuto,
+        dias_aviso: form.diasAviso ? parseInt(form.diasAviso) : null,
+        relatorio_permissao: form.relatorioPermissao,
+        relatorio_selecionados: form.relatorioSelecionados,
+        notif_respondido: form.notifRespondido,
+        autenticacao_codigo: form.autenticacaoCodigo,
+        vinculos_desligamento: vinculos.filter(v => v.questionario || v.categoria),
+        colaborador_ids: selectedIds,
+      }
+      if (pesquisaInicial) {
+        await api.pesquisas.update(pesquisaInicial.id, payload)
+      } else {
+        await api.pesquisas.create(payload)
+      }
+      onBack(true)
+    } catch (e: any) {
+      setError(e.message || 'Erro ao salvar pesquisa')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const tipo = form.tipo
-  const showPublico       = tipo !== '' && tipo !== 'Desligamento'
-  const showRelatorios    = tipo !== ''
-  const showSeguranca     = tipo === 'Desligamento'
-  const hasDateFields     = tipo === 'Pesquisa Padrão' || tipo === 'Pesquisa Temporal'
-  const hasPulsoFields    = tipo === 'Pesquisa de pulso'
-  const hasQuestionario   = tipo !== '' && tipo !== 'Desligamento'
-  const hasDesligamento   = tipo === 'Desligamento'
+  const showPublico     = tipo !== '' && tipo !== 'Desligamento'
+  const showRelatorios  = tipo !== ''
+  const showSeguranca   = tipo === 'Desligamento'
+  const hasDateFields   = tipo === 'Pesquisa Padrão' || tipo === 'Pesquisa Temporal'
+  const hasPulsoFields  = tipo === 'Pesquisa de pulso'
+  const hasQuestionario = tipo !== '' && tipo !== 'Desligamento'
+  const hasDesligamento = tipo === 'Desligamento'
 
   return (
     <div className="space-y-5">
-      {/* Breadcrumb */}
       <div className="flex items-center gap-3">
-        <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
+        <button onClick={() => onBack()} className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
           <ChevronLeft size={16} /> Pesquisas
         </button>
         <span className="text-slate-300 dark:text-slate-600">/</span>
-        <span className="text-sm font-medium text-primary-600">Nova Pesquisa</span>
+        <span className="text-sm font-medium text-primary-600">{pesquisaInicial ? 'Editar Pesquisa' : 'Nova Pesquisa'}</span>
       </div>
 
-      <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Nova Pesquisa</h1>
+      <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{pesquisaInicial ? 'Editar Pesquisa' : 'Nova Pesquisa'}</h1>
 
-      {saved && (
-        <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 text-sm text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
-          <AlertCircle size={15} /> Pesquisa criada com sucesso!
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 text-sm text-red-700 dark:text-red-400 flex items-center gap-2">
+          <AlertCircle size={15} /> {error}
         </div>
       )}
 
@@ -455,7 +545,6 @@ function NovaPesquisaForm({ onBack }: { onBack: () => void }) {
           Configuração
         </h2>
 
-        {/* Row 1: Tipo + Questionário */}
         <div className="flex gap-4">
           <div className="flex-1 space-y-1.5">
             <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Tipo <span className="text-red-500">*</span></label>
@@ -474,7 +563,6 @@ function NovaPesquisaForm({ onBack }: { onBack: () => void }) {
           )}
         </div>
 
-        {/* Pesquisa de Pulso extra fields */}
         {hasPulsoFields && (
           <div className="flex gap-4">
             <SelectField label="Frequência do pulso" required value={form.frequenciaPulso}
@@ -484,7 +572,6 @@ function NovaPesquisaForm({ onBack }: { onBack: () => void }) {
           </div>
         )}
 
-        {/* Pesquisa Padrão / Temporal: date fields */}
         {hasDateFields && (
           <>
             <div className="flex gap-4">
@@ -498,7 +585,6 @@ function NovaPesquisaForm({ onBack }: { onBack: () => void }) {
           </>
         )}
 
-        {/* Desligamento: vínculos */}
         {hasDesligamento && (
           <div className="space-y-4">
             <div className="flex gap-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
@@ -553,7 +639,6 @@ function NovaPesquisaForm({ onBack }: { onBack: () => void }) {
           </div>
         )}
 
-        {/* Anonimato — não aparece no Desligamento */}
         {!hasDesligamento && (
           <div className="border border-slate-100 dark:border-slate-700 rounded-xl p-4 space-y-3">
             <div>
@@ -571,7 +656,6 @@ function NovaPesquisaForm({ onBack }: { onBack: () => void }) {
           </div>
         )}
 
-        {/* Situação */}
         <div className="border border-slate-100 dark:border-slate-700 rounded-xl p-4 space-y-2">
           <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">Situação</p>
           <p className="text-xs text-slate-400">A pesquisa ficará ativa ou inativa</p>
@@ -584,19 +668,11 @@ function NovaPesquisaForm({ onBack }: { onBack: () => void }) {
         </div>
       </section>
 
-      {/* ── Seleção de Público ── */}
-      {showPublico && <SelecaoPublico tipo={tipo} />}
-
-      {/* ── Visualizar Relatórios ── */}
+      {showPublico && <SelecaoPublico tipo={tipo} selectedIds={selectedIds} onChangeIds={setSelectedIds} />}
       {showRelatorios && <VisualizarRelatorios form={form} set={set} />}
-
-      {/* ── Notificações ── */}
       {tipo !== '' && <Notificacoes tipo={tipo} form={form} set={set} />}
-
-      {/* ── Mensagem ── */}
       {tipo !== '' && <Mensagem tipo={tipo} form={form} set={set} />}
 
-      {/* ── Segurança (Desligamento only) ── */}
       {showSeguranca && (
         <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-100 dark:border-slate-700 pb-3">
@@ -616,14 +692,14 @@ function NovaPesquisaForm({ onBack }: { onBack: () => void }) {
         </section>
       )}
 
-      {/* ── Actions ── */}
       <div className="flex items-center justify-end gap-3 pb-6">
-        <button type="button" onClick={onBack}
+        <button type="button" onClick={() => onBack()}
           className="px-5 py-2.5 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
           Fechar
         </button>
-        <button type="button" onClick={handleSave} disabled={!form.nome.trim() || !form.tipo}
-          className="px-6 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors shadow-sm shadow-primary-500/30">
+        <button type="button" onClick={handleSave} disabled={!form.nome.trim() || !form.tipo || saving}
+          className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors shadow-sm shadow-primary-500/30">
+          {saving && <Loader2 size={14} className="animate-spin" />}
           Salvar
         </button>
       </div>
@@ -633,14 +709,55 @@ function NovaPesquisaForm({ onBack }: { onBack: () => void }) {
 
 /* ─── Lista de Pesquisas ─── */
 export default function PesquisasPage() {
-  const [view, setView]             = useState<'list' | 'new'>('list')
+  const [view, setView]             = useState<'list' | 'new' | 'edit'>('list')
+  const [editando, setEditando]     = useState<Pesquisa | undefined>()
+  const [pesquisas, setPesquisas]   = useState<Pesquisa[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [loadError, setLoadError]   = useState('')
   const [search, setSearch]         = useState('')
   const [filterStatus, setFilter]   = useState<Status | ''>('')
   const [showFilter, setShowFilter] = useState(false)
+  const [copiedId, setCopiedId]     = useState<number | null>(null)
 
-  if (view === 'new') return <NovaPesquisaForm onBack={() => setView('list')} />
+  function carregar() {
+    setLoading(true)
+    setLoadError('')
+    api.pesquisas.list()
+      .then(data => setPesquisas(data as Pesquisa[]))
+      .catch(e => setLoadError(e.message || 'Erro ao carregar pesquisas'))
+      .finally(() => setLoading(false))
+  }
 
-  const filtered = MOCK.filter(p => {
+  useEffect(() => { carregar() }, [])
+
+  function handleBack(recarregar?: boolean) {
+    setView('list')
+    setEditando(undefined)
+    if (recarregar) carregar()
+  }
+
+  async function handleDelete(p: Pesquisa) {
+    if (!confirm(`Excluir "${p.nome}"?`)) return
+    try {
+      await api.pesquisas.delete(p.id)
+      carregar()
+    } catch (e: any) {
+      alert(e.message || 'Erro ao excluir')
+    }
+  }
+
+  function handleCopyLink(p: Pesquisa) {
+    const url = `${window.location.origin}/pesquisa/${p.id}`
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedId(p.id)
+      setTimeout(() => setCopiedId(null), 2000)
+    })
+  }
+
+  if (view === 'new') return <NovaPesquisaForm onBack={handleBack} />
+  if (view === 'edit') return <NovaPesquisaForm onBack={handleBack} pesquisaInicial={editando} />
+
+  const filtered = pesquisas.filter(p => {
     const matchSearch = p.nome.toLowerCase().includes(search.toLowerCase())
     const matchStatus = !filterStatus || p.status === filterStatus
     return matchSearch && matchStatus
@@ -659,7 +776,6 @@ export default function PesquisasPage() {
         </button>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
         <button onClick={() => setShowFilter(v => !v)}
           className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${showFilter || filterStatus ? 'border-primary-400 text-primary-600 bg-primary-50 dark:bg-primary-900/20' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
@@ -685,7 +801,6 @@ export default function PesquisasPage() {
         )}
       </div>
 
-      {/* Table */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-700">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Pesquisas</h2>
@@ -699,7 +814,7 @@ export default function PesquisasPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-700/30">
-                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 w-[45%]">Nome da Pesquisa</th>
+                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 w-[40%]">Nome da Pesquisa</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400">Tipo</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400">Situação</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400">Status</th>
@@ -707,7 +822,17 @@ export default function PesquisasPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
-              {filtered.length === 0 ? (
+              {loading ? (
+                <tr><td colSpan={5} className="text-center py-12 text-slate-400 text-sm">
+                  <Loader2 size={20} className="mx-auto mb-2 animate-spin opacity-40" />
+                  Carregando...
+                </td></tr>
+              ) : loadError ? (
+                <tr><td colSpan={5} className="text-center py-12">
+                  <p className="text-sm text-red-500 mb-2">{loadError}</p>
+                  <button onClick={carregar} className="text-xs text-primary-500 hover:underline">Tentar novamente</button>
+                </td></tr>
+              ) : filtered.length === 0 ? (
                 <tr><td colSpan={5} className="text-center py-12 text-slate-400 text-sm">
                   <ClipboardList size={24} className="mx-auto mb-2 opacity-30" />
                   Nenhuma pesquisa encontrada.
@@ -715,21 +840,36 @@ export default function PesquisasPage() {
               ) : filtered.map(p => (
                 <tr key={p.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/30 transition-colors group">
                   <td className="px-5 py-3.5">
-                    <button className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline text-left">{p.nome}</button>
+                    <button onClick={() => { setEditando(p); setView('edit') }}
+                      className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline text-left">{p.nome}</button>
                   </td>
                   <td className="px-4 py-3.5 text-slate-600 dark:text-slate-400 text-sm">{p.tipo}</td>
-                  <td className="px-4 py-3.5"><span className={`text-xs ${SIT_STYLE[p.situacao]}`}>{p.situacao}</span></td>
+                  <td className="px-4 py-3.5"><span className={`text-xs ${SIT_STYLE[p.situacao] ?? 'text-slate-400 font-semibold'}`}>{p.situacao}</span></td>
                   <td className="px-4 py-3.5">
-                    <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-md ${STATUS_STYLE[p.status]}`}>{p.status}</span>
+                    <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-md ${STATUS_STYLE[p.status] ?? 'bg-slate-300 text-white'}`}>{p.status}</span>
                   </td>
                   <td className="px-4 py-3.5">
-                    <div className="flex items-center justify-center gap-2">
-                      {[{ icon: Pencil, title: 'Editar' }, { icon: ClipboardList, title: 'Respostas' }, { icon: BarChart2, title: 'Resultados' }, { icon: Link2, title: 'Copiar link' }].map(({ icon: Icon, title }) => (
-                        <button key={title} title={title}
-                          className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
-                          <Icon size={14} />
-                        </button>
-                      ))}
+                    <div className="flex items-center justify-center gap-1">
+                      <button title="Editar" onClick={() => { setEditando(p); setView('edit') }}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                        <Pencil size={14} />
+                      </button>
+                      <button title="Respostas" onClick={() => alert('Em breve')}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                        <ClipboardList size={14} />
+                      </button>
+                      <button title="Resultados" onClick={() => alert('Em breve')}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                        <BarChart2 size={14} />
+                      </button>
+                      <button title={copiedId === p.id ? 'Copiado!' : 'Copiar link'} onClick={() => handleCopyLink(p)}
+                        className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${copiedId === p.id ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-200'}`}>
+                        <Link2 size={14} />
+                      </button>
+                      <button title="Excluir" onClick={() => handleDelete(p)}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-colors">
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -738,7 +878,7 @@ export default function PesquisasPage() {
           </table>
         </div>
         <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-400">
-          {filtered.length} pesquisa{filtered.length !== 1 ? 's' : ''} encontrada{filtered.length !== 1 ? 's' : ''}
+          {loading ? 'Carregando...' : `${filtered.length} pesquisa${filtered.length !== 1 ? 's' : ''} encontrada${filtered.length !== 1 ? 's' : ''}`}
         </div>
       </div>
     </div>
