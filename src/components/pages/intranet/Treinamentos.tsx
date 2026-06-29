@@ -14,9 +14,9 @@ import { api } from '../../../lib/api'
 function parseVideoUrl(url: string): { type: 'youtube' | 'vimeo' | 'direct' | null; embedUrl: string | null } {
   if (!url) return { type: null, embedUrl: null }
   const yt = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
-  if (yt) return { type: 'youtube', embedUrl: `https://www.youtube.com/embed/${yt[1]}?autoplay=1&rel=0` }
+  if (yt) return { type: 'youtube', embedUrl: `https://www.youtube.com/embed/${yt[1]}?autoplay=1&rel=0&enablejsapi=1` }
   const vi = url.match(/vimeo\.com\/(\d+)/)
-  if (vi) return { type: 'vimeo', embedUrl: `https://player.vimeo.com/video/${vi[1]}?autoplay=1` }
+  if (vi) return { type: 'vimeo', embedUrl: `https://player.vimeo.com/video/${vi[1]}?autoplay=1&api=1` }
   if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(url)) return { type: 'direct', embedUrl: url }
   return { type: null, embedUrl: null }
 }
@@ -31,7 +31,44 @@ function VideoPlayer({
 }) {
   const { type, embedUrl } = parseVideoUrl(url)
   const videoRef = useRef<HTMLVideoElement>(null)
-  const [ended, setEnded] = useState(false)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+  // If already concluded, unlock immediately — user doesn't need to rewatch
+  const [videoEnded, setVideoEnded] = useState(concluido)
+
+  // Subscribe to YouTube/Vimeo postMessage events to detect video end
+  useEffect(() => {
+    if (type !== 'youtube' && type !== 'vimeo') return
+
+    function handleMessage(e: MessageEvent) {
+      try {
+        const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data
+        if (type === 'youtube' && data.event === 'onStateChange' && data.info === 0) {
+          setVideoEnded(true)
+          if (!concluido) onMarcarConcluido()
+        }
+        if (type === 'vimeo' && data.event === 'finish') {
+          setVideoEnded(true)
+          if (!concluido) onMarcarConcluido()
+        }
+      } catch { /* ignore non-JSON messages */ }
+    }
+
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
+  }, [type, concluido, onMarcarConcluido])
+
+  // Tell YouTube/Vimeo to send us events once the iframe has loaded
+  function onIframeLoad() {
+    const win = iframeRef.current?.contentWindow
+    if (!win) return
+    if (type === 'youtube') {
+      win.postMessage(JSON.stringify({ event: 'command', func: 'addEventListener', args: ['onStateChange'] }), '*')
+    } else if (type === 'vimeo') {
+      win.postMessage(JSON.stringify({ method: 'addEventListener', value: 'finish' }), '*')
+    }
+  }
+
+  const isUnlocked = videoEnded || concluido
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
@@ -53,14 +90,16 @@ function VideoPlayer({
               controls
               autoPlay
               className="absolute inset-0 w-full h-full bg-black"
-              onEnded={() => { setEnded(true); if (!concluido) onMarcarConcluido() }}
+              onEnded={() => { setVideoEnded(true); if (!concluido) onMarcarConcluido() }}
             />
           ) : embedUrl ? (
             <iframe
+              ref={iframeRef}
               src={embedUrl}
               className="absolute inset-0 w-full h-full"
               allow="autoplay; fullscreen; picture-in-picture"
               allowFullScreen
+              onLoad={onIframeLoad}
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-white/40 text-sm">
@@ -75,6 +114,9 @@ function VideoPlayer({
             {type === 'youtube' && 'YouTube'}
             {type === 'vimeo' && 'Vimeo'}
             {type === 'direct' && 'Vídeo direto'}
+            {(type === 'youtube' || type === 'vimeo') && !isUnlocked && (
+              <span className="ml-2 text-amber-400/80">· Assista até o final para concluir</span>
+            )}
           </p>
           {concluido ? (
             <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold">
@@ -82,10 +124,16 @@ function VideoPlayer({
             </span>
           ) : (
             <button
-              onClick={() => { onMarcarConcluido(); setEnded(true) }}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition-colors"
+              onClick={() => { if (isUnlocked) onMarcarConcluido() }}
+              disabled={!isUnlocked}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-colors ${
+                isUnlocked
+                  ? 'bg-emerald-500 hover:bg-emerald-600 text-white cursor-pointer'
+                  : 'bg-white/10 text-white/30 cursor-not-allowed'
+              }`}
             >
-              <CheckCircle2 size={13} /> Marcar como concluído
+              <CheckCircle2 size={13} />
+              {isUnlocked ? 'Marcar como concluído' : 'Assista até o final'}
             </button>
           )}
         </div>
