@@ -1,6 +1,7 @@
 import { useAuth } from '../../../lib/auth'
-import { BookOpen, MessageSquare, Target, TrendingUp, Clock, CheckCircle2, AlertCircle, Star, Camera } from 'lucide-react'
+import { BookOpen, MessageSquare, Target, TrendingUp, CheckCircle2, AlertCircle, Star, Camera } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Avatar from '../../ui/Avatar'
 import PhotoUploadModal from '../../ui/PhotoUploadModal'
 import { api } from '../../../lib/api'
@@ -53,6 +54,7 @@ interface ProgItem { curso_id: number; modulo_id: number; concluido: boolean }
 
 export default function MinhaVisao() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [mood, setMood] = useState<string | null>(null)
   const [photoModal, setPhotoModal] = useState(false)
   const firstName = user?.name?.split(' ')[0] ?? 'Colaborador'
@@ -132,12 +134,12 @@ export default function MinhaVisao() {
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Acesso rápido</p>
           <div className="space-y-1">
             {[
-              { label: 'Meus treinamentos', icon: BookOpen },
-              { label: 'Comunicados',       icon: AlertCircle },
-              { label: 'Meu PDI',           icon: TrendingUp },
-              { label: 'Conversas 1-1',     icon: MessageSquare },
-            ].map(({ label, icon: Icon }) => (
-              <button key={label} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-primary-600 dark:hover:text-primary-400 transition-colors text-left">
+              { label: 'Meus treinamentos', icon: BookOpen,     to: '/intranet/treinamentos' },
+              { label: 'Comunicados',       icon: AlertCircle,  to: '/intranet/comunicados'  },
+              { label: 'Meu PDI',           icon: TrendingUp,   to: '/intranet/pdi'          },
+              { label: 'Minha Equipe',      icon: MessageSquare,to: '/intranet/equipe'       },
+            ].map(({ label, icon: Icon, to }) => (
+              <button key={label} onClick={() => navigate(to)} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-primary-600 dark:hover:text-primary-400 transition-colors text-left">
                 <Icon size={15} className="shrink-0" />
                 {label}
               </button>
@@ -178,41 +180,10 @@ export default function MinhaVisao() {
 
         {/* Pendências */}
         <SectionCard title="Pendências">
-          <div className="divide-y divide-slate-100 dark:divide-slate-700">
-            {[
-              { label: 'Avaliação de Competências 2025', date: '24/07/2026', type: 'avaliacao' },
-              { label: 'Pesquisa de Pulso — Trimestral',  date: '04/07/2026', type: 'pesquisa'  },
-              { label: 'Conclusão do treinamento de LGPD',date: '30/06/2026', type: 'treinamento'},
-            ].map(({ label, date, type }) => (
-              <div key={label} className="flex items-center gap-4 px-5 py-3.5">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                  type === 'avaliacao'  ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' :
-                  type === 'pesquisa'   ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600'   :
-                                          'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600'
-                }`}>
-                  {type === 'avaliacao'   ? <CheckCircle2 size={15} /> :
-                   type === 'pesquisa'    ? <AlertCircle size={15} />  :
-                                            <BookOpen size={15} />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{label}</p>
-                  {date && (
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <Clock size={11} className="text-slate-300" />
-                      <span className="text-xs text-slate-400">{date}</span>
-                    </div>
-                  )}
-                </div>
-                <button className="px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold transition-colors shrink-0">
-                  Ver
-                </button>
-              </div>
-            ))}
-          </div>
-          <div className="px-5 py-3 text-center">
-            <p className="text-xs text-slate-400 italic">
-              As pendências reais serão integradas em breve.
-            </p>
+          <div className="px-5 py-8 flex flex-col items-center gap-2 text-center">
+            <CheckCircle2 size={28} className="text-slate-200 dark:text-slate-600" />
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Nenhuma pendência no momento</p>
+            <p className="text-xs text-slate-400">As pendências de pesquisas e treinamentos aparecerão aqui.</p>
           </div>
         </SectionCard>
 
@@ -254,19 +225,15 @@ export default function MinhaVisao() {
       {/* ── Coluna direita ── */}
       <div className="space-y-4">
         {/* OKRs */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 space-y-4">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">OKRs</h3>
-            <span className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-full">2026 · Anual</span>
+            <span className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-full">Em breve</span>
           </div>
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <StatCard label="Pendentes"  value={3}  color="text-amber-600" />
-            <StatCard label="Atrasados"  value={1}  color="text-red-500"   />
-            <StatCard label="Concluídos" value={2}  color="text-emerald-600" />
+          <div className="flex flex-col items-center justify-center py-4 gap-2 text-center">
+            <Target size={28} className="text-slate-200 dark:text-slate-600" />
+            <p className="text-xs text-slate-400">Módulo de OKRs em desenvolvimento.</p>
           </div>
-          <button className="w-full py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-            Ver meus OKRs
-          </button>
         </div>
 
         {/* PDI */}
@@ -292,16 +259,11 @@ export default function MinhaVisao() {
         </div>
 
         {/* Conversas 1-1 */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 space-y-4">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 space-y-3">
           <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Conversas 1-1</h3>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center font-black text-base shrink-0">0</div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Conversas 1-1 aguardando</p>
-          </div>
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <StatCard label="Agendadas" value={0} />
-            <StatCard label="Realizadas" value={6} color="text-emerald-600" />
-            <StatCard label="Em espera"  value={5} color="text-amber-600" />
+          <div className="flex flex-col items-center justify-center py-4 gap-2 text-center">
+            <MessageSquare size={28} className="text-slate-200 dark:text-slate-600" />
+            <p className="text-xs text-slate-400">Módulo de 1-1 em desenvolvimento.</p>
           </div>
         </div>
       </div>
