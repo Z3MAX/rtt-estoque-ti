@@ -30,26 +30,40 @@ function fmtTime(s: number) {
 }
 
 function VideoPlayer({
-  url, titulo, concluido, onMarcarConcluido, onClose,
+  url, titulo, concluido, onMarcarConcluido, onClose, cursoId, moduloId, segundosInicial,
 }: {
   url: string; titulo: string; concluido: boolean
   onMarcarConcluido: () => void; onClose: () => void
+  cursoId: number; moduloId: number; segundosInicial: number
 }) {
   const { type, embedUrl } = parseVideoUrl(url)
   const videoRef = useRef<HTMLVideoElement>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
   // Refs for interval logic (avoids stale closures)
-  const watchedRef = useRef(concluido ? Infinity : 0)
+  const initSec = concluido ? Infinity : segundosInicial
+  const watchedRef = useRef(initSec)
   const durationRef = useRef(0)
   const unlockedRef = useRef(concluido)
+  const lastSavedRef = useRef(initSec)
 
-  const [watchedSec, setWatchedSec] = useState(concluido ? Infinity : 0)
+  const [watchedSec, setWatchedSec] = useState(initSec)
   const [totalDuration, setTotalDuration] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
   const [unlocked, setUnlocked] = useState(concluido)
   const [showWarning, setShowWarning] = useState(false)
   const warningTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Save seconds helper
+  function persistSeconds() {
+    const secs = watchedRef.current
+    if (!isFinite(secs) || secs <= 0 || secs === lastSavedRef.current) return
+    lastSavedRef.current = secs
+    api.treinamentoProgresso.saveSeconds(cursoId, moduloId, Math.floor(secs)).catch(() => {})
+  }
+
+  // Save on unmount
+  useEffect(() => () => { persistSeconds() }, [])
 
   // Wall-clock timer: counts real seconds while the video is playing
   useEffect(() => {
@@ -63,6 +77,8 @@ function VideoPlayer({
         setUnlocked(true)
         if (!concluido) onMarcarConcluido()
       }
+      // Persist every 10 seconds
+      if (Math.floor(watchedRef.current) % 10 === 0) persistSeconds()
     }, 1000)
     return () => clearInterval(interval)
   }, [isPlaying, concluido, onMarcarConcluido])
@@ -903,13 +919,14 @@ function CourseCard({ t, onClick, onEdit, canAdmin }: { t: Treinamento; onClick:
 
 // ─── CourseModal ──────────────────────────────────────────────────────────────
 
-function CourseModal({ t, onClose, onToggle, moduloConfigs, onSaveConfig, canAdmin }: {
+function CourseModal({ t, onClose, onToggle, moduloConfigs, onSaveConfig, canAdmin, progressoSegsMap }: {
   t: Treinamento
   onClose: () => void
   onToggle: (cursoId: number, moduloId: number, done: boolean) => Promise<void>
   moduloConfigs: Record<string, string>
   onSaveConfig: (cursoId: number, moduloId: number, url: string | null) => Promise<void>
   canAdmin: boolean
+  progressoSegsMap: Record<string, number>
 }) {
   const [expanded, setExpanded] = useState(true)
   const [videoAberto, setVideoAberto] = useState<number | null>(null)
@@ -1078,6 +1095,9 @@ function CourseModal({ t, onClose, onToggle, moduloConfigs, onSaveConfig, canAdm
                           url={videoUrl}
                           titulo={m.titulo}
                           concluido={m.concluido}
+                          cursoId={t.id}
+                          moduloId={m.id}
+                          segundosInicial={progressoSegsMap[`${t.id}_${m.id}`] ?? 0}
                           onMarcarConcluido={() => { onToggle(t.id, m.id, true); setVideoAberto(null) }}
                           onClose={() => setVideoAberto(null)}
                         />
@@ -1671,6 +1691,7 @@ export default function TreinamentosPage() {
   const [vistaLista, setVistaLista] = useState<'cursos' | 'trilhas'>('cursos')
   const [cursos, setCursos] = useState<Treinamento[]>([])
   const [moduloConfigs, setModuloConfigs] = useState<Record<string, string>>({})
+  const [progressoSegsMap, setProgressoSegsMap] = useState<Record<string, number>>({})
   const [editCurso, setEditCurso] = useState<Treinamento | null | 'new'>(null)
   const [atribuidosIds, setAtribuidosIds] = useState<number[]>([])
   const [enviarCursos, setEnviarCursos] = useState(false)
@@ -1683,8 +1704,10 @@ export default function TreinamentosPage() {
       api.cursoAtribuicao.getMy().catch(() => ({ curso_ids: [] })),
     ]).then(([cursosDb, progressoRows, configRows, atribuicao]) => {
       const progressoMap: Record<string, boolean> = {}
-      for (const r of progressoRows as { curso_id: number; modulo_id: number; concluido: boolean }[]) {
+      const segsMap: Record<string, number> = {}
+      for (const r of progressoRows as { curso_id: number; modulo_id: number; concluido: boolean; segundos_assistidos: number }[]) {
         progressoMap[`${r.curso_id}_${r.modulo_id}`] = r.concluido
+        if (r.segundos_assistidos > 0) segsMap[`${r.curso_id}_${r.modulo_id}`] = r.segundos_assistidos
       }
 
       const configMap: Record<string, string> = {}
@@ -1694,6 +1717,7 @@ export default function TreinamentosPage() {
 
       setCursos((cursosDb as any[]).map(row => dbToTreinamento(row, progressoMap)))
       setModuloConfigs(configMap)
+      setProgressoSegsMap(segsMap)
       setAtribuidosIds((atribuicao as any)?.curso_ids ?? [])
     })
   }, [])
@@ -1983,6 +2007,7 @@ export default function TreinamentosPage() {
           moduloConfigs={moduloConfigs}
           onSaveConfig={saveConfig}
           canAdmin={podeGerenciar}
+          progressoSegsMap={progressoSegsMap}
         />
       )}
 
