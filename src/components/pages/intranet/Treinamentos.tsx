@@ -59,7 +59,7 @@ function VideoPlayer({
     const secs = watchedRef.current
     if (!isFinite(secs) || secs <= 0 || secs === lastSavedRef.current) return
     lastSavedRef.current = secs
-    api.treinamentoProgresso.saveSeconds(cursoId, moduloId, Math.floor(secs)).catch(() => {})
+    api.treinamentoProgresso.saveSeconds(cursoId, moduloId, Math.floor(secs)).catch(err => console.error('[VideoPlayer] saveSeconds failed:', err))
   }
 
   // Save on unmount

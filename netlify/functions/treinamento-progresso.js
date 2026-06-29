@@ -8,8 +8,23 @@ exports.handler = async (event) => {
 
   const sql = neon(process.env.DATABASE_URL)
 
-  // Add segundos_assistidos column if it doesn't exist yet
-  await sql`ALTER TABLE treinamento_progresso ADD COLUMN IF NOT EXISTS segundos_assistidos INTEGER DEFAULT 0`
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS treinamento_progresso (
+        id                  SERIAL PRIMARY KEY,
+        user_id             INTEGER NOT NULL,
+        curso_id            INTEGER NOT NULL,
+        modulo_id           INTEGER NOT NULL,
+        concluido           BOOLEAN DEFAULT false,
+        segundos_assistidos INTEGER DEFAULT 0,
+        updated_at          TIMESTAMP DEFAULT NOW(),
+        UNIQUE (user_id, curso_id, modulo_id)
+      )
+    `
+    await sql`ALTER TABLE treinamento_progresso ADD COLUMN IF NOT EXISTS segundos_assistidos INTEGER DEFAULT 0`
+  } catch (e) {
+    console.error('treinamento-progresso setup error:', e)
+  }
 
   try {
     const auth = requireAuth(event)
