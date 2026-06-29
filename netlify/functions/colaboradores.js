@@ -22,7 +22,7 @@ exports.handler = async (event) => {
     const isFullAdmin = ADMIN_ROLES.includes(authPayload.role)
     const filterByArea = !isFullAdmin && !!userArea
 
-    // Manter retrocompatibilidade com variável anterior
+    const isGestor = filterByArea
     const gestorArea = userArea
 
     // Add new columns if table predates them
