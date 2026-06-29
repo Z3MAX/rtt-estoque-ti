@@ -22,6 +22,8 @@ exports.handler = async (event) => {
       )
     `
     await sql`ALTER TABLE treinamento_progresso ADD COLUMN IF NOT EXISTS segundos_assistidos INTEGER DEFAULT 0`
+    // Add unique index if the table existed before without the constraint
+    await sql`CREATE UNIQUE INDEX IF NOT EXISTS treinamento_progresso_uniq ON treinamento_progresso (user_id, curso_id, modulo_id)`
   } catch (e) {
     console.error('treinamento-progresso setup error:', e)
   }
@@ -43,23 +45,28 @@ exports.handler = async (event) => {
       const { curso_id, modulo_id, concluido, segundos_assistidos } = JSON.parse(event.body || '{}')
       if (!curso_id || !modulo_id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'curso_id e modulo_id obrigatórios' }) }
 
-      const novoConcluido = concluido ?? null
-      const novosSeg = segundos_assistidos ?? null
+      if (concluido !== undefined) {
+        // Mark as complete/incomplete
+        await sql`
+          INSERT INTO treinamento_progresso (user_id, curso_id, modulo_id, concluido, segundos_assistidos)
+          VALUES (${userId}, ${curso_id}, ${modulo_id}, ${concluido}, 0)
+          ON CONFLICT (user_id, curso_id, modulo_id) DO UPDATE SET
+            concluido  = ${concluido},
+            updated_at = NOW()
+        `
+      } else if (segundos_assistidos !== undefined) {
+        // Save watch progress only (never decrease)
+        await sql`
+          INSERT INTO treinamento_progresso (user_id, curso_id, modulo_id, concluido, segundos_assistidos)
+          VALUES (${userId}, ${curso_id}, ${modulo_id}, false, ${segundos_assistidos})
+          ON CONFLICT (user_id, curso_id, modulo_id) DO UPDATE SET
+            segundos_assistidos = GREATEST(treinamento_progresso.segundos_assistidos, ${segundos_assistidos}),
+            updated_at          = NOW()
+        `
+      } else {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'concluido ou segundos_assistidos obrigatório' }) }
+      }
 
-      await sql`
-        INSERT INTO treinamento_progresso (user_id, curso_id, modulo_id, concluido, segundos_assistidos)
-        VALUES (
-          ${userId}, ${curso_id}, ${modulo_id},
-          ${novoConcluido ?? false},
-          ${novosSeg ?? 0}
-        )
-        ON CONFLICT (user_id, curso_id, modulo_id) DO UPDATE SET
-          concluido           = CASE WHEN ${novoConcluido} IS NOT NULL THEN ${novoConcluido} ELSE treinamento_progresso.concluido END,
-          segundos_assistidos = CASE WHEN ${novosSeg} IS NOT NULL
-                                     THEN GREATEST(treinamento_progresso.segundos_assistidos, ${novosSeg})
-                                     ELSE treinamento_progresso.segundos_assistidos END,
-          updated_at          = NOW()
-      `
       return { statusCode: 200, headers, body: JSON.stringify({ success: true }) }
     }
 
