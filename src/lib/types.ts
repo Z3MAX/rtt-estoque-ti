@@ -21,6 +21,8 @@ export interface Colaborador {
   area?: string
   email?: string
   gestor_nome?: string
+  data_nascimento?: string
+  photo_url?: string
   ativo: boolean
   created_at: string
   updated_at: string

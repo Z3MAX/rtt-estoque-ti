@@ -25,6 +25,10 @@ exports.handler = async (event) => {
     // Manter retrocompatibilidade com variável anterior
     const gestorArea = userArea
 
+    // Add new columns if table predates them
+    await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS data_nascimento DATE`
+    await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS photo_url TEXT`
+
     if (event.httpMethod === 'GET') {
       if (id) {
         const rows = await sql`
@@ -173,14 +177,15 @@ exports.handler = async (event) => {
         return { statusCode: 201, headers, body: JSON.stringify({ success: true, inserted, updated }) }
       }
 
-      const { nome, cargo, nivel, area, email, gestor_nome } = body
+      const { nome, cargo, nivel, area, email, gestor_nome, data_nascimento, photo_url } = body
       if (!nome || !nome.trim()) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Nome é obrigatório' }) }
       }
       const rows = await sql`
-        INSERT INTO colaboradores (nome, cargo, nivel, area, email, gestor_nome)
+        INSERT INTO colaboradores (nome, cargo, nivel, area, email, gestor_nome, data_nascimento, photo_url)
         VALUES (${nome.trim()}, ${cargo || null}, ${nivel || null},
-                ${area || null}, ${email || null}, ${gestor_nome || null})
+                ${area || null}, ${email || null}, ${gestor_nome || null},
+                ${data_nascimento || null}, ${photo_url || null})
         RETURNING *
       `
       const userName = await getUserName(sql, authPayload.userId)
@@ -196,17 +201,19 @@ exports.handler = async (event) => {
           return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado: colaborador não pertence ao seu departamento' }) }
       }
       const body = JSON.parse(event.body || '{}')
-      const { nome, cargo, nivel, area, email, gestor_nome } = body
+      const { nome, cargo, nivel, area, email, gestor_nome, data_nascimento, photo_url } = body
       const before = await sql`SELECT nome, cargo, nivel, area, email, gestor_nome FROM colaboradores WHERE id = ${id}`
       const rows = await sql`
         UPDATE colaboradores
-        SET nome       = ${nome       ?? null},
-            cargo      = ${cargo      ?? null},
-            nivel      = ${nivel      ?? null},
-            area       = ${area       ?? null},
-            email      = ${email      ?? null},
-            gestor_nome= ${gestor_nome ?? null},
-            updated_at = NOW()
+        SET nome            = ${nome            ?? null},
+            cargo           = ${cargo           ?? null},
+            nivel           = ${nivel           ?? null},
+            area            = ${area            ?? null},
+            email           = ${email           ?? null},
+            gestor_nome     = ${gestor_nome     ?? null},
+            data_nascimento = ${data_nascimento ?? null},
+            photo_url       = ${photo_url       ?? null},
+            updated_at      = NOW()
         WHERE id = ${id}
         RETURNING *
       `
