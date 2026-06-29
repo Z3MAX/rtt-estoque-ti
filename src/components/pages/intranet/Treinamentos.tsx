@@ -329,20 +329,18 @@ const TIPO_ICON: Record<string, JSX.Element> = {
 
 function Stars({ value }: { value: number }) {
   return (
-    <div className="flex items-center gap-0.5">
-      {[1,2,3,4,5].map(i => (
-        <Star key={i} size={11} className={i <= Math.round(value) ? 'text-amber-400 fill-amber-400' : 'text-slate-300 dark:text-slate-600'} />
-      ))}
-      <span className="text-xs text-slate-500 ml-1">{value.toFixed(1)}</span>
+    <div className="flex items-center gap-1">
+      <Star size={11} className="text-amber-400 fill-amber-400" />
+      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{value.toFixed(1)}</span>
     </div>
   )
 }
 
 function ProgressBar({ pct, sm }: { pct: number; sm?: boolean }) {
   return (
-    <div className={`${sm ? 'h-1' : 'h-1.5'} bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden`}>
+    <div className={`${sm ? 'h-px' : 'h-1'} bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden`}>
       <div
-        className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-emerald-500' : 'bg-primary-500'}`}
+        className={`h-full rounded-full transition-all duration-500 ${pct === 100 ? 'bg-emerald-500' : 'bg-primary-500'}`}
         style={{ width: `${pct}%` }}
       />
     </div>
@@ -648,71 +646,97 @@ function CourseCard({ t, onClick, onEdit, canAdmin }: { t: Treinamento; onClick:
   return (
     <div
       onClick={onClick}
-      className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-lg hover:border-primary-200 dark:hover:border-primary-700 transition-all cursor-pointer group flex flex-col"
+      className="group bg-white dark:bg-slate-900 rounded-2xl overflow-hidden cursor-pointer flex flex-col shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)] hover:-translate-y-0.5 transition-all duration-200"
     >
       {/* Capa */}
-      <div className={`bg-gradient-to-br ${t.capa.from} ${t.capa.to} h-28 flex items-center justify-center relative`}>
-        <span className="text-5xl">{t.icone}</span>
+      <div className={`relative bg-gradient-to-br ${t.capa.from} ${t.capa.to} h-40 flex-shrink-0 overflow-hidden`}>
+        {/* Dot texture */}
+        <div
+          className="absolute inset-0 opacity-[0.08]"
+          style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '16px 16px' }}
+        />
+        {/* Emoji — bottom-left */}
+        <div className="absolute bottom-4 left-4">
+          <span className="text-[38px] leading-none drop-shadow select-none">{t.icone}</span>
+        </div>
+        {/* Obrigatório */}
         {t.obrigatorio && (
-          <span className="absolute top-2.5 left-2.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-sm text-white border border-white/30">
+          <span className="absolute top-3 left-3 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-black/20 backdrop-blur-sm text-white tracking-wide">
             Obrigatório
           </span>
         )}
-        {canAdmin && onEdit && (
+        {/* Completion badge */}
+        {pct === 100 && (
+          <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500 shadow-sm">
+            <CheckCircle2 size={11} className="text-white" />
+            <span className="text-[10px] font-bold text-white">Concluído</span>
+          </div>
+        )}
+        {/* Admin edit — on hover */}
+        {canAdmin && onEdit && pct < 100 && (
           <button
             onClick={onEdit}
-            className="absolute top-2.5 right-2.5 w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm flex items-center justify-center text-white transition-colors"
+            className="absolute top-3 right-3 w-7 h-7 rounded-full bg-black/20 hover:bg-black/35 backdrop-blur-sm flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
             title="Editar curso"
           >
-            <Pencil size={13} />
+            <Pencil size={12} />
           </button>
         )}
-        {pct === 100 && !canAdmin && (
-          <div className="absolute top-2.5 right-2.5 w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center shadow">
-            <CheckCircle2 size={14} className="text-white" />
+        {canAdmin && onEdit && pct === 100 && (
+          <button
+            onClick={onEdit}
+            className="absolute bottom-3 right-3 w-7 h-7 rounded-full bg-black/20 hover:bg-black/35 backdrop-blur-sm flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+            title="Editar curso"
+          >
+            <Pencil size={12} />
+          </button>
+        )}
+        {/* Progress stripe */}
+        {pct > 0 && (
+          <div className="absolute bottom-0 inset-x-0 h-[3px] bg-black/10">
+            <div
+              className={`h-full transition-all duration-500 ${pct === 100 ? 'bg-emerald-400' : 'bg-white/75'}`}
+              style={{ width: `${pct}%` }}
+            />
           </div>
         )}
       </div>
 
       {/* Body */}
-      <div className="p-4 flex flex-col gap-3 flex-1">
-        <div>
-          <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${NIVEL_COLORS[t.nivel]}`}>{t.nivel}</span>
-            <span className="text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">{t.categoria}</span>
-          </div>
-          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 leading-tight group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors line-clamp-2">
+      <div className="p-4 flex flex-col gap-2.5 flex-1">
+        {/* Level + category */}
+        <div className="flex items-center gap-2">
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${NIVEL_COLORS[t.nivel]}`}>{t.nivel}</span>
+          <span className="text-[10px] text-slate-400 dark:text-slate-500">{t.categoria}</span>
+        </div>
+
+        {/* Title + description */}
+        <div className="flex-1 min-h-0">
+          <h3 className="text-[13px] font-bold text-slate-900 dark:text-slate-50 leading-snug line-clamp-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
             {t.titulo}
           </h3>
-          <p className="text-xs text-slate-400 mt-1 line-clamp-2">{t.descricao}</p>
+          <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5 line-clamp-2 leading-relaxed">{t.descricao}</p>
         </div>
 
-        <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
-          <span className="flex items-center gap-1"><Clock size={11} />{t.duracao}</span>
-          <span className="flex items-center gap-1"><Layers size={11} />{t.modulos.length} módulos</span>
-          <span className="flex items-center gap-1"><Users size={11} />{t.totalAlunos}</span>
-        </div>
-
-        <Stars value={t.avaliacao} />
-
-        <div className="mt-auto pt-1 space-y-1.5">
-          <div className="flex justify-between text-xs">
-            <span className="text-slate-400">Progresso</span>
-            <span className={`font-semibold ${pct === 100 ? 'text-emerald-600' : 'text-primary-600'}`}>{pct}%</span>
+        {/* In-progress bar (body) */}
+        {pct > 0 && pct < 100 && (
+          <div className="space-y-1">
+            <div className="flex justify-between text-[11px]">
+              <span className="text-slate-400">Progresso</span>
+              <span className="font-semibold text-primary-600">{pct}%</span>
+            </div>
+            <ProgressBar pct={pct} />
           </div>
-          <ProgressBar pct={pct} />
-        </div>
+        )}
 
-        <button
-          onClick={e => { e.stopPropagation(); onClick() }}
-          className={`w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-semibold transition-colors ${
-            pct === 100
-              ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
-              : 'bg-primary-600 hover:bg-primary-700 text-white'
-          }`}
-        >
-          {pct === 100 ? <><CheckCircle2 size={14} />Concluído</> : pct > 0 ? <><Play size={14} />Continuar</> : <><Play size={14} />Iniciar</>}
-        </button>
+        {/* Footer */}
+        <div className="flex items-center justify-between mt-auto pt-0.5 border-t border-slate-50 dark:border-slate-800">
+          <div className="flex items-center gap-3 text-[11px] text-slate-400 dark:text-slate-500">
+            <span className="flex items-center gap-1"><Clock size={11} />{t.duracao}</span>
+            <span className="flex items-center gap-1"><Layers size={11} />{t.modulos.length} mód.</span>
+          </div>
+          <Stars value={t.avaliacao} />
+        </div>
       </div>
     </div>
   )
@@ -749,23 +773,28 @@ function CourseModal({ t, onClose, onToggle, moduloConfigs, onSaveConfig, canAdm
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col"
+        className="bg-white dark:bg-slate-900 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.18)] w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* Header capa */}
-        <div className={`bg-gradient-to-br ${t.capa.from} ${t.capa.to} px-6 py-8 relative shrink-0`}>
-          <button onClick={onClose} className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors">
-            <X size={15} />
-          </button>
-          <div className="flex items-end gap-4">
-            <span className="text-5xl">{t.icone}</span>
-            <div>
-              <div className="flex gap-2 mb-1 flex-wrap">
-                {t.obrigatorio && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30">Obrigatório</span>}
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30">{t.nivel}</span>
+        <div className={`bg-gradient-to-br ${t.capa.from} ${t.capa.to} relative shrink-0 overflow-hidden`}>
+          {/* Dot texture */}
+          <div className="absolute inset-0 opacity-[0.07]"
+            style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
+          <div className="relative px-6 pt-10 pb-6">
+            <button onClick={onClose} className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/15 hover:bg-black/25 backdrop-blur-sm flex items-center justify-center text-white transition-colors">
+              <X size={14} />
+            </button>
+            <div className="flex items-end gap-4">
+              <span className="text-[48px] leading-none drop-shadow">{t.icone}</span>
+              <div>
+                <div className="flex gap-1.5 mb-2 flex-wrap">
+                  {t.obrigatorio && <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-black/20 backdrop-blur-sm text-white">Obrigatório</span>}
+                  <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-black/20 backdrop-blur-sm text-white">{t.nivel}</span>
+                </div>
+                <h2 className="text-lg font-bold text-white leading-tight">{t.titulo}</h2>
+                <p className="text-white/60 text-xs mt-0.5 font-medium">por {t.instrutor}</p>
               </div>
-              <h2 className="text-lg font-bold text-white leading-tight">{t.titulo}</h2>
-              <p className="text-white/70 text-xs mt-0.5">por {t.instrutor}</p>
             </div>
           </div>
         </div>
@@ -784,13 +813,13 @@ function CourseModal({ t, onClose, onToggle, moduloConfigs, onSaveConfig, canAdm
           <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{t.descricao}</p>
 
           {/* Progresso */}
-          <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 space-y-2">
+          <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-4 space-y-2.5">
             <div className="flex justify-between items-center">
-              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Seu progresso</span>
-              <span className={`text-sm font-bold ${pct === 100 ? 'text-emerald-600' : 'text-primary-600'}`}>{pct}%</span>
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Seu progresso</span>
+              <span className={`text-lg font-black tabular-nums ${pct === 100 ? 'text-emerald-600' : 'text-primary-600'}`}>{pct}%</span>
             </div>
             <ProgressBar pct={pct} />
-            <p className="text-xs text-slate-400">
+            <p className="text-[11px] text-slate-400">
               {t.modulos.filter(m => m.concluido).length} de {t.modulos.length} módulos concluídos
             </p>
           </div>
@@ -926,10 +955,10 @@ function TrilhaCard({ trilha, cursos, onCursoClick }: { trilha: Trilha; cursos: 
   const pct = total === 0 ? 0 : Math.round((feitos / total) * 100)
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
       <button
         onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center gap-4 p-5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+        className="w-full flex items-center gap-4 p-5 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
       >
         <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${trilha.cor} flex items-center justify-center shrink-0`}>
           <Layers size={22} className="text-white" />
@@ -949,7 +978,7 @@ function TrilhaCard({ trilha, cursos, onCursoClick }: { trilha: Trilha; cursos: 
       </button>
 
       {open && (
-        <div className="border-t border-slate-100 dark:border-slate-700 p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="border-t border-slate-50 dark:border-slate-800 p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
           {cursos.map((t, idx) => {
             const pctCurso = getProgresso(t)
             const bloqueado = idx > 0 && getProgresso(cursos[idx - 1]) < 100
@@ -1315,39 +1344,52 @@ export default function TreinamentosPage() {
 
       {view === 'gestao' ? <RHView todosCursos={cursos} /> : (
         <>
-          {/* Hero de progresso */}
-          <div className="bg-gradient-to-br from-primary-600 to-primary-700 rounded-2xl p-6 text-white flex flex-col sm:flex-row gap-6 items-center">
-            <div className="flex-1 min-w-0">
-              <p className="text-white/70 text-sm mb-1">Seu progresso geral</p>
-              <p className="text-4xl font-black">{pctGeral}%</p>
-              <p className="text-white/70 text-xs mt-1">{concluidos} de {cursos.length} cursos concluídos</p>
-              <div className="mt-3 h-2 bg-white/20 rounded-full overflow-hidden w-full max-w-xs">
-                <div className="h-full bg-white rounded-full transition-all" style={{ width: `${pctGeral}%` }} />
+          {/* Resumo de progresso */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 px-6 py-5 flex flex-col sm:flex-row items-stretch gap-5">
+            {/* Número principal */}
+            <div className="shrink-0 flex flex-col justify-center sm:pr-6 sm:border-r sm:border-slate-100 sm:dark:border-slate-800">
+              <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Meu progresso</p>
+              <div className="flex items-baseline gap-1">
+                <span className="text-6xl font-black text-slate-900 dark:text-slate-50 tabular-nums leading-none">{pctGeral}</span>
+                <span className="text-2xl font-bold text-slate-200 dark:text-slate-700 leading-none">%</span>
               </div>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-2">{concluidos} de {cursos.length} cursos concluídos</p>
             </div>
-            <div className="flex gap-4 shrink-0">
-              {[
-                { label: 'Concluídos', value: concluidos, icon: <CheckCircle2 size={18} /> },
-                { label: 'Em andamento', value: emAndamento, icon: <Play size={18} /> },
-                { label: 'Obrig. pendentes', value: obrigPend, icon: <AlertTriangle size={18} />, warn: obrigPend > 0 },
-              ].map(({ label, value, icon, warn }) => (
-                <div key={label} className={`rounded-xl px-4 py-3 text-center ${warn ? 'bg-red-500/30 border border-red-400/40' : 'bg-white/10'}`}>
-                  <div className="flex justify-center mb-1 text-white/70">{icon}</div>
-                  <p className="text-xl font-black">{value}</p>
-                  <p className="text-[10px] text-white/60 mt-0.5 leading-tight">{label}</p>
+
+            {/* Stats + barra */}
+            <div className="flex-1 min-w-0 flex flex-col justify-between gap-4">
+              <div className="grid grid-cols-3 gap-4">
+                {[
+                  { label: 'Concluídos', value: concluidos, cls: 'text-emerald-600 dark:text-emerald-400' },
+                  { label: 'Em andamento', value: emAndamento, cls: 'text-blue-600 dark:text-blue-400' },
+                  { label: 'Obrig. pendentes', value: obrigPend, cls: obrigPend > 0 ? 'text-red-500 dark:text-red-400' : 'text-slate-400 dark:text-slate-600' },
+                ].map(({ label, value, cls }) => (
+                  <div key={label}>
+                    <p className={`text-2xl font-black tabular-nums leading-none ${cls}`}>{value}</p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 leading-tight">{label}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="space-y-1.5">
+                <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-primary-500 to-primary-600 rounded-full transition-all duration-700"
+                    style={{ width: `${pctGeral}%` }}
+                  />
                 </div>
-              ))}
+                {obrigPend > 0 && (
+                  <p className="text-[11px] text-red-500 dark:text-red-400 font-medium flex items-center gap-1">
+                    <AlertTriangle size={11} /> {obrigPend} treinamento{obrigPend > 1 ? 's' : ''} obrigatório{obrigPend > 1 ? 's' : ''} pendente{obrigPend > 1 ? 's' : ''}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Obrigatórios em destaque */}
           {obrigPend > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <AlertTriangle size={15} className="text-amber-500" />
-                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Obrigatórios pendentes</p>
-                <span className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full">{obrigPend} restantes</span>
-              </div>
+            <div className="space-y-2.5">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Ação necessária</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {cursos.filter(t => t.obrigatorio && getProgresso(t) < 100).map(t => {
                   const pct = getProgresso(t)
@@ -1355,15 +1397,15 @@ export default function TreinamentosPage() {
                     <button
                       key={t.id}
                       onClick={() => setModalCurso(t)}
-                      className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700 rounded-2xl hover:border-amber-400 transition-colors text-left"
+                      className="flex items-center gap-3 p-3.5 bg-white dark:bg-slate-900 border border-red-100 dark:border-red-900/50 rounded-2xl hover:border-red-300 dark:hover:border-red-700 hover:shadow-sm transition-all text-left group/ob"
                     >
-                      <span className="text-2xl shrink-0">{t.icone}</span>
-                      <div className="flex-1 min-w-0">
+                      <span className="text-xl shrink-0">{t.icone}</span>
+                      <div className="flex-1 min-w-0 space-y-1.5">
                         <p className="text-xs font-semibold text-slate-800 dark:text-slate-100 line-clamp-1">{t.titulo}</p>
                         <ProgressBar pct={pct} sm />
-                        <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">{pct}% concluído</p>
+                        <p className="text-[10px] text-slate-400">{pct}% concluído</p>
                       </div>
-                      <ChevronRight size={15} className="text-amber-400 shrink-0" />
+                      <ChevronRight size={14} className="text-slate-300 dark:text-slate-600 group-hover/ob:text-red-400 transition-colors shrink-0" />
                     </button>
                   )
                 })}
@@ -1405,15 +1447,15 @@ export default function TreinamentosPage() {
           </div>
 
           {/* Categoria tabs */}
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-1.5 flex-wrap">
             {CATEGORIAS.map(cat => (
               <button
                 key={cat}
                 onClick={() => setCategoria(cat)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
                   categoria === cat
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-primary-300'
+                    ? 'bg-slate-900 dark:bg-slate-50 text-white dark:text-slate-900 shadow-sm'
+                    : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500'
                 }`}
               >
                 {cat}
@@ -1425,12 +1467,12 @@ export default function TreinamentosPage() {
           {/* eslint-disable-next-line no-nested-ternary */}
           {vistaLista === 'cursos' ? (
             filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-48 text-slate-400 gap-2">
-                <BookOpen size={32} className="opacity-40" />
-                <p className="text-sm">Nenhum treinamento encontrado</p>
+              <div className="flex flex-col items-center justify-center h-56 text-slate-400 gap-3">
+                <BookOpen size={28} className="opacity-30" strokeWidth={1.5} />
+                <p className="text-sm text-slate-400">Nenhum treinamento encontrado</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
                 {filtered.map(t => <CourseCard key={t.id} t={t} onClick={() => setModalCurso(t)} canAdmin={isAdmin(user?.role)} onEdit={e => { e.stopPropagation(); setEditCurso(t) }} />)}
               </div>
             )
