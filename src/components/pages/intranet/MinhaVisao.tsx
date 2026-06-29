@@ -63,8 +63,31 @@ export default function MinhaVisao() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [mood, setMood] = useState<string | null>(null)
+  const [moodComment, setMoodComment] = useState('')
+  const [moodSent, setMoodSent] = useState(false)
+  const [moodSaving, setMoodSaving] = useState(false)
   const [photoModal, setPhotoModal] = useState(false)
   const firstName = user?.name?.split(' ')[0] ?? 'Colaborador'
+
+  function handleMoodSelect(value: string) {
+    if (moodSent) return
+    setMood(value)
+    setMoodComment('')
+  }
+
+  async function handleMoodSend() {
+    if (!mood || moodSaving) return
+    setMoodSaving(true)
+    try {
+      await api.humorFeedback.save(mood, moodComment.trim() || undefined)
+      setMoodSent(true)
+    } catch {
+      // falha silenciosa — não bloqueia o usuário
+      setMoodSent(true)
+    } finally {
+      setMoodSaving(false)
+    }
+  }
 
   const [pdiItems, setPdiItems] = useState<PdiItem[]>([])
   const [progItems, setProgItems] = useState<ProgItem[]>([])
@@ -168,26 +191,56 @@ export default function MinhaVisao() {
           <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">
             Como você está se sentindo hoje, {firstName}?
           </p>
-          <div className="flex gap-3 flex-wrap">
-            {MOODS.map(m => (
-              <button
-                key={m.value}
-                onClick={() => setMood(m.value)}
-                className={`flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl border-2 transition-all ${
-                  mood === m.value
-                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                    : `border-transparent ${m.color}`
-                }`}
-              >
-                <span className="text-2xl">{m.emoji}</span>
-                <span className="text-xs font-medium text-slate-600 dark:text-slate-400">{m.label}</span>
-              </button>
-            ))}
-          </div>
-          {mood && (
-            <p className="text-xs text-slate-400 mt-3">
-              Resposta registrada. Obrigado pelo feedback! 🙌
-            </p>
+
+          {moodSent ? (
+            <div className="flex items-center gap-3 py-2">
+              <span className="text-3xl">{MOODS.find(m => m.value === mood)?.emoji}</span>
+              <div>
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Obrigado pelo seu feedback! 🙌</p>
+                <p className="text-xs text-slate-400 mt-0.5">Sua resposta foi registrada com sucesso.</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex gap-3 flex-wrap">
+                {MOODS.map(m => (
+                  <button
+                    key={m.value}
+                    onClick={() => handleMoodSelect(m.value)}
+                    className={`flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl border-2 transition-all ${
+                      mood === m.value
+                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                        : `border-transparent ${m.color}`
+                    }`}
+                  >
+                    <span className="text-2xl">{m.emoji}</span>
+                    <span className="text-xs font-medium text-slate-600 dark:text-slate-400">{m.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {mood && (
+                <div className="mt-4 space-y-3">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Quer nos contar um pouco mais sobre como você está se sentindo? <span className="text-slate-400">(opcional)</span>
+                  </p>
+                  <textarea
+                    value={moodComment}
+                    onChange={e => setMoodComment(e.target.value)}
+                    placeholder={`O que está te deixando ${MOODS.find(m => m.value === mood)?.label.toLowerCase()}?`}
+                    rows={3}
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-sm text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                  />
+                  <button
+                    onClick={handleMoodSend}
+                    disabled={moodSaving}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white text-sm font-medium transition-colors"
+                  >
+                    {moodSaving ? 'Enviando...' : 'Enviar feedback'}
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
 

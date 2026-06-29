@@ -28,6 +28,7 @@ import ComunicadosPage from './components/pages/intranet/Comunicados'
 import PDIPage from './components/pages/intranet/PDI'
 import EquipePage from './components/pages/intranet/Equipe'
 import PesquisasIntranetPage from './components/pages/intranet/Pesquisas'
+import FeedbacksPage from './components/pages/intranet/Feedbacks'
 
 type Portal = 'avaliacao' | 'intranet' | null
 
@@ -78,6 +79,7 @@ function ProtectedRoutes() {
           <Route path="/intranet/pdi" element={<PDIPage />} />
           <Route path="/intranet/equipe" element={<EquipePage />} />
           <Route path="/intranet/pesquisas" element={<PesquisasIntranetPage />} />
+          <Route path="/intranet/feedbacks" element={<FeedbacksPage />} />
           <Route path="*" element={<Navigate to="/intranet" replace />} />
         </Route>
       </Routes>

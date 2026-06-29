@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   Home, BookOpen, Megaphone, GraduationCap, Users, ClipboardList,
-  LogOut, ChevronDown, Menu, X, ArrowLeftRight, Bell,
+  LogOut, ChevronDown, Menu, X, ArrowLeftRight, Bell, SmilePlus,
 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import ChatBot from './ChatBot'
@@ -10,13 +10,16 @@ import Avatar from './ui/Avatar'
 import PhotoUploadModal from './ui/PhotoUploadModal'
 
 const NAV = [
-  { to: '/intranet',             icon: Home,           label: 'Minha Visão' },
-  { to: '/intranet/treinamentos',icon: GraduationCap,  label: 'Treinamentos' },
-  { to: '/intranet/comunicados', icon: Megaphone,       label: 'Comunicados' },
-  { to: '/intranet/pdi',        icon: BookOpen,        label: 'PDI' },
-  { to: '/intranet/equipe',     icon: Users,           label: 'Minha Equipe' },
-  { to: '/intranet/pesquisas', icon: ClipboardList,   label: 'Pesquisas' },
+  { to: '/intranet',              icon: Home,          label: 'Minha Visão',  adminOnly: false },
+  { to: '/intranet/treinamentos', icon: GraduationCap, label: 'Treinamentos', adminOnly: false },
+  { to: '/intranet/comunicados',  icon: Megaphone,     label: 'Comunicados',  adminOnly: false },
+  { to: '/intranet/pdi',         icon: BookOpen,      label: 'PDI',          adminOnly: false },
+  { to: '/intranet/equipe',      icon: Users,         label: 'Minha Equipe', adminOnly: false },
+  { to: '/intranet/pesquisas',   icon: ClipboardList, label: 'Pesquisas',    adminOnly: false },
+  { to: '/intranet/feedbacks',   icon: SmilePlus,     label: 'Feedbacks',    adminOnly: true  },
 ]
+
+const ADMIN_NAV_ROLES = ['Administrador de RH', 'Administrador Master', 'Administrador de RH / Gestor']
 
 interface IntranetLayoutProps {
   onSwitchPortal: () => void
@@ -38,6 +41,8 @@ export default function IntranetLayout({ onSwitchPortal }: IntranetLayoutProps) 
   const isActive = (to: string) =>
     to === '/intranet' ? location.pathname === '/intranet' : location.pathname.startsWith(to)
 
+  const visibleNav = NAV.filter(n => !n.adminOnly || ADMIN_NAV_ROLES.includes(user?.role ?? ''))
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col">
       {/* Top Navbar */}
@@ -51,7 +56,7 @@ export default function IntranetLayout({ onSwitchPortal }: IntranetLayoutProps) 
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1 flex-1">
-            {NAV.map(({ to, icon: Icon, label }) => (
+            {visibleNav.map(({ to, icon: Icon, label }) => (
               <button
                 key={to}
                 onClick={() => navigate(to)}
@@ -141,7 +146,7 @@ export default function IntranetLayout({ onSwitchPortal }: IntranetLayoutProps) 
         {/* Mobile nav drawer */}
         {mobileOpen && (
           <div className="md:hidden border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 flex flex-col gap-1">
-            {NAV.map(({ to, icon: Icon, label }) => (
+            {visibleNav.map(({ to, icon: Icon, label }) => (
               <button
                 key={to}
                 onClick={() => { navigate(to); setMobileOpen(false) }}

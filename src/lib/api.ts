@@ -420,4 +420,17 @@ export const api = {
       return request(`${BASE}/pesquisas?id=${id}`, { method: 'DELETE' })
     },
   },
+
+  humorFeedback: {
+    save: async (humor: string, comentario?: string) => {
+      return request(`${BASE}/humor-feedback`, { method: 'POST', body: JSON.stringify({ humor, comentario: comentario ?? null }) })
+    },
+    list: async (params?: { humor?: string; limit?: number; offset?: number }) => {
+      const qs = new URLSearchParams()
+      if (params?.humor) qs.set('humor', params.humor)
+      if (params?.limit) qs.set('limit', String(params.limit))
+      if (params?.offset) qs.set('offset', String(params.offset))
+      return request<{ items: any[]; total: number }>(`${BASE}/humor-feedback${qs.toString() ? '?' + qs : ''}`)
+    },
+  },
 }
