@@ -49,24 +49,24 @@ export default function IntranetLayout({ onSwitchPortal }: IntranetLayoutProps) 
       <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-40 shrink-0">
         <div className="max-w-screen-xl mx-auto px-4 flex items-center gap-4 h-14">
           {/* Logo */}
-          <div className="flex items-center gap-3 shrink-0 mr-4">
+          <div className="flex items-center gap-2 shrink-0 mr-2">
             <img src="/rema-logo.png" alt="Rema" className="h-7 object-contain" />
-            <span className="hidden sm:block text-xs font-semibold text-slate-400 uppercase tracking-widest">Intranet</span>
+            <span className="hidden lg:block text-xs font-semibold text-slate-400 uppercase tracking-widest">Intranet</span>
           </div>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-1 flex-1">
+          <nav className="hidden md:flex items-center gap-0.5 flex-1">
             {visibleNav.map(({ to, icon: Icon, label }) => (
               <button
                 key={to}
                 onClick={() => navigate(to)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
                   isActive(to)
                     ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50 hover:text-slate-900 dark:hover:text-slate-100'
                 }`}
               >
-                <Icon size={15} />
+                <Icon size={14} />
                 {label}
               </button>
             ))}
