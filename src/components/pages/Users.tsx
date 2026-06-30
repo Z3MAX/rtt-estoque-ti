@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react'
-import { Users, Plus, Pencil, ShieldCheck, Wrench, ToggleLeft, ToggleRight, X, Eye, EyeOff, Search, Mail, AlertTriangle, CheckCircle2, Send, Trash2, UserPlus, RefreshCw, CheckSquare, Square } from 'lucide-react'
+import { Users, Plus, Pencil, ShieldCheck, Wrench, ToggleLeft, ToggleRight, X, Eye, EyeOff, Search, Mail, AlertTriangle, CheckCircle2, Send, Trash2, UserPlus, RefreshCw, CheckSquare, Square, MailCheck } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import ConfirmDialog from '../ui/ConfirmDialog'
@@ -270,6 +270,7 @@ export default function UsersPage() {
   const [selectedGestores, setSelectedGestores] = useState<Set<number>>(new Set())
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
   const [deletingBulk, setDeletingBulk] = useState(false)
+  const [sendingInvites, setSendingInvites] = useState(false)
 
   const userIsAdmin = currentUser?.role === 'Administrador de RH' || currentUser?.role === 'Administrador de TI' || currentUser?.role === 'Administrador Master'
 
@@ -347,6 +348,26 @@ export default function UsersPage() {
     }
   }
 
+  async function sendAllPendingInvites() {
+    const pending = users.filter(u => u.role === 'Gestor' && u.must_change_password && u.active)
+    if (pending.length === 0) return
+    setSendingInvites(true)
+    try {
+      let sent = 0
+      let failed = 0
+      for (const u of pending) {
+        try { await api.users.resendInvite(u.id); sent++ } catch { failed++ }
+      }
+      const msg = failed > 0
+        ? `${sent} convite(s) enviado(s) · ${failed} falha(s)`
+        : `${sent} convite(s) enviado(s) com sucesso`
+      setResendStatus({ id: 0, ok: failed === 0, msg })
+      setTimeout(() => setResendStatus(null), 6000)
+    } finally {
+      setSendingInvites(false)
+    }
+  }
+
   const filtered = users.filter((u) => {
     const s = search.toLowerCase()
     return u.name.toLowerCase().includes(s) || u.email.toLowerCase().includes(s) || u.role.toLowerCase().includes(s)
@@ -385,6 +406,17 @@ export default function UsersPage() {
               {importingGestores ? <RefreshCw size={15} className="animate-spin" /> : <UserPlus size={15} />}
               Importar Gestores
             </button>
+            {users.some(u => u.role === 'Gestor' && u.must_change_password && u.active) && (
+              <button
+                onClick={sendAllPendingInvites}
+                disabled={sendingInvites}
+                className="btn-secondary gap-2"
+                title="Reenviar convite para todos os gestores com convite pendente"
+              >
+                {sendingInvites ? <RefreshCw size={15} className="animate-spin" /> : <MailCheck size={15} />}
+                Enviar Convites ({users.filter(u => u.role === 'Gestor' && u.must_change_password && u.active).length})
+              </button>
+            )}
             <button onClick={() => setModalUser(null)} className="btn-primary">
               <Plus size={16} /> Novo Usuário
             </button>
