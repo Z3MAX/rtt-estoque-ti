@@ -14,6 +14,7 @@ export default function PortalSelector({ onSelect }: Props) {
   }
 
   const firstName = user?.name?.split(' ')[0] ?? 'Colaborador'
+  const canAccessIntranet = user?.role === 'Administrador Master'
 
   return (
     <div className="min-h-screen w-full flex">
@@ -124,24 +125,26 @@ export default function PortalSelector({ onSelect }: Props) {
                 <ChevronRight size={16} className="text-slate-300 group-hover:text-primary-500 group-hover:translate-x-0.5 transition-all shrink-0" />
               </button>
 
-              {/* Intranet */}
-              <button
-                onClick={() => choose('intranet')}
-                className="group w-full flex items-center gap-4 p-4 rounded-xl border-2 border-slate-100 hover:border-emerald-500 hover:bg-emerald-50 transition-all duration-200 text-left"
-              >
-                <div className="w-11 h-11 rounded-xl bg-emerald-100 group-hover:bg-emerald-500 flex items-center justify-center shrink-0 transition-colors">
-                  <BookOpen size={20} className="text-emerald-600 group-hover:text-white transition-colors" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-800 group-hover:text-emerald-700 transition-colors">
-                    Intranet & Treinamentos
-                  </p>
-                  <p className="text-xs text-slate-400 mt-0.5 leading-snug">
-                    Comunicados, trilhas de aprendizado e PDI
-                  </p>
-                </div>
-                <ChevronRight size={16} className="text-slate-300 group-hover:text-emerald-500 group-hover:translate-x-0.5 transition-all shrink-0" />
-              </button>
+              {/* Intranet — apenas Administrador Master */}
+              {canAccessIntranet && (
+                <button
+                  onClick={() => choose('intranet')}
+                  className="group w-full flex items-center gap-4 p-4 rounded-xl border-2 border-slate-100 hover:border-emerald-500 hover:bg-emerald-50 transition-all duration-200 text-left"
+                >
+                  <div className="w-11 h-11 rounded-xl bg-emerald-100 group-hover:bg-emerald-500 flex items-center justify-center shrink-0 transition-colors">
+                    <BookOpen size={20} className="text-emerald-600 group-hover:text-white transition-colors" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-800 group-hover:text-emerald-700 transition-colors">
+                      Intranet & Treinamentos
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5 leading-snug">
+                      Comunicados, trilhas de aprendizado e PDI
+                    </p>
+                  </div>
+                  <ChevronRight size={16} className="text-slate-300 group-hover:text-emerald-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+                </button>
+              )}
             </div>
 
             {/* Sair */}
