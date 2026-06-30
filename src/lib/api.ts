@@ -143,6 +143,22 @@ export const api = {
       }
       return { success: true, inserted: totalInserted, updated: totalUpdated }
     },
+    importEmails: async (colaboradores: { nome: string; email: string }[]) => {
+      if (MOCK) { await delay(400); return { success: true, updated: colaboradores.length, notFound: 0 } }
+      const CHUNK = 500
+      let totalUpdated = 0
+      let totalNotFound = 0
+      for (let i = 0; i < colaboradores.length; i += CHUNK) {
+        const chunk = colaboradores.slice(i, i + CHUNK)
+        const result = await request<{ updated: number; notFound: number }>(`${BASE}/colaboradores`, {
+          method: 'POST',
+          body: JSON.stringify({ emailOnly: true, colaboradores: chunk }),
+        })
+        totalUpdated   += result.updated   ?? 0
+        totalNotFound  += result.notFound  ?? 0
+      }
+      return { success: true, updated: totalUpdated, notFound: totalNotFound }
+    },
   },
 
   avaliacoes: {
