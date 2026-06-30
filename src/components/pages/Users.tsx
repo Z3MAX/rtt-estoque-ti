@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react'
-import { Users, Plus, Pencil, ShieldCheck, Wrench, ToggleLeft, ToggleRight, X, Eye, EyeOff, Search, Mail, AlertTriangle, CheckCircle2, Send, Trash2, UserPlus, RefreshCw } from 'lucide-react'
+import { Users, Plus, Pencil, ShieldCheck, Wrench, ToggleLeft, ToggleRight, X, Eye, EyeOff, Search, Mail, AlertTriangle, CheckCircle2, Send, Trash2, UserPlus, RefreshCw, CheckSquare, Square } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import ConfirmDialog from '../ui/ConfirmDialog'
@@ -267,6 +267,9 @@ export default function UsersPage() {
   const [deleting, setDeleting]         = useState(false)
   const [importingGestores, setImportingGestores] = useState(false)
   const [importResult, setImportResult] = useState<{ created: number; updated: number; skipped: number } | null>(null)
+  const [selectedGestores, setSelectedGestores] = useState<Set<number>>(new Set())
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  const [deletingBulk, setDeletingBulk] = useState(false)
 
   const userIsAdmin = currentUser?.role === 'Administrador de RH' || currentUser?.role === 'Administrador de TI' || currentUser?.role === 'Administrador Master'
 
@@ -322,6 +325,25 @@ export default function UsersPage() {
       setTimeout(() => setResendStatus(null), 6000)
     } finally {
       setDeleting(false)
+    }
+  }
+
+  async function confirmBulkDeleteFn() {
+    setDeletingBulk(true)
+    const count = selectedGestores.size
+    try {
+      await Promise.all([...selectedGestores].map(id => api.users.delete(id)))
+      setSelectedGestores(new Set())
+      setConfirmBulkDelete(false)
+      await load()
+      setResendStatus({ id: 0, ok: true, msg: `${count} gestor(es) excluído(s) com sucesso` })
+      setTimeout(() => setResendStatus(null), 4000)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao excluir'
+      setResendStatus({ id: 0, ok: false, msg })
+      setTimeout(() => setResendStatus(null), 6000)
+    } finally {
+      setDeletingBulk(false)
     }
   }
 
@@ -419,16 +441,53 @@ export default function UsersPage() {
         </div>
       )}
 
+      {/* Barra de exclusão em lote de gestores */}
+      {userIsAdmin && selectedGestores.size > 0 && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl animate-slide-up">
+          <span className="text-sm font-medium text-red-700 dark:text-red-400">
+            {selectedGestores.size} gestor(es) selecionado(s)
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setSelectedGestores(new Set())}
+              className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 px-3 py-1.5 rounded-lg hover:bg-white/60 dark:hover:bg-slate-700/50 transition-colors"
+            >
+              Limpar seleção
+            </button>
+            <button
+              onClick={() => setConfirmBulkDelete(true)}
+              className="flex items-center gap-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <Trash2 size={13} /> Excluir selecionados
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* User groups */}
       {!loading && [
-        { title: 'Administradores de RH', icon: ShieldCheck, list: admins,   iconColor: 'text-primary-600 dark:text-primary-400', bgColor: 'bg-primary-100 dark:bg-primary-900/30' },
-        { title: 'Gestores',              icon: Wrench,      list: gestores, iconColor: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-100 dark:bg-emerald-900/30' },
-        { title: 'Outros',                icon: Users,       list: outros,   iconColor: 'text-slate-500 dark:text-slate-400',    bgColor: 'bg-slate-100 dark:bg-slate-700' },
-      ].map(({ title, icon: Icon, list, iconColor, bgColor }) =>
-        list.length > 0 && (
+        { title: 'Administradores de RH', icon: ShieldCheck, list: admins,   iconColor: 'text-primary-600 dark:text-primary-400', bgColor: 'bg-primary-100 dark:bg-primary-900/30', selectable: false },
+        { title: 'Gestores',              icon: Wrench,      list: gestores, iconColor: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-100 dark:bg-emerald-900/30', selectable: true  },
+        { title: 'Outros',                icon: Users,       list: outros,   iconColor: 'text-slate-500 dark:text-slate-400',    bgColor: 'bg-slate-100 dark:bg-slate-700',          selectable: false },
+      ].map(({ title, icon: Icon, list, iconColor, bgColor, selectable }) => {
+        const allSel = selectable && list.length > 0 && list.every(u => selectedGestores.has(u.id))
+        const someSel = selectable && list.some(u => selectedGestores.has(u.id))
+        return list.length > 0 && (
           <div key={title} className="card overflow-hidden">
             {/* Section header */}
             <div className="flex items-center gap-2.5 px-5 py-3.5 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700">
+              {userIsAdmin && selectable && (
+                <button
+                  onClick={() => {
+                    if (allSel) setSelectedGestores(prev => { const n = new Set(prev); list.forEach(u => n.delete(u.id)); return n })
+                    else setSelectedGestores(prev => { const n = new Set(prev); list.forEach(u => n.add(u.id)); return n })
+                  }}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                  title={allSel ? 'Desmarcar todos' : 'Selecionar todos'}
+                >
+                  {allSel ? <CheckSquare size={16} className="text-red-500" /> : someSel ? <CheckSquare size={16} className="text-red-300" /> : <Square size={16} />}
+                </button>
+              )}
               <div className={`w-6 h-6 rounded-lg ${bgColor} flex items-center justify-center`}>
                 <Icon size={13} className={iconColor} />
               </div>
@@ -439,7 +498,17 @@ export default function UsersPage() {
             {/* User rows */}
             <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
               {list.map((u) => (
-                <div key={u.id} className={`flex items-center gap-4 px-5 py-4 hover:bg-slate-50/70 dark:hover:bg-slate-700/30 transition-colors ${!u.active ? 'opacity-50' : ''}`}>
+                <div key={u.id} className={`flex items-center gap-4 px-5 py-4 hover:bg-slate-50/70 dark:hover:bg-slate-700/30 transition-colors ${!u.active ? 'opacity-50' : ''} ${selectedGestores.has(u.id) ? 'bg-red-50/40 dark:bg-red-900/10' : ''}`}>
+                  {/* Checkbox (apenas gestores) */}
+                  {userIsAdmin && selectable && (
+                    <button
+                      onClick={() => setSelectedGestores(prev => { const n = new Set(prev); n.has(u.id) ? n.delete(u.id) : n.add(u.id); return n })}
+                      className="text-slate-400 hover:text-red-500 transition-colors shrink-0"
+                    >
+                      {selectedGestores.has(u.id) ? <CheckSquare size={16} className="text-red-500" /> : <Square size={16} />}
+                    </button>
+                  )}
+
                   {/* Avatar */}
                   <div className={`w-10 h-10 rounded-full ${avatarColor(u.id)} flex items-center justify-center shrink-0 text-white text-sm font-bold`}>
                     {initials(u.name)}
@@ -522,7 +591,7 @@ export default function UsersPage() {
             </div>
           </div>
         )
-      )}
+      })}
 
       {!loading && filtered.length === 0 && (
         <div className="card p-12 flex flex-col items-center gap-3 text-center">
@@ -545,7 +614,7 @@ export default function UsersPage() {
         />
       )}
 
-      {/* Confirm permanent delete */}
+      {/* Confirm permanent delete — individual */}
       <ConfirmDialog
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
@@ -553,6 +622,16 @@ export default function UsersPage() {
         loading={deleting}
         title="Excluir usuário permanentemente"
         message={`Tem certeza que deseja excluir "${deleteTarget?.name}" de forma permanente? Esta ação é irreversível e todos os dados do usuário serão removidos do sistema.`}
+      />
+
+      {/* Confirm bulk delete — gestores */}
+      <ConfirmDialog
+        open={confirmBulkDelete}
+        onClose={() => setConfirmBulkDelete(false)}
+        onConfirm={confirmBulkDeleteFn}
+        loading={deletingBulk}
+        title={`Excluir ${selectedGestores.size} gestor(es) permanentemente`}
+        message={`Tem certeza que deseja excluir os ${selectedGestores.size} gestor(es) selecionados? Esta ação é irreversível.`}
       />
 
       {importResult && (
