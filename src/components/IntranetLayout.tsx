@@ -50,7 +50,7 @@ export default function IntranetLayout({ onSwitchPortal }: IntranetLayoutProps) 
         <div className="max-w-screen-xl mx-auto px-4 flex items-center gap-4 h-14">
           {/* Logo */}
           <div className="flex items-center gap-2 shrink-0 mr-2">
-            <img src="/rema-logo.png" alt="Rema" className="h-7 object-contain" />
+            <img src="/rema-logo.png" alt="Rema" className="h-10 object-contain" />
             <span className="hidden lg:block text-xs font-semibold text-slate-400 uppercase tracking-widest">Intranet</span>
           </div>
 
