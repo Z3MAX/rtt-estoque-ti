@@ -26,11 +26,12 @@ exports.handler = async (event) => {
   try {
     requireAdmin(event)
 
-    // Busca todos os gestores únicos com a área que mais aparece para cada um
+    // Busca todos os gestores únicos com a área e email mais frequentes
     const gestores = await sql`
       SELECT
         gestor_nome AS nome,
         MODE() WITHIN GROUP (ORDER BY area) AS area_principal,
+        MODE() WITHIN GROUP (ORDER BY email) FILTER (WHERE email IS NOT NULL AND TRIM(email) <> '') AS email_real,
         COUNT(DISTINCT area)::int AS total_areas,
         COUNT(*)::int AS total_colabs
       FROM colaboradores
@@ -53,12 +54,12 @@ exports.handler = async (event) => {
         continue
       }
 
-      // Gera email único
-      let email = toEmail(g.nome)
+      // Usa o email real importado da planilha; gera fallback apenas se não houver
+      let email = g.email_real && g.email_real.trim() ? g.email_real.trim().toLowerCase() : toEmail(g.nome)
       let counter = 2
       while (existingEmails.has(email)) {
-        const base = toEmail(g.nome).replace('@', `${counter}@`)
-        email = base
+        const [local, domain] = (g.email_real && g.email_real.trim() ? g.email_real.trim().toLowerCase() : toEmail(g.nome)).split('@')
+        email = `${local}${counter}@${domain}`
         counter++
       }
       existingEmails.add(email)

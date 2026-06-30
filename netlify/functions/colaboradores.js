@@ -98,40 +98,6 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'POST') {
       const body = JSON.parse(event.body || '{}')
 
-      // ── Modo emailOnly: atualiza apenas o campo email pelo nome ──────────────
-      if (body.emailOnly && Array.isArray(body.colaboradores)) {
-        if (isGestor) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado' }) }
-        const valid = body.colaboradores.filter(c => c.nome?.trim() && c.email?.trim())
-        if (valid.length === 0) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Nenhum registro válido (nome + email obrigatórios)' }) }
-
-        let updated = 0
-        let notFound = 0
-        const BATCH = 200
-        for (let i = 0; i < valid.length; i += BATCH) {
-          const chunk = valid.slice(i, i + BATCH)
-          const nomes  = chunk.map(c => c.nome.trim())
-          const emails = chunk.map(c => c.email.trim())
-          const result = await sql`
-            WITH input AS (
-              SELECT * FROM unnest(${nomes}::text[], ${emails}::text[]) AS t(nome, email)
-            ),
-            upd AS (
-              UPDATE colaboradores c
-              SET email = i.email, updated_at = NOW()
-              FROM input i
-              WHERE LOWER(TRIM(c.nome)) = LOWER(TRIM(i.nome)) AND c.ativo = true
-              RETURNING c.id
-            )
-            SELECT
-              (SELECT COUNT(*) FROM upd)::int AS updated,
-              (SELECT COUNT(*) FROM input)::int AS total
-          `
-          updated  += result[0]?.updated || 0
-          notFound += (result[0]?.total || 0) - (result[0]?.updated || 0)
-        }
-        return { statusCode: 200, headers, body: JSON.stringify({ success: true, updated, notFound }) }
-      }
-
       if (body.bulk && Array.isArray(body.colaboradores)) {
         if (isGestor) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado' }) }
         const rawValid = body.colaboradores.filter(c => c.nome && c.nome.trim())

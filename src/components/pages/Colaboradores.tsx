@@ -260,122 +260,6 @@ function ImportModal({ onImport, onClose }: ImportModalProps) {
   )
 }
 
-// ─── Import Emails Modal ──────────────────────────────────────────────────────
-
-interface ImportEmailsModalProps { onClose: () => void; onDone: (msg: string) => void }
-
-function ImportEmailsModal({ onClose, onDone }: ImportEmailsModalProps) {
-  const [rows, setRows] = useState<{ nome: string; email: string }[]>([])
-  const [importing, setImporting] = useState(false)
-  const [error, setError] = useState('')
-  const fileRef = useRef<HTMLInputElement>(null)
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      try {
-        const wb = XLSX.read(ev.target?.result, { type: 'binary' })
-        const ws = wb.Sheets[wb.SheetNames[0]]
-        const raw = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: '' })
-        const parsed = raw.map(row => {
-          let nome = '', email = ''
-          for (const [k, v] of Object.entries(row)) {
-            const key = normalizeKey(k)
-            const val = typeof v === 'string' ? v.trim() : String(v ?? '').trim()
-            if (!nome && (key === 'nome' || key === 'name' || key === 'nomecompleto')) nome = val
-            if (!email && key === 'email') email = val
-          }
-          return { nome, email }
-        }).filter(r => r.nome && r.email)
-        setRows(parsed)
-        setError(parsed.length === 0 ? 'Nenhum registro válido. Verifique se há colunas "Nome" e "Email".' : '')
-      } catch {
-        setError('Erro ao ler o arquivo. Verifique se é um Excel válido.')
-      }
-    }
-    reader.readAsBinaryString(file)
-  }
-
-  const handleImport = async () => {
-    setImporting(true)
-    try {
-      const r = await api.colaboradores.importEmails(rows) as { updated: number; notFound: number }
-      const parts = [`${r.updated} e-mail(s) atualizado(s)`]
-      if (r.notFound > 0) parts.push(`${r.notFound} não encontrado(s)`)
-      onDone(parts.join(' · '))
-      onClose()
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setImporting(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-xl animate-slide-up">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700">
-          <h2 className="font-semibold text-slate-900 dark:text-slate-100 text-sm">Importar e-mails de gestores</h2>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"><X size={16} /></button>
-        </div>
-        <div className="p-6 space-y-4">
-          <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-600 p-6 text-center">
-            <Upload size={28} className="mx-auto text-slate-400 mb-2" />
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
-              Planilha <strong>.xlsx</strong> com colunas <em>Nome</em> e <em>Email</em>.<br />
-              O nome será usado para localizar o colaborador e atualizar apenas o e-mail.
-            </p>
-            <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleFile} className="hidden" />
-            <button type="button" onClick={() => fileRef.current?.click()} className="btn-secondary text-xs">
-              Escolher arquivo
-            </button>
-          </div>
-
-          {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 rounded-xl text-red-600 dark:text-red-400 text-sm">
-              <AlertCircle size={14} /> {error}
-            </div>
-          )}
-
-          {rows.length > 0 && (
-            <div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">{rows.length} registro(s) identificados — prévia:</p>
-              <div className="max-h-52 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700">
-                <table className="w-full text-xs">
-                  <thead className="bg-slate-50 dark:bg-slate-900/50">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-slate-500">Nome</th>
-                      <th className="px-3 py-2 text-left font-medium text-slate-500">E-mail</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                    {rows.slice(0, 20).map((r, i) => (
-                      <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
-                        <td className="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">{r.nome}</td>
-                        <td className="px-3 py-2 text-slate-500">{r.email}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {rows.length > 20 && <p className="text-center text-xs text-slate-400 py-2">... e mais {rows.length - 20} registros</p>}
-              </div>
-            </div>
-          )}
-
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancelar</button>
-            <button onClick={handleImport} disabled={rows.length === 0 || importing} className="btn-primary flex-1">
-              {importing ? 'Atualizando...' : `Atualizar ${rows.length} e-mail(s)`}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ColaboradoresPage() {
@@ -388,7 +272,6 @@ export default function ColaboradoresPage() {
   const [search, setSearch] = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [showImport, setShowImport] = useState(false)
-  const [showImportEmails, setShowImportEmails] = useState(false)
   const [toast, setToast] = useState('')
 
   // Seleção
@@ -474,10 +357,7 @@ export default function ColaboradoresPage() {
           <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Colaboradores</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{colabs.length} colaborador(es) na base</p>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <button onClick={() => setShowImportEmails(true)} className="btn-secondary gap-2">
-            <Upload size={15} /> Importar Gestores
-          </button>
+        <div className="flex gap-2">
           <button onClick={() => setShowImport(true)} className="btn-secondary gap-2">
             <Upload size={15} /> Importar Excel
           </button>
@@ -624,12 +504,6 @@ export default function ColaboradoresPage() {
 
       {showAdd && <ColabModal onSave={handleCreate} onClose={() => setShowAdd(false)} />}
       {showImport && <ImportModal onImport={handleImport} onClose={() => setShowImport(false)} />}
-      {showImportEmails && (
-        <ImportEmailsModal
-          onClose={() => setShowImportEmails(false)}
-          onDone={msg => showToast(msg)}
-        />
-      )}
 
       {/* Confirmação: excluir individual */}
       <ConfirmDialog
