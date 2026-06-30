@@ -12,9 +12,10 @@ exports.handler = async (event) => {
   try {
     const authPayload = requireAuth(event)
     const isGestor   = authPayload.role === 'Gestor'
-    const gestorArea = authPayload.area || null
+    const gestorName = authPayload.name || null
 
-    // Colaboradores que nunca foram avaliados (ou cuja última avaliação não é recente)
+    // Colaboradores que nunca foram avaliados
+    // Gestores só veem colaboradores onde gestor_nome = seu próprio nome
     const rows = await sql`
       SELECT
         c.id,
@@ -33,7 +34,7 @@ exports.handler = async (event) => {
          ORDER BY ca3.created_at DESC LIMIT 1) AS ultimo_quadrante
       FROM colaboradores c
       WHERE c.ativo = true
-        AND (${!isGestor} OR c.area = ${gestorArea})
+        AND (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
         AND NOT EXISTS (
           SELECT 1 FROM ciclos_avaliacao ca
           WHERE ca.colaborador_id = c.id AND ca.status = 'concluido'

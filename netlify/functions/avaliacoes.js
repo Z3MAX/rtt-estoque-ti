@@ -15,8 +15,8 @@ exports.handler = async (event) => {
 
   try {
     const authPayload = requireAuth(event)
-    const isGestor = authPayload.role === 'Gestor'
-    const gestorArea = authPayload.area || null
+    const isGestor   = authPayload.role === 'Gestor'
+    const gestorName = authPayload.name || null
 
     if (event.httpMethod === 'GET') {
       if (id) {
@@ -24,7 +24,7 @@ exports.handler = async (event) => {
           SELECT ca.* FROM ciclos_avaliacao ca
           LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
           WHERE ca.id = ${id}
-            AND (${!isGestor} OR c.area = ${gestorArea})
+            AND (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
         `
         if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Não encontrado' }) }
         return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
@@ -37,14 +37,14 @@ exports.handler = async (event) => {
           SELECT ca.*, c.nome AS colaborador_nome FROM ciclos_avaliacao ca
           LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
           WHERE ca.colaborador_id = ${colaboradorId}
-            AND (${!isGestor} OR c.area = ${gestorArea})
+            AND (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
           ORDER BY ca.created_at DESC
         `
       } else {
         rows = await sql`
           SELECT ca.*, c.nome AS colaborador_nome FROM ciclos_avaliacao ca
           LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
-          WHERE (${!isGestor} OR c.area = ${gestorArea})
+          WHERE (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
           ORDER BY ca.created_at DESC
         `
       }
@@ -69,11 +69,12 @@ exports.handler = async (event) => {
         return { statusCode: 403, headers, body: JSON.stringify({ error: 'Nenhum ciclo de avaliação está aberto no momento. Aguarde o RH abrir um novo ciclo.' }) }
       }
 
-      // Gestor só pode avaliar colaboradores do seu departamento
-      if (isGestor && gestorArea) {
-        const check = await sql`SELECT area FROM colaboradores WHERE id = ${colaborador_id}`
-        if (check.length === 0 || check[0].area !== gestorArea) {
-          return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado: colaborador não pertence ao seu departamento' }) }
+      // Gestor só pode avaliar colaboradores onde ele é o gestor_nome
+      if (isGestor && gestorName) {
+        const check = await sql`SELECT gestor_nome FROM colaboradores WHERE id = ${colaborador_id}`
+        const nomeColabGestor = (check[0]?.gestor_nome || '').trim().toLowerCase()
+        if (check.length === 0 || nomeColabGestor !== gestorName.trim().toLowerCase()) {
+          return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado: você não é o gestor responsável por este colaborador' }) }
         }
       }
 
