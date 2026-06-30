@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Plus, Edit2, X, Trash2, AlertCircle, RefreshCw, ClipboardList, ChevronRight, ShieldCheck, Info } from 'lucide-react'
 import { api } from '../../lib/api'
+import { useAuth, isAdmin } from '../../lib/auth'
 import type { Colaborador, CicloAvaliacao, NivelCargo } from '../../lib/types'
 import { NIVEL_LABELS } from '../../lib/types'
 
@@ -587,6 +588,7 @@ function EditModal({ colab, onSave, onClose }: EditModalProps) {
 export default function ColaboradorPerfil() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [colab, setColab] = useState<Colaborador | null>(null)
   const [avaliacoes, setAvaliacoes] = useState<CicloAvaliacao[]>([])
   const [loading, setLoading] = useState(true)
@@ -594,6 +596,10 @@ export default function ColaboradorPerfil() {
   const [showEdit, setShowEdit] = useState(false)
   const [deleting, setDeleting] = useState<number | null>(null)
   const [toast, setToast] = useState('')
+
+  const canEvaluate = user?.role !== 'Gestor' || (
+    (colab?.gestor_nome || '').trim().toLowerCase() === (user?.name || '').trim().toLowerCase()
+  )
 
   const load = async () => {
     if (!id) return
@@ -711,7 +717,7 @@ export default function ColaboradorPerfil() {
                 <p className="text-sm text-slate-700 dark:text-slate-300">{colab.area || '—'}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wide font-medium mb-0.5">E-mail</p>
+                <p className="text-xs text-slate-400 uppercase tracking-wide font-medium mb-0.5">E-mail do Gestor</p>
                 <p className="text-sm text-slate-700 dark:text-slate-300 truncate">{colab.email || '—'}</p>
               </div>
               <div>
@@ -755,21 +761,25 @@ export default function ColaboradorPerfil() {
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
             Ciclos de Avaliação ({avaliacoes.length})
           </h2>
-          <button
-            onClick={() => navigate(`/avaliacoes/nova/${colab.id}`)}
-            className="btn-primary text-xs gap-1.5"
-          >
-            <Plus size={13} /> Nova avaliação
-          </button>
+          {canEvaluate && (
+            <button
+              onClick={() => navigate(`/avaliacoes/nova/${colab.id}`)}
+              className="btn-primary text-xs gap-1.5"
+            >
+              <Plus size={13} /> Nova avaliação
+            </button>
+          )}
         </div>
 
         {avaliacoes.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-4">
             <ClipboardList size={36} className="opacity-40" />
             <p className="text-sm">Nenhuma avaliação registrada</p>
-            <button onClick={() => navigate(`/avaliacoes/nova/${colab.id}`)} className="btn-primary text-xs gap-1.5">
-              <Plus size={13} /> Iniciar primeira avaliação
-            </button>
+            {canEvaluate && (
+              <button onClick={() => navigate(`/avaliacoes/nova/${colab.id}`)} className="btn-primary text-xs gap-1.5">
+                <Plus size={13} /> Iniciar primeira avaliação
+              </button>
+            )}
           </div>
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-slate-700">
