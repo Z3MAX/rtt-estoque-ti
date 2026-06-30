@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth, isAdmin, isMaster } from './lib/auth'
 import { ThemeProvider, ForceLightMode } from './lib/theme'
@@ -38,6 +38,19 @@ function ProtectedRoutes() {
     const stored = localStorage.getItem('rtt_portal')
     return (stored === 'avaliacao' || stored === 'intranet') ? stored : null
   })
+
+  // Reset portal on every fresh login (user transitions null → non-null).
+  // The login function already removes 'rtt_portal' from localStorage,
+  // but the React state isn't updated because ProtectedRoutes stays mounted.
+  const prevUserIdRef = useRef<number | undefined>(user?.id)
+  useEffect(() => {
+    const prevId = prevUserIdRef.current
+    prevUserIdRef.current = user?.id
+    if (!prevId && user?.id) {
+      // Fresh login: always show portal selector regardless of stale state
+      setPortal(null)
+    }
+  }, [user?.id])
 
   if (loading) {
     return (
