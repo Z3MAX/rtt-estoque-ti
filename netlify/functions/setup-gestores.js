@@ -40,31 +40,42 @@ exports.handler = async (event) => {
       ORDER BY gestor_nome
     `
 
-    // Emails já existentes
-    const existingUsers = await sql`SELECT email, name FROM users`
-    const existingEmails = new Set(existingUsers.map(u => u.email.toLowerCase()))
-    const existingNames  = new Set(existingUsers.map(u => u.name.toLowerCase()))
+    // Usuários existentes indexados por nome (lowercase)
+    const existingUsers = await sql`SELECT id, email, name FROM users`
+    const existingByName  = new Map(existingUsers.map(u => [u.name.toLowerCase(), u]))
+    const existingEmails  = new Set(existingUsers.map(u => u.email.toLowerCase()))
 
-    const created = []
-    const skipped = []
+    const created      = []
+    const emailUpdated = []
+    const skipped      = []
 
     for (const g of gestores) {
-      if (existingNames.has(g.nome.toLowerCase())) {
-        skipped.push({ nome: g.nome, motivo: 'já existe' })
+      if (!g.email_real || !g.email_real.trim()) continue // sem email real, ignora
+
+      const emailReal = g.email_real.trim().toLowerCase()
+      const existing  = existingByName.get(g.nome.toLowerCase())
+
+      if (existing) {
+        // Gestor já existe — atualiza email se for diferente
+        if (existing.email.toLowerCase() !== emailReal) {
+          await sql`UPDATE users SET email = ${emailReal} WHERE id = ${existing.id}`
+          emailUpdated.push({ nome: g.nome, email_anterior: existing.email, email_novo: emailReal })
+        } else {
+          skipped.push({ nome: g.nome, motivo: 'email já correto' })
+        }
         continue
       }
 
-      // Usa o email real importado da planilha; gera fallback apenas se não houver
-      let email = g.email_real && g.email_real.trim() ? g.email_real.trim().toLowerCase() : toEmail(g.nome)
+      // Gestor novo — cria conta
+      let email = emailReal
       let counter = 2
       while (existingEmails.has(email)) {
-        const [local, domain] = (g.email_real && g.email_real.trim() ? g.email_real.trim().toLowerCase() : toEmail(g.nome)).split('@')
+        const [local, domain] = emailReal.split('@')
         email = `${local}${counter}@${domain}`
         counter++
       }
       existingEmails.add(email)
 
-      // Senha temporária aleatória por usuário (nunca compartilhada entre gestores)
       const tempPwd = crypto.randomBytes(12).toString('hex')
       const hash = await hashPassword(tempPwd)
 
@@ -89,9 +100,11 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         success: true,
         created: created.length,
+        updated: emailUpdated.length,
         skipped: skipped.length,
         usuarios: created,
-        aviso: 'As senhas temporárias são exibidas apenas nesta resposta. Guarde-as antes de fechar.',
+        atualizados: emailUpdated,
+        aviso: created.length > 0 ? 'As senhas temporárias são exibidas apenas nesta resposta. Guarde-as antes de fechar.' : undefined,
       }),
     }
   } catch (err) {

@@ -266,7 +266,7 @@ export default function UsersPage() {
   const [deleteTarget, setDeleteTarget] = useState<AppUser | null>(null)
   const [deleting, setDeleting]         = useState(false)
   const [importingGestores, setImportingGestores] = useState(false)
-  const [importResult, setImportResult] = useState<{ created: number; skipped: number } | null>(null)
+  const [importResult, setImportResult] = useState<{ created: number; updated: number; skipped: number } | null>(null)
 
   const userIsAdmin = currentUser?.role === 'Administrador de RH' || currentUser?.role === 'Administrador de TI' || currentUser?.role === 'Administrador Master'
 
@@ -349,7 +349,7 @@ export default function UsersPage() {
                 setImportingGestores(true)
                 setImportResult(null)
                 try {
-                  const r = await (api as any).setupGestores() as { created: number; skipped: number }
+                  const r = await (api as any).setupGestores() as { created: number; updated: number; skipped: number }
                   setImportResult(r)
                   await load()
                 } finally {
@@ -561,7 +561,11 @@ export default function UsersPage() {
           <div>
             <p className="text-sm font-semibold">Gestores importados</p>
             <p className="text-xs opacity-70 mt-0.5">
-              {importResult.created} criado(s) · {importResult.skipped} já existiam
+              {importResult.created > 0 && `${importResult.created} criado(s)`}
+              {importResult.created > 0 && (importResult.updated > 0 || importResult.skipped > 0) && ' · '}
+              {importResult.updated > 0 && `${importResult.updated} e-mail(s) atualizado(s)`}
+              {importResult.updated > 0 && importResult.skipped > 0 && ' · '}
+              {importResult.skipped > 0 && `${importResult.skipped} sem alteração`}
             </p>
             <p className="text-xs opacity-50 mt-0.5">Senhas temporárias individuais retornadas na resposta da API.</p>
           </div>
