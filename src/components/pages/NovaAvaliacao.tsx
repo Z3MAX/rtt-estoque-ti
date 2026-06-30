@@ -467,7 +467,7 @@ export default function NovaAvaliacao() {
   const [loadingColab, setLoadingColab] = useState(true)
   const [cicloAtivo, setCicloAtivo] = useState<{ id: number; periodo_inicial: string; prazo?: string } | null | undefined>(undefined)
   const [avaliador, setAvaliador] = useState(user?.name ?? '')
-  const [tipo, setTipo] = useState('')
+  const [tipo, setTipo] = useState('lideranca')
   const [periodoInicial, setPeriodoInicial] = useState('')
   const [periodoFinal, setPeriodoFinal] = useState('')
   const [ratings, setRatings] = useState<Record<string, number>>({})
@@ -712,11 +712,7 @@ export default function NovaAvaliacao() {
           </div>
           <div>
             <label className="label">Tipo de avaliação</label>
-            <select className="input" value={tipo} onChange={e => setTipo(e.target.value)}>
-              <option value="">Selecione</option>
-              <option value="autoavaliacao">Autoavaliação Semestral</option>
-              <option value="lideranca">Avaliação pela liderança (Top-Down)</option>
-            </select>
+            <input className="input bg-slate-50 dark:bg-slate-800 cursor-not-allowed" value="Avaliação pela liderança (Top-Down)" readOnly />
           </div>
           <div>
             <label className="label">
