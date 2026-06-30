@@ -31,7 +31,7 @@ export default function PortalSelector({ onSelect }: Props) {
             <img
               src="/rema-logo.png"
               alt="Rema Tip Top"
-              className="h-14 w-auto object-contain select-none brightness-0 invert"
+              className="h-14 w-auto object-contain select-none"
               onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
             />
           </div>
