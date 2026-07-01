@@ -2,6 +2,7 @@ const { neon } = require('@neondatabase/serverless')
 const crypto = require('crypto')
 const { requireAdmin, makeHeaders, errorResponse } = require('./_auth')
 const { sendInviteEmail } = require('./_email')
+const { logAudit, getUserName } = require('./_audit')
 
 exports.handler = async (event) => {
   const headers = makeHeaders(event, 'POST, OPTIONS')
@@ -19,7 +20,7 @@ exports.handler = async (event) => {
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'SMTP_USER ou SMTP_PASS não configurado nas variáveis de ambiente do Netlify' }) }
 
   try {
-    requireAdmin(event)
+    const authPayload = requireAdmin(event)
     const sql = neon(process.env.DATABASE_URL)
 
     const { userId } = JSON.parse(event.body || '{}')
@@ -71,6 +72,17 @@ exports.handler = async (event) => {
       return { statusCode: 500, headers, body: JSON.stringify({ error: 'Credenciais de e-mail não configuradas no Netlify' }) }
     if (result.error)
       return { statusCode: 500, headers, body: JSON.stringify({ error: `Falha ao enviar e-mail: ${result.error}` }) }
+
+    const actorName = await getUserName(sql, authPayload.userId)
+    await logAudit(sql, {
+      entityType: 'user',
+      entityId: user.id,
+      entityName: user.name,
+      action: 'invite_sent',
+      changes: null,
+      userId: authPayload.userId,
+      userName: actorName,
+    })
 
     return { statusCode: 200, headers, body: JSON.stringify({ success: true, email: user.email }) }
   } catch (err) {

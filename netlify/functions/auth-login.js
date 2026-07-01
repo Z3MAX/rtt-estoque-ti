@@ -2,6 +2,7 @@ const { neon } = require('@neondatabase/serverless')
 const crypto = require('crypto')
 const { hashPassword, comparePassword } = require('./_hash')
 const { signToken, makeHeaders, errorResponse } = require('./_auth')
+const { checkRateLimit, recordAttempt, clearAttempts, MAX_PER_EMAIL, MAX_PER_IP } = require('./_rate_limit')
 
 exports.handler = async (event) => {
   const headers = makeHeaders(event, 'POST, OPTIONS')
@@ -29,6 +30,13 @@ exports.handler = async (event) => {
   const sql = neon(process.env.DATABASE_URL)
 
   try {
+    // Rate limiting: bloqueia após muitas tentativas
+    const rl = await checkRateLimit(sql, event, email)
+    if (rl.emailCount >= MAX_PER_EMAIL || rl.ipCount >= MAX_PER_IP) {
+      await new Promise(r => setTimeout(r, 400))
+      return { statusCode: 429, headers, body: JSON.stringify({ error: 'Muitas tentativas de login. Tente novamente em 15 minutos.' }) }
+    }
+
     // Busca por e-mail (sem conferir senha no SQL para evitar timing attacks)
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT`
 
@@ -42,6 +50,7 @@ exports.handler = async (event) => {
     await new Promise((r) => setTimeout(r, 400))
 
     if (rows.length === 0) {
+      await recordAttempt(sql, event, email)
       return { statusCode: 401, headers, body: JSON.stringify({ error: 'E-mail ou senha incorretos' }) }
     }
 
@@ -64,6 +73,7 @@ exports.handler = async (event) => {
     }
 
     if (!valid) {
+      await recordAttempt(sql, event, email)
       return { statusCode: 401, headers, body: JSON.stringify({ error: 'E-mail ou senha incorretos' }) }
     }
 
@@ -81,6 +91,7 @@ exports.handler = async (event) => {
     }
 
     const token = signToken(tokenPayload)
+    await clearAttempts(sql, email)
 
     return {
       statusCode: 200,

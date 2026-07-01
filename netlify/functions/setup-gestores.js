@@ -2,6 +2,7 @@ const { neon } = require('@neondatabase/serverless')
 const crypto = require('crypto')
 const { requireAdmin, makeHeaders, errorResponse } = require('./_auth')
 const { hashPassword } = require('./_hash')
+const { logAudit, getUserName } = require('./_audit')
 
 function toEmail(name) {
   const parts = name.trim()
@@ -24,7 +25,7 @@ exports.handler = async (event) => {
   const sql = neon(process.env.DATABASE_URL)
 
   try {
-    requireAdmin(event)
+    const authPayload = requireAdmin(event)
 
     // Busca todos os gestores únicos com a área e email mais frequentes
     const gestores = await sql`
@@ -91,7 +92,20 @@ exports.handler = async (event) => {
           true
         )
       `
-      created.push({ nome: g.nome, email, area: g.area_principal, total_colabs: g.total_colabs, senha_temporaria: tempPwd })
+      created.push({ nome: g.nome, email, area: g.area_principal, total_colabs: g.total_colabs })
+    }
+
+    const actorName = await getUserName(sql, authPayload.userId)
+    if (created.length > 0 || emailUpdated.length > 0) {
+      await logAudit(sql, {
+        entityType: 'user',
+        entityId: 0,
+        entityName: `Importação de gestores (${created.length} criados, ${emailUpdated.length} atualizados)`,
+        action: 'bulk_import',
+        changes: { created: created.map(c => c.nome), updated: emailUpdated.map(u => u.nome) },
+        userId: authPayload.userId,
+        userName: actorName,
+      })
     }
 
     return {
@@ -104,7 +118,6 @@ exports.handler = async (event) => {
         skipped: skipped.length,
         usuarios: created,
         atualizados: emailUpdated,
-        aviso: created.length > 0 ? 'As senhas temporárias são exibidas apenas nesta resposta. Guarde-as antes de fechar.' : undefined,
       }),
     }
   } catch (err) {
