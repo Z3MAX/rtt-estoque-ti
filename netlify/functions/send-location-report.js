@@ -1,5 +1,5 @@
 const { neon } = require('@neondatabase/serverless')
-const { requireAuth, makeHeaders, errorResponse } = require('./_auth')
+const { requireAuth, requireAdmin, isAdminRole, makeHeaders, errorResponse } = require('./_auth')
 const { sendLocationReport } = require('./_email')
 const { getUserName } = require('./_audit')
 
@@ -26,6 +26,14 @@ exports.handler = async (event) => {
     const locs = await sql`SELECT * FROM locations WHERE id = ${locationId}`
     if (locs.length === 0)
       return { statusCode: 404, headers, body: JSON.stringify({ error: 'Local não encontrado' }) }
+
+    // Apenas admins podem enviar para qualquer e-mail; não-admins só podem enviar para o e-mail do gestor do local
+    const loc = locs[0]
+    if (!isAdminRole(authPayload.role)) {
+      const managerEmail = (loc.manager_email || '').trim().toLowerCase()
+      if (!managerEmail || toEmail.trim().toLowerCase() !== managerEmail)
+        return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado: e-mail de destino não corresponde ao gestor deste local' }) }
+    }
 
     // Busca equipamentos do local com joins
     const equipment = await sql`

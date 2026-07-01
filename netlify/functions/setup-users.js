@@ -66,18 +66,14 @@ exports.handler = async (event) => {
         ('Equipe TI',        'ti@rtt.com',                      ${hash3}, 'Técnico de TI',       true)
       `
 
-      // Senhas exibidas UMA VEZ na resposta — anote e descarte
+      // Senhas NÃO são retornadas na resposta — use "Esqueci minha senha" para definir a senha inicial
       return {
         statusCode: 200,
         headers,
         body: JSON.stringify({
           success: true,
-          message: 'Usuários criados. ANOTE AS SENHAS ABAIXO — elas não serão exibidas novamente. Use "Esqueci minha senha" para recuperar o acesso futuramente.',
-          temporaryPasswords: {
-            'alexandre.amorim@rttshop.com.br': pw1,
-            'admin@rtt.com': pw2,
-            'ti@rtt.com': pw3,
-          },
+          message: 'Usuários criados com senhas aleatórias. Use o fluxo "Esqueci minha senha" em cada conta para definir a senha inicial.',
+          users: ['alexandre.amorim@rttshop.com.br', 'admin@rtt.com', 'ti@rtt.com'],
         }),
       }
     }

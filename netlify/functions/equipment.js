@@ -1,5 +1,5 @@
 const { neon } = require('@neondatabase/serverless')
-const { requireAuth, makeHeaders, errorResponse } = require('./_auth')
+const { requireAuth, requireAdmin, makeHeaders, errorResponse } = require('./_auth')
 const { logAudit, computeDiff, resolveIdFields, getUserName } = require('./_audit')
 
 const VALID_STATUSES = ['disponivel', 'em_uso', 'manutencao', 'inativo']
@@ -152,6 +152,7 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'POST') {
+      requireAdmin(event)
       const body = JSON.parse(event.body || '{}')
       const {
         name, category_id, brand, model, serial_number, asset_tag,
@@ -199,6 +200,7 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'PUT') {
+      requireAdmin(event)
       if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'ID obrigatório' }) }
 
       const body = JSON.parse(event.body || '{}')
@@ -249,6 +251,7 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'DELETE') {
+      requireAdmin(event)
       if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'ID obrigatório' }) }
 
       const existing = await sql`SELECT * FROM equipment WHERE id = ${id}`

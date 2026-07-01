@@ -64,7 +64,11 @@ function signToken(payload) {
 function makeHeaders(event, methods = 'GET, POST, PUT, DELETE, OPTIONS') {
   const siteUrl = process.env.SITE_URL || ''
   const origin = (event && event.headers && (event.headers.origin || event.headers.Origin)) || ''
-  const allowOrigin = siteUrl ? (origin === siteUrl ? origin : siteUrl) : (origin || '*')
+  // Nunca refletir origem arbitrária — usar allowlist explícita
+  const allowed = siteUrl.split(',').map(s => s.trim()).filter(Boolean)
+  const allowOrigin = allowed.length > 0
+    ? (allowed.includes(origin) ? origin : allowed[0])
+    : '*'
   return {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': allowOrigin,
