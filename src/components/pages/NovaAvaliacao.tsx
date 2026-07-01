@@ -169,7 +169,7 @@ const COMP_LIDERANCA: Competencia[] = [
   },
 ]
 
-const NIVEIS_LIDERANCA: NivelCargo[] = ['senior', 'supervisor', 'especialista', 'coordenador', 'gerente', 'diretor']
+const NIVEIS_LIDERANCA: NivelCargo[] = ['senior', 'supervisor', 'especialista', 'consultor', 'engenheiro', 'coordenador', 'gerente', 'gerente_executivo', 'diretor']
 
 const PERIODOS = [
   { value: '2Sem_2024', label: '2º Semestre / 2024' },
@@ -457,14 +457,21 @@ function BarRow({ label, value, color }: { label: string; value: number; color: 
 function inferirNivel(cargo?: string): NivelCargo | '' {
   if (!cargo) return ''
   const c = cargo.toUpperCase()
-  if (/DIR(ETOR)?/.test(c))                             return 'diretor'
-  if (/GER(ENTE)?/.test(c))                             return 'gerente'
-  if (/COORD(ENADOR)?/.test(c))                         return 'coordenador'
-  if (/SUP(ERVISOR)?/.test(c))                          return 'supervisor'
-  if (/ESP(ECIALISTA)?/.test(c))                        return 'especialista'
-  if (/S[EÊ]N?IOR|SR\.?$|SR\s/.test(c))                return 'senior'
-  if (/PLENO|PL\.?$|PL\s/.test(c))                     return 'pleno'
-  if (/J[UÚ]NIOR|JR\.?$|JR\s/.test(c))                return 'junior'
+  if (/DIR(ETOR)?/.test(c))                              return 'diretor'
+  if (/GER(ENTE)?\s+EXEC/.test(c))                      return 'gerente_executivo'
+  if (/GER(ENTE)?/.test(c))                              return 'gerente'
+  if (/COORD(ENADOR)?/.test(c))                          return 'coordenador'
+  if (/SUP(ERVISOR)?/.test(c))                           return 'supervisor'
+  if (/ESP(ECIALISTA)?/.test(c))                         return 'especialista'
+  if (/CONSUL(TOR)?/.test(c))                            return 'consultor'
+  if (/ENG(ENHEIRO)?/.test(c))                           return 'engenheiro'
+  if (/T[EÉ]CN(ICO)?/.test(c))                          return 'tecnico'
+  if (/VEND(EDOR)?/.test(c))                             return 'vendedor'
+  if (/ASSIST(ENTE)?/.test(c))                           return 'assistente'
+  if (/S[EÊ]N?IOR|SR\.?$|SR\s/.test(c))                 return 'senior'
+  if (/PLENO|PL\.?$|PL\s/.test(c))                      return 'pleno'
+  if (/J[UÚ]NIOR|JR\.?$|JR\s/.test(c))                 return 'junior'
+  if (/TRAINEE/.test(c))                                 return 'trainee'
   return ''
 }
 

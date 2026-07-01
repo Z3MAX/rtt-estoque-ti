@@ -1,16 +1,25 @@
 export type NivelCargo =
-  | 'junior' | 'pleno' | 'senior' | 'supervisor'
-  | 'especialista' | 'coordenador' | 'gerente' | 'diretor'
+  | 'trainee' | 'junior' | 'pleno' | 'senior'
+  | 'assistente' | 'tecnico' | 'vendedor'
+  | 'supervisor' | 'especialista' | 'consultor' | 'engenheiro'
+  | 'coordenador' | 'gerente' | 'gerente_executivo' | 'diretor'
 
 export const NIVEL_LABELS: Record<NivelCargo, string> = {
-  junior:      'Analista Júnior',
-  pleno:       'Analista Pleno',
-  senior:      'Analista Sênior',
-  supervisor:  'Supervisor',
-  especialista:'Especialista',
-  coordenador: 'Coordenador',
-  gerente:     'Gerente',
-  diretor:     'Diretor Regional',
+  trainee:          'Trainee',
+  junior:           'Analista Júnior',
+  pleno:            'Analista Pleno',
+  senior:           'Analista Sênior',
+  assistente:       'Assistente',
+  tecnico:          'Técnico',
+  vendedor:         'Vendedor',
+  supervisor:       'Supervisor',
+  especialista:     'Especialista',
+  consultor:        'Consultor',
+  engenheiro:       'Engenheiro',
+  coordenador:      'Coordenador',
+  gerente:          'Gerente',
+  gerente_executivo:'Gerente Executivo',
+  diretor:          'Diretor Regional',
 }
 
 export interface Colaborador {
