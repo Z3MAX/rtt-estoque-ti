@@ -169,7 +169,7 @@ const COMP_LIDERANCA: Competencia[] = [
   },
 ]
 
-const NIVEIS_LIDERANCA: NivelCargo[] = ['senior', 'supervisor', 'especialista', 'consultor', 'engenheiro', 'coordenador', 'gerente', 'gerente_executivo', 'diretor']
+const NIVEIS_LIDERANCA: NivelCargo[] = ['senior', 'supervisor', 'especialista', 'coordenador', 'gerente', 'gerente_executivo', 'diretor']
 
 const PERIODOS = [
   { value: '2Sem_2024', label: '2º Semestre / 2024' },
