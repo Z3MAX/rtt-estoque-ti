@@ -467,6 +467,7 @@ export default function NovaAvaliacao() {
   const [loadingColab, setLoadingColab] = useState(true)
   const [cicloAtivo, setCicloAtivo] = useState<{ id: number; periodo_inicial: string; prazo?: string } | null | undefined>(undefined)
   const [avaliador, setAvaliador] = useState(user?.name ?? '')
+  const [nivelSelecionado, setNivelSelecionado] = useState<NivelCargo | ''>('')
   const [tipo, setTipo] = useState('lideranca')
   const [periodoInicial, setPeriodoInicial] = useState('')
   const [periodoFinal, setPeriodoFinal] = useState('')
@@ -509,6 +510,7 @@ export default function NovaAvaliacao() {
       try {
         const c = await api.colaboradores.get(Number(colaboradorId)) as Colaborador
         setColab(c ?? null)
+        if (c?.nivel) setNivelSelecionado(c.nivel as NivelCargo)
         if (editId) {
           const av = await api.avaliacoes.get(editId) as CicloAvaliacao
           if (av) {
@@ -584,7 +586,7 @@ export default function NovaAvaliacao() {
     )
   }
 
-  const nivel = colab.nivel as NivelCargo | undefined
+  const nivel = (nivelSelecionado || colab.nivel) as NivelCargo | undefined
   const temLideranca = nivel ? NIVEIS_LIDERANCA.includes(nivel) : false
   const compDesempenho = temLideranca ? COMP_DESEMPENHO.slice(0, 4) : COMP_DESEMPENHO
   const compLideranca  = temLideranca ? COMP_LIDERANCA : []
@@ -705,10 +707,23 @@ export default function NovaAvaliacao() {
           <User size={15} className="text-primary-500" />
           <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Identificação Corporativa</p>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="label">Avaliador</label>
             <input className="input" value={avaliador} onChange={e => setAvaliador(e.target.value)} placeholder="Nome do avaliador" />
+          </div>
+          <div>
+            <label className="label">Nível do cargo</label>
+            <select
+              className="input"
+              value={nivelSelecionado}
+              onChange={e => { setNivelSelecionado(e.target.value as NivelCargo | ''); setRatings({}); setObservations({}) }}
+            >
+              <option value="">Selecione o nível</option>
+              {(Object.entries(NIVEL_LABELS) as [NivelCargo, string][]).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="label">Tipo de avaliação</label>
