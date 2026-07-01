@@ -452,6 +452,22 @@ function BarRow({ label, value, color }: { label: string; value: number; color: 
   )
 }
 
+// ─── Inferência de nível a partir do nome do cargo ───────────────────────────
+
+function inferirNivel(cargo?: string): NivelCargo | '' {
+  if (!cargo) return ''
+  const c = cargo.toUpperCase()
+  if (/DIR(ETOR)?/.test(c))                             return 'diretor'
+  if (/GER(ENTE)?/.test(c))                             return 'gerente'
+  if (/COORD(ENADOR)?/.test(c))                         return 'coordenador'
+  if (/SUP(ERVISOR)?/.test(c))                          return 'supervisor'
+  if (/ESP(ECIALISTA)?/.test(c))                        return 'especialista'
+  if (/S[EÊ]N?IOR|SR\.?$|SR\s/.test(c))                return 'senior'
+  if (/PLENO|PL\.?$|PL\s/.test(c))                     return 'pleno'
+  if (/J[UÚ]NIOR|JR\.?$|JR\s/.test(c))                return 'junior'
+  return ''
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function NovaAvaliacao() {
@@ -510,7 +526,8 @@ export default function NovaAvaliacao() {
       try {
         const c = await api.colaboradores.get(Number(colaboradorId)) as Colaborador
         setColab(c ?? null)
-        if (c?.nivel) setNivelSelecionado(c.nivel as NivelCargo)
+        const nivelDetectado = (c?.nivel as NivelCargo | undefined) || inferirNivel(c?.cargo) as NivelCargo
+        if (nivelDetectado) setNivelSelecionado(nivelDetectado)
         if (editId) {
           const av = await api.avaliacoes.get(editId) as CicloAvaliacao
           if (av) {
