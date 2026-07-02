@@ -20,10 +20,10 @@ exports.handler = async (event) => {
     // Admins plenos veem todos; demais usuários com área definida veem só a sua área
     const ADMIN_ROLES = ['Administrador de RH', 'Administrador de TI', 'Administrador Master', 'Administrador de RH / Gestor']
     const isFullAdmin = ADMIN_ROLES.includes(authPayload.role)
-    const filterByArea = !isFullAdmin && !!userArea
 
-    const isGestor = filterByArea
-    const gestorArea = userArea
+
+    const isGestor = authPayload.role === 'Gestor'
+    const gestorName = authPayload.name || null
 
     // Add new columns if table predates them
     await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS data_nascimento DATE`
@@ -45,7 +45,7 @@ exports.handler = async (event) => {
              ORDER BY ca3.created_at DESC LIMIT 1) AS ultima_avaliacao
           FROM colaboradores c
           WHERE c.id = ${id}
-            AND (${!filterByArea} OR c.area = ${gestorArea})
+            AND (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
         `
         if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Colaborador não encontrado' }) }
         return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
@@ -66,7 +66,7 @@ exports.handler = async (event) => {
              ORDER BY ca3.created_at DESC LIMIT 1) AS ultima_avaliacao
           FROM colaboradores c
           WHERE c.ativo = true
-            AND (${!filterByArea} OR c.area = ${gestorArea})
+            AND (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
             AND (
               LOWER(c.nome)        LIKE ${'%' + search + '%'} OR
               LOWER(c.cargo)       LIKE ${'%' + search + '%'} OR
@@ -88,7 +88,7 @@ exports.handler = async (event) => {
              ORDER BY ca3.created_at DESC LIMIT 1) AS ultima_avaliacao
           FROM colaboradores c
           WHERE c.ativo = true
-            AND (${!filterByArea} OR c.area = ${gestorArea})
+            AND (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
           ORDER BY c.nome ASC
         `
       }
@@ -198,10 +198,10 @@ exports.handler = async (event) => {
 
     if (event.httpMethod === 'PUT') {
       if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'ID necessário' }) }
-      if (isGestor && gestorArea) {
-        const owner = await sql`SELECT area FROM colaboradores WHERE id = ${id}`
-        if (!owner.length || owner[0].area !== gestorArea)
-          return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado: colaborador não pertence ao seu departamento' }) }
+      if (isGestor && gestorName) {
+        const owner = await sql`SELECT gestor_nome FROM colaboradores WHERE id = ${id}`
+        if (!owner.length || (owner[0].gestor_nome || '').trim().toLowerCase() !== gestorName.trim().toLowerCase())
+          return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado: colaborador não é seu direto' }) }
       }
       const body = JSON.parse(event.body || '{}')
       const { nome, cargo, nivel, area, email, gestor_nome, data_nascimento, data_admissao, photo_url, bio } = body
