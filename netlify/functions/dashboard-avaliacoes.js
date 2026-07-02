@@ -48,6 +48,20 @@ exports.handler = async (event) => {
       WHERE ca.status = ANY(${statusFiltro})
         AND (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
     `
+    // Avaliados pelo gestor = pendente + concluido (independente de ser admin ou gestor)
+    const [collabAvalsGestor] = await sql`
+      SELECT COUNT(DISTINCT ca.colaborador_id)::int AS n FROM ciclos_avaliacao ca
+      LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
+      WHERE ca.status IN ('pendente', 'concluido')
+        AND (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
+    `
+    // Aguardando calibração do RH
+    const [pendenteCalibracao] = await sql`
+      SELECT COUNT(DISTINCT ca.colaborador_id)::int AS n FROM ciclos_avaliacao ca
+      LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
+      WHERE ca.status = 'pendente'
+        AND (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
+    `
 
     const quadrantesRaw = await sql`
       SELECT ca.quadrante, COUNT(*)::int AS count
@@ -87,10 +101,12 @@ exports.handler = async (event) => {
       statusCode: 200,
       headers,
       body: JSON.stringify({
-        total_colaboradores:  totalColabs.n,
-        total_avaliacoes:     totalAvals.n,
-        avaliacoes_concluidas: totalConc.n,
-        colaboradores_avaliados: collabAvals.n,
+        total_colaboradores:        totalColabs.n,
+        total_avaliacoes:           totalAvals.n,
+        avaliacoes_concluidas:      totalConc.n,
+        colaboradores_avaliados:    collabAvals.n,
+        colaboradores_avaliados_gestor: collabAvalsGestor.n,
+        pendente_calibracao:        pendenteCalibracao.n,
         distribuicao_quadrantes,
         avaliacoes_recentes: recentes,
         avaliacoes_por_periodo: porPeriodo,
