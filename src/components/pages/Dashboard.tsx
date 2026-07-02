@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Users, CheckCircle2, Clock, TrendingUp, RefreshCw, ChevronRight } from 'lucide-react'
+import { Users, CheckCircle2, Clock, TrendingUp, RefreshCw, ChevronRight, Hourglass } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { api } from '../../lib/api'
 import type { DashboardAvaliacoes, CicloAvaliacao } from '../../lib/types'
@@ -88,7 +88,7 @@ export default function Dashboard() {
   }
 
   const taxaAvaliacao = data && data.total_colaboradores > 0
-    ? Math.round((data.colaboradores_avaliados / data.total_colaboradores) * 100)
+    ? Math.round(((data.colaboradores_avaliados_gestor ?? data.colaboradores_avaliados) / data.total_colaboradores) * 100)
     : 0
 
   return (
@@ -106,11 +106,12 @@ export default function Dashboard() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 xl:grid-cols-5 gap-4">
         <KpiCard label="Colaboradores" value={data?.total_colaboradores ?? 0} icon={Users} colorClass="bg-primary-500" sub="ativos na base" />
         <KpiCard label="Avaliações concluídas" value={data?.avaliacoes_concluidas ?? 0} icon={CheckCircle2} colorClass="bg-emerald-500" sub={`de ${data?.total_avaliacoes ?? 0} registradas`} />
-        <KpiCard label="Colaboradores avaliados" value={data?.colaboradores_avaliados ?? 0} icon={TrendingUp} colorClass="bg-blue-500" sub={`${taxaAvaliacao}% da base`} />
-        <KpiCard label="Sem avaliação" value={(data?.total_colaboradores ?? 0) - (data?.colaboradores_avaliados ?? 0)} icon={Clock} colorClass="bg-amber-500" sub="aguardam ciclo" />
+        <KpiCard label="Avaliados pelo Gestor" value={data?.colaboradores_avaliados_gestor ?? data?.colaboradores_avaliados ?? 0} icon={TrendingUp} colorClass="bg-blue-500" sub={`${taxaAvaliacao}% da base`} />
+        <KpiCard label="Ag. Calibração RH" value={data?.pendente_calibracao ?? 0} icon={Hourglass} colorClass="bg-amber-500" sub="aguardam calibração" />
+        <KpiCard label="Sem avaliação" value={(data?.total_colaboradores ?? 0) - (data?.colaboradores_avaliados_gestor ?? data?.colaboradores_avaliados ?? 0)} icon={Clock} colorClass="bg-slate-500" sub="aguardam ciclo" />
       </div>
 
       {/* Charts */}

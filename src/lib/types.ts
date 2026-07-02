@@ -76,6 +76,8 @@ export interface DashboardAvaliacoes {
   total_avaliacoes: number
   avaliacoes_concluidas: number
   colaboradores_avaliados: number
+  colaboradores_avaliados_gestor?: number
+  pendente_calibracao?: number
   distribuicao_quadrantes: Array<{ quadrante: string; count: number; label: string }>
   avaliacoes_recentes: CicloAvaliacao[]
   avaliacoes_por_periodo: Array<{ periodo: string; count: number }>
