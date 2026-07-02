@@ -69,6 +69,17 @@ exports.handler = async (event) => {
         return { statusCode: 403, headers, body: JSON.stringify({ error: 'Nenhum ciclo de avaliação está aberto no momento. Aguarde o RH abrir um novo ciclo.' }) }
       }
 
+      // Bloqueia duplicata: mesmo colaborador no mesmo ciclo
+      const duplicate = await sql`
+        SELECT id FROM ciclos_avaliacao
+        WHERE colaborador_id = ${colaborador_id}
+          AND periodo_inicial = ${activeCycle[0].periodo_inicial}
+        LIMIT 1
+      `
+      if (duplicate.length > 0) {
+        return { statusCode: 409, headers, body: JSON.stringify({ error: 'Já existe uma avaliação para este colaborador neste ciclo.' }) }
+      }
+
       // Gestor só pode avaliar colaboradores onde ele é o gestor_nome
       if (isGestor && gestorName) {
         const check = await sql`SELECT gestor_nome FROM colaboradores WHERE id = ${colaborador_id}`

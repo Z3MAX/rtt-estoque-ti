@@ -597,9 +597,14 @@ export default function ColaboradorPerfil() {
   const [deleting, setDeleting] = useState<number | null>(null)
   const [toast, setToast] = useState('')
 
-  const canEvaluate = user?.role !== 'Gestor' || (
+  const isGestorImediato = user?.role !== 'Gestor' || (
     (colab?.gestor_nome || '').trim().toLowerCase() === (user?.name || '').trim().toLowerCase()
   )
+
+  // Gestores não podem criar nova avaliação se já existe uma pendente (ciclo atual em andamento)
+  const temPendente = user?.role === 'Gestor' && avaliacoes.some(a => a.status === 'pendente')
+
+  const canEvaluate = isGestorImediato && !temPendente
 
   const load = async () => {
     if (!id) return
