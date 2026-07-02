@@ -135,11 +135,11 @@ exports.handler = async (event) => {
             ),
             upd AS (
               UPDATE colaboradores c
-              SET cargo       = i.cargo,
-                  nivel       = i.nivel,
-                  area        = i.area,
-                  email       = i.email,
-                  gestor_nome = i.gestor_nome,
+              SET cargo       = COALESCE(i.cargo,       c.cargo),
+                  nivel       = COALESCE(i.nivel,       c.nivel),
+                  area        = COALESCE(i.area,        c.area),
+                  email       = COALESCE(i.email,       c.email),
+                  gestor_nome = COALESCE(i.gestor_nome, c.gestor_nome),
                   ativo       = true,
                   updated_at  = NOW()
               FROM input i
