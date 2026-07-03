@@ -24,6 +24,7 @@ import AuditoriaPage from './components/pages/Auditoria'
 import CicloAvaliacaoPage from './components/pages/CicloAvaliacao'
 import MinhaVisao from './components/pages/intranet/MinhaVisao'
 import TreinamentosPage from './components/pages/intranet/Treinamentos'
+import CursoDetalhe from './components/pages/intranet/CursoDetalhe'
 import ComunicadosPage from './components/pages/intranet/Comunicados'
 import PDIPage from './components/pages/intranet/PDI'
 import EquipePage from './components/pages/intranet/Equipe'
@@ -88,6 +89,7 @@ function ProtectedRoutes() {
           <Route path="/" element={<Navigate to="/intranet" replace />} />
           <Route path="/intranet" element={<MinhaVisao />} />
           <Route path="/intranet/treinamentos" element={<TreinamentosPage />} />
+          <Route path="/intranet/treinamentos/:id" element={<CursoDetalhe />} />
           <Route path="/intranet/comunicados" element={<ComunicadosPage />} />
           <Route path="/intranet/pdi" element={<PDIPage />} />
           <Route path="/intranet/equipe" element={<EquipePage />} />

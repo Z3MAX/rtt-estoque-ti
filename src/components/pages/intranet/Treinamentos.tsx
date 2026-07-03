@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Search, X, BookOpen, Clock, Star, CheckCircle2, Play, Award,
   ChevronRight, Users, BarChart2, ShieldCheck, Video, FileText,
@@ -1753,6 +1754,7 @@ function EnviarCursosModal({ todosCursos, onClose }: { todosCursos: Treinamento[
 
 export default function TreinamentosPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const podeGerenciar = isAdmin(user?.role) || isGestor(user?.role)
 
   const [view, setView] = useState<'meus' | 'gestao'>('meus')
@@ -1970,7 +1972,7 @@ export default function TreinamentosPage() {
                   return (
                     <button
                       key={t.id}
-                      onClick={() => setModalCurso(t)}
+                      onClick={() => navigate(`/intranet/treinamentos/${t.id}`)}
                       className="flex items-center gap-3 p-3.5 bg-white dark:bg-slate-900 border border-red-100 dark:border-red-900/50 rounded-2xl hover:border-red-300 dark:hover:border-red-700 hover:shadow-sm transition-all text-left group/ob"
                     >
                       <span className="text-xl shrink-0">{t.icone}</span>
@@ -2047,7 +2049,7 @@ export default function TreinamentosPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                {filtered.map(t => <CourseCard key={t.id} t={t} onClick={() => setModalCurso(t)} canAdmin={isAdmin(user?.role)} onEdit={e => { e.stopPropagation(); setEditCurso(t) }} />)}
+                {filtered.map(t => <CourseCard key={t.id} t={t} onClick={() => navigate(`/intranet/treinamentos/${t.id}`)} canAdmin={isAdmin(user?.role)} onEdit={e => { e.stopPropagation(); setEditCurso(t) }} />)}
               </div>
             )
           ) : (
@@ -2060,7 +2062,7 @@ export default function TreinamentosPage() {
                   key={trilha.id}
                   trilha={trilha}
                   cursos={cursos.filter(t => t.trilhaId === trilha.id)}
-                  onCursoClick={setModalCurso}
+                  onCursoClick={t => navigate(`/intranet/treinamentos/${t.id}`)}
                 />
               ))}
               {/* Cursos sem trilha */}
@@ -2069,7 +2071,7 @@ export default function TreinamentosPage() {
                   <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Cursos avulsos</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                     {cursos.filter(t => !t.trilhaId && (categoria === 'Todos' || t.categoria === categoria)).map(t => (
-                      <CourseCard key={t.id} t={t} onClick={() => setModalCurso(t)} />
+                      <CourseCard key={t.id} t={t} onClick={() => navigate(`/intranet/treinamentos/${t.id}`)} />
                     ))}
                   </div>
                 </div>
