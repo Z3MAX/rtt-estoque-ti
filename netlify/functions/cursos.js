@@ -133,6 +133,7 @@ exports.handler = async (event) => {
       total_alunos INTEGER DEFAULT 0,
       capa_from    TEXT DEFAULT 'from-slate-500',
       capa_to      TEXT DEFAULT 'to-slate-600',
+      capa_url     TEXT,
       icone        TEXT DEFAULT '📚',
       trilha_id    INTEGER,
       modulos      JSONB DEFAULT '[]',
@@ -170,11 +171,11 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'POST') {
-      const { titulo, descricao, categoria, duracao, nivel, obrigatorio, instrutor, avaliacao, total_alunos, capa_from, capa_to, icone, trilha_id, modulos, ordem } = JSON.parse(event.body || '{}')
+      const { titulo, descricao, categoria, duracao, nivel, obrigatorio, instrutor, avaliacao, total_alunos, capa_from, capa_to, capa_url, icone, trilha_id, modulos, ordem } = JSON.parse(event.body || '{}')
       if (!titulo) return { statusCode: 400, headers, body: JSON.stringify({ error: 'titulo obrigatório' }) }
       const rows = await sql`
-        INSERT INTO cursos (titulo, descricao, categoria, duracao, nivel, obrigatorio, instrutor, avaliacao, total_alunos, capa_from, capa_to, icone, trilha_id, modulos, ordem)
-        VALUES (${titulo}, ${descricao ?? null}, ${categoria ?? 'Geral'}, ${duracao ?? ''}, ${nivel ?? 'Básico'}, ${obrigatorio ?? false}, ${instrutor ?? ''}, ${avaliacao ?? 5.0}, ${total_alunos ?? 0}, ${capa_from ?? 'from-slate-500'}, ${capa_to ?? 'to-slate-600'}, ${icone ?? '📚'}, ${trilha_id ?? null}, ${JSON.stringify(modulos ?? [])}, ${ordem ?? 0})
+        INSERT INTO cursos (titulo, descricao, categoria, duracao, nivel, obrigatorio, instrutor, avaliacao, total_alunos, capa_from, capa_to, capa_url, icone, trilha_id, modulos, ordem)
+        VALUES (${titulo}, ${descricao ?? null}, ${categoria ?? 'Geral'}, ${duracao ?? ''}, ${nivel ?? 'Básico'}, ${obrigatorio ?? false}, ${instrutor ?? ''}, ${avaliacao ?? 5.0}, ${total_alunos ?? 0}, ${capa_from ?? 'from-slate-500'}, ${capa_to ?? 'to-slate-600'}, ${capa_url ?? null}, ${icone ?? '📚'}, ${trilha_id ?? null}, ${JSON.stringify(modulos ?? [])}, ${ordem ?? 0})
         RETURNING *
       `
       return { statusCode: 201, headers, body: JSON.stringify(rows[0]) }
@@ -182,7 +183,8 @@ exports.handler = async (event) => {
 
     if (event.httpMethod === 'PUT') {
       if (!cursoId) return { statusCode: 400, headers, body: JSON.stringify({ error: 'id obrigatório' }) }
-      const { titulo, descricao, categoria, duracao, nivel, obrigatorio, instrutor, avaliacao, capa_from, capa_to, icone, trilha_id, modulos, ordem } = JSON.parse(event.body || '{}')
+      const { titulo, descricao, categoria, duracao, nivel, obrigatorio, instrutor, avaliacao, capa_from, capa_to, capa_url, icone, trilha_id, modulos, ordem } = JSON.parse(event.body || '{}')
+      await sql`ALTER TABLE cursos ADD COLUMN IF NOT EXISTS capa_url TEXT`
       const rows = await sql`
         UPDATE cursos SET
           titulo      = ${titulo},
@@ -195,6 +197,7 @@ exports.handler = async (event) => {
           avaliacao   = ${avaliacao ?? 5.0},
           capa_from   = ${capa_from},
           capa_to     = ${capa_to},
+          capa_url    = ${capa_url ?? null},
           icone       = ${icone ?? '📚'},
           trilha_id   = ${trilha_id ?? null},
           modulos     = ${JSON.stringify(modulos ?? [])}::jsonb,

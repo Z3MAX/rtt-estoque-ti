@@ -296,6 +296,7 @@ interface Treinamento {
   avaliacao: number
   totalAlunos: number
   capa: { from: string; to: string }
+  capaUrl?: string
   icone: string
   modulos: Modulo[]
   trilhaId?: number
@@ -464,6 +465,7 @@ function dbToTreinamento(row: any, progressoMap: Record<string, boolean> = {}): 
     avaliacao: parseFloat(row.avaliacao) || 5.0,
     totalAlunos: row.total_alunos ?? 0,
     capa: { from: row.capa_from ?? 'from-slate-500', to: row.capa_to ?? 'to-slate-600' },
+    capaUrl: row.capa_url ?? undefined,
     icone: row.icone ?? '📚',
     modulos,
     trilhaId: row.trilha_id ?? undefined,
@@ -548,6 +550,7 @@ function EditCursoModal({ curso, onClose, onSave, onDelete }: {
   const [icone, setIcone] = useState(curso?.icone ?? '📚')
   const [obrigatorio, setObrigatorio] = useState(curso?.obrigatorio ?? false)
   const [capa, setCapa] = useState(curso?.capa ?? { from: 'from-slate-500', to: 'to-slate-600' })
+  const [capaUrl, setCapaUrl] = useState(curso?.capaUrl ?? '')
   const [modulos, setModulos] = useState<ModuloEdit[]>(
     (curso?.modulos ?? []).map(m => ({ id: m.id, titulo: m.titulo, tipo: m.tipo, duracao: m.duracao }))
   )
@@ -580,6 +583,7 @@ function EditCursoModal({ curso, onClose, onSave, onDelete }: {
         obrigatorio,
         capa_from: capa.from,
         capa_to: capa.to,
+        capa_url: capaUrl.trim() || null,
         icone: icone.trim() || '📚',
         modulos: modulos.map(m => ({ id: m.id, titulo: m.titulo, tipo: m.tipo, duracao: m.duracao })),
       })
@@ -618,9 +622,13 @@ function EditCursoModal({ curso, onClose, onSave, onDelete }: {
 
         <div className="overflow-y-auto flex-1 p-6 space-y-5">
           {/* Preview */}
-          <div className={`bg-gradient-to-br ${capa.from} ${capa.to} rounded-xl p-4 flex items-center gap-3`}>
-            <span className="text-3xl">{icone || '📚'}</span>
-            <div>
+          <div
+            className={`relative rounded-xl p-4 flex items-center gap-3 overflow-hidden ${!capaUrl ? `bg-gradient-to-br ${capa.from} ${capa.to}` : ''}`}
+            style={capaUrl ? { backgroundImage: `url(${capaUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+          >
+            {capaUrl && <div className="absolute inset-0 bg-black/50" />}
+            <span className="relative text-3xl">{icone || '📚'}</span>
+            <div className="relative">
               <p className="text-white font-bold text-sm leading-tight">{titulo || 'Título do curso'}</p>
               <p className="text-white/70 text-xs mt-0.5">{instrutor || 'Instrutor'}</p>
             </div>
@@ -710,17 +718,39 @@ function EditCursoModal({ curso, onClose, onSave, onDelete }: {
           </label>
 
           {/* Capa */}
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Cor da capa</label>
-            <div className="grid grid-cols-6 gap-2">
-              {CAPA_PRESETS.map(p => (
-                <button
-                  key={p.from}
-                  onClick={() => setCapa({ from: p.from, to: p.to })}
-                  className={`h-8 rounded-lg bg-gradient-to-br ${p.from} ${p.to} transition-all ${capa.from === p.from ? 'ring-2 ring-offset-2 ring-primary-500' : 'hover:scale-105'}`}
-                  title={p.label}
-                />
-              ))}
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Imagem de capa (URL)</label>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs">
+                  <Link size={11} className="text-slate-400 shrink-0" />
+                  <input
+                    value={capaUrl}
+                    onChange={e => setCapaUrl(e.target.value)}
+                    placeholder="https://... (opcional — substitui a cor)"
+                    className="flex-1 bg-transparent outline-none text-slate-700 dark:text-slate-200 placeholder:text-slate-400"
+                  />
+                  {capaUrl && (
+                    <button onClick={() => setCapaUrl('')} className="text-slate-400 hover:text-slate-600 shrink-0">
+                      <X size={11} />
+                    </button>
+                  )}
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-400">Se preenchida, a imagem substitui a cor do gradiente.</p>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Cor da capa</label>
+              <div className={`grid grid-cols-6 gap-2 transition-opacity ${capaUrl ? 'opacity-40 pointer-events-none' : ''}`}>
+                {CAPA_PRESETS.map(p => (
+                  <button
+                    key={p.from}
+                    onClick={() => setCapa({ from: p.from, to: p.to })}
+                    className={`h-8 rounded-lg bg-gradient-to-br ${p.from} ${p.to} transition-all ${capa.from === p.from ? 'ring-2 ring-offset-2 ring-primary-500' : 'hover:scale-105'}`}
+                    title={p.label}
+                  />
+                ))}
+              </div>
             </div>
           </div>
 
@@ -829,7 +859,11 @@ function CourseCard({ t, onClick, onEdit, canAdmin }: { t: Treinamento; onClick:
       className="group bg-white dark:bg-slate-900 rounded-2xl overflow-hidden cursor-pointer flex flex-col shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)] hover:-translate-y-0.5 transition-all duration-200"
     >
       {/* Capa */}
-      <div className={`relative bg-gradient-to-br ${t.capa.from} ${t.capa.to} h-40 flex-shrink-0 overflow-hidden`}>
+      <div
+        className={`relative h-40 flex-shrink-0 overflow-hidden ${!t.capaUrl ? `bg-gradient-to-br ${t.capa.from} ${t.capa.to}` : 'bg-slate-900'}`}
+        style={t.capaUrl ? { backgroundImage: `url(${t.capaUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+      >
+        {t.capaUrl && <div className="absolute inset-0 bg-black/40" />}
         {/* Dot texture */}
         <div
           className="absolute inset-0 opacity-[0.08]"

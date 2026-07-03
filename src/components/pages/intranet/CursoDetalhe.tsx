@@ -54,6 +54,7 @@ interface Curso {
   avaliacao: number
   totalAlunos: number
   capa: { from: string; to: string }
+  capaUrl?: string
   icone: string
   modulos: Modulo[]
 }
@@ -327,6 +328,7 @@ function dbToCurso(row: any, progressoMap: Record<string, boolean> = {}): Curso 
     avaliacao: parseFloat(row.avaliacao) || 5.0,
     totalAlunos: row.total_alunos ?? 0,
     capa: { from: row.capa_from ?? 'from-slate-500', to: row.capa_to ?? 'to-slate-600' },
+    capaUrl: row.capa_url ?? undefined,
     icone: row.icone ?? '📚',
     modulos,
   }
@@ -449,7 +451,11 @@ export default function CursoDetalhe() {
     <div className="min-h-full bg-slate-50 dark:bg-slate-950 animate-fade-in">
 
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
-      <div className={`bg-gradient-to-br ${curso.capa.from} ${curso.capa.to} relative overflow-hidden`}>
+      <div
+        className={`relative overflow-hidden ${!curso.capaUrl ? `bg-gradient-to-br ${curso.capa.from} ${curso.capa.to}` : 'bg-slate-900'}`}
+        style={curso.capaUrl ? { backgroundImage: `url(${curso.capaUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+      >
+        {curso.capaUrl && <div className="absolute inset-0 bg-black/55" />}
         <div className="absolute inset-0 opacity-[0.07]"
           style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '18px 18px' }} />
 
