@@ -280,8 +280,12 @@ interface Modulo {
   id: number
   titulo: string
   duracao: string
-  tipo: 'video' | 'pdf' | 'quiz'
+  tipo: 'video' | 'pdf' | 'quiz' | 'texto' | 'link'
   concluido: boolean
+  descricao?: string
+  url?: string
+  conteudo?: string
+  quiz?: any
 }
 
 interface Treinamento {
@@ -531,7 +535,416 @@ function ProgressBar({ pct, sm }: { pct: number; sm?: boolean }) {
 
 // ─── EditCursoModal ───────────────────────────────────────────────────────────
 
-type ModuloEdit = { id: number; titulo: string; tipo: 'video' | 'pdf' | 'quiz'; duracao: string }
+type TipoModulo = 'video' | 'pdf' | 'quiz' | 'texto' | 'link'
+
+type OpcaoResposta = { id: number; texto: string }
+
+type Pergunta = {
+  id: number
+  pergunta: string
+  tipo: 'multipla_escolha' | 'verdadeiro_falso'
+  opcoes: OpcaoResposta[]
+  correta: number
+  explicacao?: string
+}
+
+type QuizConfig = {
+  aprovacao_minima: number
+  embaralhar: boolean
+  perguntas: Pergunta[]
+}
+
+type ModuloEdit = {
+  id: number
+  titulo: string
+  tipo: TipoModulo
+  duracao: string
+  descricao?: string
+  url?: string
+  conteudo?: string
+  quiz?: QuizConfig
+}
+
+const TIPO_MODULO_LABELS: Record<TipoModulo, string> = {
+  video:  'Vídeo',
+  pdf:    'PDF / Documento',
+  quiz:   'Quiz / Avaliação',
+  texto:  'Texto / Artigo',
+  link:   'Link externo',
+}
+
+const TIPO_MODULO_ICONS: Record<TipoModulo, React.ReactNode> = {
+  video:  <Video size={13} className="text-primary-500" />,
+  pdf:    <FileText size={13} className="text-amber-500" />,
+  quiz:   <HelpCircle size={13} className="text-violet-500" />,
+  texto:  <BookOpen size={13} className="text-emerald-500" />,
+  link:   <ExternalLink size={13} className="text-sky-500" />,
+}
+
+function newQuiz(): QuizConfig {
+  return { aprovacao_minima: 70, embaralhar: false, perguntas: [] }
+}
+
+function newPergunta(id: number): Pergunta {
+  return {
+    id,
+    pergunta: '',
+    tipo: 'multipla_escolha',
+    opcoes: [{ id: 1, texto: '' }, { id: 2, texto: '' }, { id: 3, texto: '' }, { id: 4, texto: '' }],
+    correta: 0,
+    explicacao: '',
+  }
+}
+
+// ─── ModuloEditorCard ─────────────────────────────────────────────────────────
+
+function ModuloEditorCard({ m, idx, total, onChange, onDelete, onMove }: {
+  m: ModuloEdit
+  idx: number
+  total: number
+  onChange: (updated: ModuloEdit) => void
+  onDelete: () => void
+  onMove: (dir: -1 | 1) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  function set(field: keyof ModuloEdit, value: any) {
+    onChange({ ...m, [field]: value })
+  }
+
+  function setTipo(tipo: TipoModulo) {
+    const base: ModuloEdit = { ...m, tipo, url: undefined, conteudo: undefined, quiz: undefined }
+    if (tipo === 'quiz' && !m.quiz) base.quiz = newQuiz()
+    onChange(base)
+  }
+
+  // Quiz helpers
+  function setQuiz(q: Partial<QuizConfig>) {
+    onChange({ ...m, quiz: { ...(m.quiz ?? newQuiz()), ...q } })
+  }
+
+  function addPergunta() {
+    const quiz = m.quiz ?? newQuiz()
+    const maxId = quiz.perguntas.length > 0 ? Math.max(...quiz.perguntas.map(p => p.id)) : 0
+    setQuiz({ perguntas: [...quiz.perguntas, newPergunta(maxId + 1)] })
+  }
+
+  function updatePergunta(pidx: number, updated: Pergunta) {
+    const perguntas = (m.quiz?.perguntas ?? []).map((p, i) => i === pidx ? updated : p)
+    setQuiz({ perguntas })
+  }
+
+  function deletePergunta(pidx: number) {
+    setQuiz({ perguntas: (m.quiz?.perguntas ?? []).filter((_, i) => i !== pidx) })
+  }
+
+  function setPerguntaTipo(pidx: number, tipo: Pergunta['tipo']) {
+    const p = m.quiz!.perguntas[pidx]
+    const updated: Pergunta = {
+      ...p,
+      tipo,
+      opcoes: tipo === 'verdadeiro_falso'
+        ? [{ id: 1, texto: 'Verdadeiro' }, { id: 2, texto: 'Falso' }]
+        : p.tipo === 'verdadeiro_falso'
+        ? [{ id: 1, texto: '' }, { id: 2, texto: '' }, { id: 3, texto: '' }, { id: 4, texto: '' }]
+        : p.opcoes,
+      correta: 0,
+    }
+    updatePergunta(pidx, updated)
+  }
+
+  const inputCls = 'w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-primary-500 placeholder:text-slate-400'
+
+  return (
+    <div className="border border-slate-200 dark:border-slate-600 rounded-xl overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center gap-2 px-3 py-2.5 bg-slate-50 dark:bg-slate-800">
+        {/* Ordem */}
+        <div className="flex flex-col gap-0.5 shrink-0">
+          <button disabled={idx === 0} onClick={() => onMove(-1)} className="text-slate-300 hover:text-slate-500 disabled:opacity-20 leading-none"><ChevronUp size={12} /></button>
+          <button disabled={idx === total - 1} onClick={() => onMove(1)} className="text-slate-300 hover:text-slate-500 disabled:opacity-20 leading-none"><ChevronDown size={12} /></button>
+        </div>
+        <span className="text-[10px] text-slate-400 font-bold w-4 shrink-0">{idx + 1}</span>
+
+        {/* Tipo icon */}
+        <div className="shrink-0">{TIPO_MODULO_ICONS[m.tipo]}</div>
+
+        {/* Título */}
+        <input
+          value={m.titulo}
+          onChange={e => set('titulo', e.target.value)}
+          placeholder="Título do módulo"
+          onClick={e => e.stopPropagation()}
+          className="flex-1 bg-transparent text-xs font-medium text-slate-700 dark:text-slate-200 placeholder:text-slate-400 outline-none min-w-0"
+        />
+
+        {/* Tipo select */}
+        <select
+          value={m.tipo}
+          onChange={e => setTipo(e.target.value as TipoModulo)}
+          onClick={e => e.stopPropagation()}
+          className="text-[11px] border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg px-1.5 py-1 focus:outline-none shrink-0"
+        >
+          {(Object.entries(TIPO_MODULO_LABELS) as [TipoModulo, string][]).map(([v, l]) => (
+            <option key={v} value={v}>{l}</option>
+          ))}
+        </select>
+
+        {/* Duração */}
+        <input
+          value={m.duracao}
+          onChange={e => set('duracao', e.target.value)}
+          placeholder="15min"
+          onClick={e => e.stopPropagation()}
+          className="w-14 text-center text-[11px] border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-primary-400 shrink-0"
+        />
+
+        {/* Expand */}
+        <button onClick={() => setExpanded(v => !v)} className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 shrink-0">
+          {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+        </button>
+
+        {/* Delete */}
+        <button onClick={onDelete} className="w-6 h-6 flex items-center justify-center rounded-lg text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0">
+          <Trash2 size={12} />
+        </button>
+      </div>
+
+      {/* Expanded body */}
+      {expanded && (
+        <div className="p-4 space-y-4 border-t border-slate-100 dark:border-slate-700">
+
+          {/* Descrição */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Descrição / instrução</label>
+            <textarea
+              value={m.descricao ?? ''}
+              onChange={e => set('descricao', e.target.value)}
+              placeholder="Explique o que o aluno vai encontrar neste módulo…"
+              rows={2}
+              className={inputCls + ' resize-none'}
+            />
+          </div>
+
+          {/* Tipo-specific */}
+          {(m.tipo === 'video') && (
+            <div className="space-y-1">
+              <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">URL do vídeo</label>
+              <input value={m.url ?? ''} onChange={e => set('url', e.target.value)} placeholder="YouTube, Vimeo ou .mp4 direto" className={inputCls} />
+              <p className="text-[10px] text-slate-400">Suporta youtube.com, youtu.be, vimeo.com e arquivos .mp4/.webm</p>
+            </div>
+          )}
+
+          {(m.tipo === 'pdf') && (
+            <div className="space-y-1">
+              <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">URL do PDF</label>
+              <input value={m.url ?? ''} onChange={e => set('url', e.target.value)} placeholder="https://... (link público do documento)" className={inputCls} />
+            </div>
+          )}
+
+          {(m.tipo === 'link') && (
+            <div className="space-y-1">
+              <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">URL externa</label>
+              <input value={m.url ?? ''} onChange={e => set('url', e.target.value)} placeholder="https://..." className={inputCls} />
+            </div>
+          )}
+
+          {(m.tipo === 'texto') && (
+            <div className="space-y-1">
+              <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Conteúdo do artigo</label>
+              <textarea
+                value={m.conteudo ?? ''}
+                onChange={e => set('conteudo', e.target.value)}
+                placeholder="Escreva o conteúdo do módulo aqui…"
+                rows={6}
+                className={inputCls + ' resize-y'}
+              />
+            </div>
+          )}
+
+          {/* ── Quiz Builder ── */}
+          {m.tipo === 'quiz' && (
+            <div className="space-y-4">
+              {/* Configurações gerais do quiz */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Nota mínima para aprovação (%)</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range" min={0} max={100} step={5}
+                      value={m.quiz?.aprovacao_minima ?? 70}
+                      onChange={e => setQuiz({ aprovacao_minima: parseInt(e.target.value) })}
+                      className="flex-1 accent-primary-500"
+                    />
+                    <span className="text-xs font-bold text-primary-600 w-10 text-right tabular-nums">{m.quiz?.aprovacao_minima ?? 70}%</span>
+                  </div>
+                </div>
+                <div className="flex items-end">
+                  <label className="flex items-center gap-2 cursor-pointer select-none pb-0.5">
+                    <div
+                      onClick={() => setQuiz({ embaralhar: !(m.quiz?.embaralhar ?? false) })}
+                      className={`w-8 h-5 rounded-full transition-colors relative cursor-pointer shrink-0 ${m.quiz?.embaralhar ? 'bg-primary-500' : 'bg-slate-300 dark:bg-slate-600'}`}
+                    >
+                      <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${m.quiz?.embaralhar ? 'left-3.5' : 'left-0.5'}`} />
+                    </div>
+                    <span className="text-xs text-slate-600 dark:text-slate-300">Embaralhar perguntas</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Perguntas */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                    Perguntas ({m.quiz?.perguntas.length ?? 0})
+                  </span>
+                  <button onClick={addPergunta} className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium">
+                    <Plus size={12} /> Adicionar pergunta
+                  </button>
+                </div>
+
+                {(m.quiz?.perguntas ?? []).length === 0 && (
+                  <div className="text-center py-4 border border-dashed border-slate-200 dark:border-slate-600 rounded-xl text-xs text-slate-400">
+                    Nenhuma pergunta ainda. Clique em "Adicionar pergunta".
+                  </div>
+                )}
+
+                {(m.quiz?.perguntas ?? []).map((p, pidx) => (
+                  <PerguntaEditor
+                    key={p.id}
+                    p={p}
+                    idx={pidx}
+                    onChange={updated => updatePergunta(pidx, updated)}
+                    onDelete={() => deletePergunta(pidx)}
+                    onSetTipo={tipo => setPerguntaTipo(pidx, tipo)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── PerguntaEditor ───────────────────────────────────────────────────────────
+
+function PerguntaEditor({ p, idx, onChange, onDelete, onSetTipo }: {
+  p: Pergunta; idx: number
+  onChange: (updated: Pergunta) => void
+  onDelete: () => void
+  onSetTipo: (tipo: Pergunta['tipo']) => void
+}) {
+  const [exp, setExp] = useState(true)
+  const inputCls = 'w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-primary-500 placeholder:text-slate-400'
+
+  return (
+    <div className="border border-slate-200 dark:border-slate-600 rounded-xl overflow-hidden bg-white dark:bg-slate-800/50">
+      {/* Header */}
+      <div className="flex items-center gap-2 px-3 py-2 bg-slate-50/80 dark:bg-slate-800">
+        <span className="text-[10px] font-bold text-slate-400 w-5">{idx + 1}</span>
+        <span className="flex-1 text-xs text-slate-600 dark:text-slate-300 truncate font-medium">
+          {p.pergunta || <span className="text-slate-400 italic">Pergunta sem texto</span>}
+        </span>
+        <select
+          value={p.tipo}
+          onChange={e => onSetTipo(e.target.value as Pergunta['tipo'])}
+          className="text-[11px] border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg px-1.5 py-1 focus:outline-none shrink-0"
+        >
+          <option value="multipla_escolha">Múltipla escolha</option>
+          <option value="verdadeiro_falso">Verdadeiro / Falso</option>
+        </select>
+        <button onClick={() => setExp(v => !v)} className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-slate-600 shrink-0">
+          {exp ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        </button>
+        <button onClick={onDelete} className="w-5 h-5 flex items-center justify-center text-red-400 hover:text-red-600 shrink-0">
+          <Trash2 size={11} />
+        </button>
+      </div>
+
+      {exp && (
+        <div className="p-3 space-y-3">
+          {/* Enunciado */}
+          <textarea
+            value={p.pergunta}
+            onChange={e => onChange({ ...p, pergunta: e.target.value })}
+            placeholder="Escreva a pergunta aqui…"
+            rows={2}
+            className={inputCls + ' resize-none'}
+          />
+
+          {/* Opções */}
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Opções — marque a correta</p>
+            {p.opcoes.map((op, oidx) => (
+              <div key={op.id} className="flex items-center gap-2">
+                <button
+                  onClick={() => onChange({ ...p, correta: oidx })}
+                  className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors ${p.correta === oidx ? 'border-emerald-500 bg-emerald-500' : 'border-slate-300 dark:border-slate-500 hover:border-emerald-400'}`}
+                >
+                  {p.correta === oidx && <div className="w-2 h-2 rounded-full bg-white" />}
+                </button>
+                {p.tipo === 'verdadeiro_falso' ? (
+                  <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">{op.texto}</span>
+                ) : (
+                  <input
+                    value={op.texto}
+                    onChange={e => {
+                      const opcoes = p.opcoes.map((o, i) => i === oidx ? { ...o, texto: e.target.value } : o)
+                      onChange({ ...p, opcoes })
+                    }}
+                    placeholder={`Opção ${String.fromCharCode(65 + oidx)}`}
+                    className={inputCls}
+                  />
+                )}
+              </div>
+            ))}
+            {/* Adicionar/remover opção (só para múltipla escolha) */}
+            {p.tipo === 'multipla_escolha' && (
+              <div className="flex gap-2 pt-1">
+                {p.opcoes.length < 5 && (
+                  <button
+                    onClick={() => {
+                      const maxId = Math.max(...p.opcoes.map(o => o.id))
+                      onChange({ ...p, opcoes: [...p.opcoes, { id: maxId + 1, texto: '' }] })
+                    }}
+                    className="text-[11px] text-primary-500 hover:text-primary-700 flex items-center gap-1"
+                  >
+                    <Plus size={11} /> Opção
+                  </button>
+                )}
+                {p.opcoes.length > 2 && (
+                  <button
+                    onClick={() => {
+                      const opcoes = p.opcoes.slice(0, -1)
+                      onChange({ ...p, opcoes, correta: Math.min(p.correta, opcoes.length - 1) })
+                    }}
+                    className="text-[11px] text-red-400 hover:text-red-600 flex items-center gap-1"
+                  >
+                    <Trash2 size={11} /> Remover última
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Explicação */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Explicação (exibida após responder)</label>
+            <textarea
+              value={p.explicacao ?? ''}
+              onChange={e => onChange({ ...p, explicacao: e.target.value })}
+              placeholder="Por que esta é a resposta correta? (opcional)"
+              rows={2}
+              className={inputCls + ' resize-none'}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function EditCursoModal({ curso, onClose, onSave, onDelete }: {
   curso: Treinamento | null
@@ -552,7 +965,11 @@ function EditCursoModal({ curso, onClose, onSave, onDelete }: {
   const [capa, setCapa] = useState(curso?.capa ?? { from: 'from-slate-500', to: 'to-slate-600' })
   const [capaUrl, setCapaUrl] = useState(curso?.capaUrl ?? '')
   const [modulos, setModulos] = useState<ModuloEdit[]>(
-    (curso?.modulos ?? []).map(m => ({ id: m.id, titulo: m.titulo, tipo: m.tipo, duracao: m.duracao }))
+    (curso?.modulos ?? []).map(m => ({
+      id: m.id, titulo: m.titulo, tipo: (m.tipo as TipoModulo) ?? 'video',
+      duracao: m.duracao, descricao: m.descricao, url: m.url, conteudo: m.conteudo,
+      quiz: m.quiz,
+    }))
   )
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -564,8 +981,14 @@ function EditCursoModal({ curso, onClose, onSave, onDelete }: {
     setModulos(prev => [...prev, { id: maxId + 1, titulo: '', tipo: 'video', duracao: '' }])
   }
 
-  function updateModulo(idx: number, field: string, value: string) {
-    setModulos(prev => prev.map((m, i) => i === idx ? { ...m, [field]: value } : m))
+  function moveModulo(idx: number, dir: -1 | 1) {
+    setModulos(prev => {
+      const arr = [...prev]
+      const target = idx + dir
+      if (target < 0 || target >= arr.length) return arr
+      ;[arr[idx], arr[target]] = [arr[target], arr[idx]]
+      return arr
+    })
   }
 
   async function handleSave() {
@@ -585,7 +1008,7 @@ function EditCursoModal({ curso, onClose, onSave, onDelete }: {
         capa_to: capa.to,
         capa_url: capaUrl.trim() || null,
         icone: icone.trim() || '📚',
-        modulos: modulos.map(m => ({ id: m.id, titulo: m.titulo, tipo: m.tipo, duracao: m.duracao })),
+        modulos,
       })
       onClose()
     } catch {
@@ -773,36 +1196,15 @@ function EditCursoModal({ curso, onClose, onSave, onDelete }: {
               </p>
             )}
             {modulos.map((m, idx) => (
-              <div key={idx} className="flex items-center gap-2 p-2.5 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
-                <span className="text-[10px] text-slate-400 w-5 shrink-0 text-center font-semibold">{idx + 1}</span>
-                <input
-                  className="flex-1 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-primary-500 min-w-0"
-                  value={m.titulo}
-                  onChange={e => updateModulo(idx, 'titulo', e.target.value)}
-                  placeholder="Título do módulo"
-                />
-                <select
-                  className="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs text-slate-700 dark:text-slate-200 focus:outline-none shrink-0"
-                  value={m.tipo}
-                  onChange={e => updateModulo(idx, 'tipo', e.target.value)}
-                >
-                  <option value="video">Vídeo</option>
-                  <option value="pdf">PDF</option>
-                  <option value="quiz">Quiz</option>
-                </select>
-                <input
-                  className="w-16 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs text-slate-700 dark:text-slate-200 focus:outline-none shrink-0"
-                  value={m.duracao}
-                  onChange={e => updateModulo(idx, 'duracao', e.target.value)}
-                  placeholder="15min"
-                />
-                <button
-                  onClick={() => setModulos(prev => prev.filter((_, i) => i !== idx))}
-                  className="w-6 h-6 flex items-center justify-center rounded-lg text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shrink-0"
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
+              <ModuloEditorCard
+                key={m.id}
+                m={m}
+                idx={idx}
+                total={modulos.length}
+                onChange={updated => setModulos(prev => prev.map((x, i) => i === idx ? updated : x))}
+                onDelete={() => setModulos(prev => prev.filter((_, i) => i !== idx))}
+                onMove={dir => moveModulo(idx, dir)}
+              />
             ))}
           </div>
         </div>

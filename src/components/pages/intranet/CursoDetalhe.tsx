@@ -38,8 +38,23 @@ interface Modulo {
   id: number
   titulo: string
   duracao: string
-  tipo: 'video' | 'pdf' | 'quiz'
+  tipo: 'video' | 'pdf' | 'quiz' | 'texto' | 'link'
   concluido: boolean
+  descricao?: string
+  url?: string
+  conteudo?: string
+  quiz?: {
+    aprovacao_minima: number
+    embaralhar: boolean
+    perguntas: Array<{
+      id: number
+      pergunta: string
+      tipo: 'multipla_escolha' | 'verdadeiro_falso'
+      opcoes: Array<{ id: number; texto: string }>
+      correta: number
+      explicacao?: string
+    }>
+  }
 }
 
 interface Curso {
@@ -296,8 +311,143 @@ function ProgressBar({ pct }: { pct: number }) {
 
 const TIPO_ICON: Record<string, React.ReactNode> = {
   video: <Video size={14} className="text-primary-500" />,
-  pdf: <FileText size={14} className="text-amber-500" />,
-  quiz: <HelpCircle size={14} className="text-violet-500" />,
+  pdf:   <FileText size={14} className="text-amber-500" />,
+  quiz:  <HelpCircle size={14} className="text-violet-500" />,
+  texto: <BookOpen size={14} className="text-emerald-500" />,
+  link:  <Link size={14} className="text-sky-500" />,
+}
+
+// ─── QuizPlayer ───────────────────────────────────────────────────────────────
+
+type QuizPergunta = NonNullable<Modulo['quiz']>['perguntas'][number]
+
+function QuizPlayer({ modulo, onConcluido }: {
+  modulo: Modulo
+  onConcluido: () => void
+}) {
+  const quiz = modulo.quiz!
+  const [respostas, setRespostas] = useState<Record<number, number>>({})
+  const [enviado, setEnviado] = useState(false)
+  const [pontuacao, setPontuacao] = useState(0)
+
+  const perguntas: QuizPergunta[] = quiz.embaralhar
+    ? [...quiz.perguntas].sort(() => 0.5 - Math.random())
+    : quiz.perguntas
+
+  function responder(pidx: number, opcaoIdx: number) {
+    if (enviado) return
+    setRespostas(prev => ({ ...prev, [pidx]: opcaoIdx }))
+  }
+
+  function enviar() {
+    const corretas = perguntas.filter((p, i) => respostas[i] === p.correta).length
+    const pct = perguntas.length > 0 ? Math.round((corretas / perguntas.length) * 100) : 0
+    setPontuacao(pct)
+    setEnviado(true)
+    if (pct >= (quiz.aprovacao_minima ?? 70)) onConcluido()
+  }
+
+  function refazer() {
+    setRespostas({})
+    setEnviado(false)
+    setPontuacao(0)
+  }
+
+  const aprovado = pontuacao >= (quiz.aprovacao_minima ?? 70)
+  const respondidas = Object.keys(respostas).length
+
+  if (perguntas.length === 0) {
+    return (
+      <div className="p-6 text-center text-sm text-slate-400 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl">
+        Este quiz ainda não possui perguntas.
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <HelpCircle size={16} className="text-violet-500" />
+          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{modulo.titulo}</span>
+        </div>
+        <span className="text-xs text-slate-500 dark:text-slate-400">Aprovação mínima: {quiz.aprovacao_minima ?? 70}%</span>
+      </div>
+
+      {/* Perguntas */}
+      {perguntas.map((p, pidx) => {
+        const resp = respostas[pidx]
+        const acertou = enviado && resp === p.correta
+        const errou = enviado && resp !== undefined && resp !== p.correta
+        return (
+          <div key={p.id} className={`rounded-xl border p-4 space-y-3 ${enviado ? (acertou ? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-900/10' : errou ? 'border-red-300 dark:border-red-700 bg-red-50/50 dark:bg-red-900/10' : 'border-slate-200 dark:border-slate-700') : 'border-slate-200 dark:border-slate-700'}`}>
+            <p className="text-sm font-medium text-slate-700 dark:text-slate-200 leading-snug">
+              <span className="text-slate-400 font-bold mr-2">{pidx + 1}.</span>{p.pergunta}
+            </p>
+            <div className="space-y-2">
+              {p.opcoes.map((op, oidx) => {
+                const isCorreta = oidx === p.correta
+                const isEscolhida = resp === oidx
+                let cls = 'flex items-center gap-3 px-3 py-2.5 rounded-xl border text-sm cursor-pointer transition-all '
+                if (!enviado) {
+                  cls += isEscolhida
+                    ? 'border-primary-400 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                    : 'border-slate-200 dark:border-slate-600 hover:border-primary-300 hover:bg-primary-50/50 dark:hover:bg-primary-900/10 text-slate-600 dark:text-slate-300'
+                } else {
+                  if (isCorreta) cls += 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300'
+                  else if (isEscolhida) cls += 'border-red-400 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
+                  else cls += 'border-slate-100 dark:border-slate-700 text-slate-400 dark:text-slate-500'
+                }
+                return (
+                  <div key={op.id} className={cls} onClick={() => responder(pidx, oidx)}>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${!enviado && isEscolhida ? 'border-primary-500 bg-primary-500' : enviado && isCorreta ? 'border-emerald-500 bg-emerald-500' : enviado && isEscolhida ? 'border-red-500 bg-red-500' : 'border-slate-300 dark:border-slate-500'}`}>
+                      {(!enviado && isEscolhida) || (enviado && (isCorreta || isEscolhida)) ? <div className="w-2 h-2 rounded-full bg-white" /> : null}
+                    </div>
+                    <span className="leading-snug">{op.texto}</span>
+                    {enviado && isCorreta && <CheckCircle2 size={14} className="text-emerald-500 ml-auto shrink-0" />}
+                  </div>
+                )
+              })}
+            </div>
+            {enviado && p.explicacao && (
+              <div className="flex gap-2 px-3 py-2 rounded-lg bg-slate-100/80 dark:bg-slate-700/50 text-xs text-slate-600 dark:text-slate-400">
+                <BookOpen size={13} className="shrink-0 mt-0.5 text-slate-400" />
+                <span>{p.explicacao}</span>
+              </div>
+            )}
+          </div>
+        )
+      })}
+
+      {/* Submit / Result */}
+      {!enviado ? (
+        <button
+          disabled={respondidas < perguntas.length}
+          onClick={enviar}
+          className="w-full py-3 rounded-xl text-sm font-semibold bg-violet-600 hover:bg-violet-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {respondidas < perguntas.length
+            ? `Responda todas as perguntas (${respondidas}/${perguntas.length})`
+            : 'Enviar respostas'}
+        </button>
+      ) : (
+        <div className={`rounded-xl p-5 text-center space-y-3 ${aprovado ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800' : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'}`}>
+          <div className={`text-4xl font-black tabular-nums ${aprovado ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+            {pontuacao}%
+          </div>
+          <p className={`text-sm font-semibold ${aprovado ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}`}>
+            {aprovado ? '🎉 Aprovado! Módulo concluído.' : `Não atingiu o mínimo de ${quiz.aprovacao_minima ?? 70}%.`}
+          </p>
+          {!aprovado && (
+            <button onClick={refazer} className="px-5 py-2 rounded-xl text-xs font-semibold bg-violet-600 hover:bg-violet-700 text-white transition-colors">
+              Tentar novamente
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 const NIVEL_COLORS: Record<string, string> = {
@@ -315,6 +465,10 @@ function dbToCurso(row: any, progressoMap: Record<string, boolean> = {}): Curso 
     duracao: m.duracao ?? '—',
     tipo: m.tipo ?? 'video',
     concluido: progressoMap[`${row.id}_${m.id}`] ?? false,
+    descricao: m.descricao,
+    url: m.url,
+    conteudo: m.conteudo,
+    quiz: m.quiz,
   }))
   return {
     id: row.id,
@@ -394,7 +548,9 @@ export default function CursoDetalhe() {
   }, [curso?.id, curso && getProgresso(curso.modulos)])
 
   function getVideoUrl(moduloId: number) {
-    return curso ? (moduloConfigs[`${curso.id}_${moduloId}`] ?? '') : ''
+    if (!curso) return ''
+    const modulo = curso.modulos.find(m => m.id === moduloId)
+    return modulo?.url || moduloConfigs[`${curso.id}_${moduloId}`] || ''
   }
 
   async function handleToggle(cursoId: number, moduloId: number, done: boolean) {
@@ -541,7 +697,7 @@ export default function CursoDetalhe() {
               O que você vai aprender
             </h2>
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {curso.modulos.filter(m => m.tipo !== 'quiz').map(m => (
+              {curso.modulos.filter(m => m.tipo !== 'quiz' && m.tipo !== 'link').map(m => (
                 <li key={m.id} className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-300">
                   <CheckCircle2 size={13} className="text-emerald-500 shrink-0 mt-0.5" />
                   {m.titulo}
@@ -574,17 +730,21 @@ export default function CursoDetalhe() {
                   const temVideo = !!videoUrl
                   const isEditando = editando === m.id
                   const isVideoAberto = videoAberto === m.id
+                  const isExpandivel = m.tipo === 'quiz' || m.tipo === 'texto' || m.tipo === 'link' || (m.tipo === 'video' && temVideo)
+                  const isAberto = videoAberto === m.id
+
+                  const TIPO_LABEL: Record<string, string> = { video: 'Vídeo', pdf: 'PDF', quiz: 'Quiz', texto: 'Artigo', link: 'Link externo' }
 
                   return (
                     <div key={m.id}>
                       <div
                         onClick={() => {
                           if (bloqueado) return
-                          if (m.tipo === 'video' && temVideo) {
-                            setVideoAberto(isVideoAberto ? null : m.id)
-                            return
-                          }
-                          if (m.tipo !== 'video') handleToggle(curso.id, m.id, !m.concluido)
+                          if (m.tipo === 'video' && temVideo) { setVideoAberto(isAberto ? null : m.id); return }
+                          if (m.tipo === 'pdf' && m.url) { window.open(m.url, '_blank'); return }
+                          if (m.tipo === 'link' && m.url) { window.open(m.url, '_blank'); return }
+                          if (m.tipo === 'quiz' || m.tipo === 'texto') { setVideoAberto(isAberto ? null : m.id); return }
+                          if (m.tipo === 'pdf' && !m.url) handleToggle(curso.id, m.id, !m.concluido)
                         }}
                         className={`flex items-center gap-3 px-5 py-3.5 transition-colors ${
                           bloqueado
@@ -604,7 +764,7 @@ export default function CursoDetalhe() {
 
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{m.titulo}</p>
-                          <p className="text-xs text-slate-400 capitalize">{m.tipo} · {m.duracao}</p>
+                          <p className="text-xs text-slate-400">{TIPO_LABEL[m.tipo] ?? m.tipo} · {m.duracao}</p>
                         </div>
 
                         {/* Admin: URL do vídeo */}
@@ -618,14 +778,17 @@ export default function CursoDetalhe() {
                           </button>
                         )}
 
-                        {!bloqueado && m.tipo === 'video' && (
-                          temVideo
-                            ? <Play size={13} className={`text-primary-500 shrink-0 ${isVideoAberto ? 'opacity-100' : 'opacity-60'}`} />
-                            : !canAdmin && <span className="text-[10px] text-slate-300">Sem vídeo</span>
+                        {!bloqueado && isExpandivel && (
+                          isAberto
+                            ? <ChevronUp size={13} className="text-slate-400 shrink-0" />
+                            : <ChevronDown size={13} className="text-slate-400 shrink-0" />
+                        )}
+                        {!bloqueado && m.tipo === 'video' && !temVideo && !canAdmin && (
+                          <span className="text-[10px] text-slate-300">Sem vídeo</span>
                         )}
                       </div>
 
-                      {/* Admin: editar URL */}
+                      {/* Admin: editar URL do vídeo */}
                       {isEditando && (
                         <div className="px-5 pb-3 pt-0 flex gap-2" onClick={e => e.stopPropagation()}>
                           <div className="flex-1 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs">
@@ -653,6 +816,30 @@ export default function CursoDetalhe() {
                           </button>
                           <button onClick={() => setEditando(null)} className="px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 text-xs transition-colors">
                             <X size={11} />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Conteúdo expandido */}
+                      {!bloqueado && isAberto && m.tipo === 'quiz' && m.quiz && (
+                        <div className="px-5 pb-5">
+                          <QuizPlayer
+                            modulo={m}
+                            onConcluido={() => handleToggle(curso.id, m.id, true)}
+                          />
+                        </div>
+                      )}
+
+                      {!bloqueado && isAberto && m.tipo === 'texto' && m.conteudo && (
+                        <div className="px-5 pb-5">
+                          <div className="prose prose-sm dark:prose-invert max-w-none text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
+                            {m.conteudo}
+                          </div>
+                          <button
+                            onClick={() => handleToggle(curso.id, m.id, true)}
+                            className="mt-3 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition-colors"
+                          >
+                            <CheckCircle2 size={13} /> Marcar como lido
                           </button>
                         </div>
                       )}
