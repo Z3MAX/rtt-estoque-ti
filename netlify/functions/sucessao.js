@@ -26,7 +26,9 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'POST' || event.httpMethod === 'PUT') {
       if (!colaboradorId) return { statusCode: 400, headers, body: JSON.stringify({ error: 'colaborador_id required' }) }
       const body = JSON.parse(event.body || '{}')
-      const { candidato, probabilidade, impacto, dificuldade, prontidao, acoes } = body
+      const { candidato, probabilidade, impacto, dificuldade, obs_risco, prontidao, acoes } = body
+
+      await sql`ALTER TABLE sucessao_colaborador ADD COLUMN IF NOT EXISTS obs_risco TEXT`
 
       const existing = await sql`SELECT id FROM sucessao_colaborador WHERE colaborador_id = ${colaboradorId} LIMIT 1`
 
@@ -37,6 +39,7 @@ exports.handler = async (event) => {
             probabilidade  = ${probabilidade},
             impacto        = ${impacto},
             dificuldade    = ${dificuldade},
+            obs_risco      = ${obs_risco ?? null},
             prontidao      = ${prontidao},
             acoes          = ${JSON.stringify(acoes)},
             updated_at     = NOW()
@@ -44,8 +47,8 @@ exports.handler = async (event) => {
         `
       } else {
         await sql`
-          INSERT INTO sucessao_colaborador (colaborador_id, candidato, probabilidade, impacto, dificuldade, prontidao, acoes)
-          VALUES (${colaboradorId}, ${candidato}, ${probabilidade}, ${impacto}, ${dificuldade}, ${prontidao}, ${JSON.stringify(acoes)})
+          INSERT INTO sucessao_colaborador (colaborador_id, candidato, probabilidade, impacto, dificuldade, obs_risco, prontidao, acoes)
+          VALUES (${colaboradorId}, ${candidato}, ${probabilidade}, ${impacto}, ${dificuldade}, ${obs_risco ?? null}, ${prontidao}, ${JSON.stringify(acoes)})
         `
       }
 

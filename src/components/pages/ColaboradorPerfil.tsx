@@ -83,6 +83,7 @@ interface SucessaoState {
   probabilidade: number
   impacto:       number
   dificuldade:   number
+  obs_risco:     string
   prontidao:     string
   acoes:         AcaoDesenvolvimento[]
 }
@@ -137,7 +138,7 @@ function RiskBadge({ score }: { score: number }) {
 }
 
 const EMPTY_SUCESSAO: SucessaoState = {
-  candidato: false, probabilidade: 0, impacto: 0, dificuldade: 0, prontidao: '', acoes: [],
+  candidato: false, probabilidade: 0, impacto: 0, dificuldade: 0, obs_risco: '', prontidao: '', acoes: [],
 }
 
 function SucessaoPanel({ colabId, colabNome, onSave }: { colabId: number; colabNome: string; onSave: (msg: string) => void }) {
@@ -157,6 +158,7 @@ function SucessaoPanel({ colabId, colabNome, onSave }: { colabId: number; colabN
             probabilidade: data.probabilidade ?? 0,
             impacto: data.impacto ?? 0,
             dificuldade: data.dificuldade ?? 0,
+            obs_risco: data.obs_risco ?? '',
             prontidao: data.prontidao ?? '',
             acoes: data.acoes ?? [],
           })
@@ -363,6 +365,20 @@ function SucessaoPanel({ colabId, colabNome, onSave }: { colabId: number; colabN
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" /> &gt;16 Alto</span>
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" /> 12–16 Médio</span>
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400" /> &lt;12 Baixo</span>
+            </div>
+
+            {/* Observação */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                Observações <span className="text-slate-400 font-normal">(opcional)</span>
+              </label>
+              <textarea
+                value={state.obs_risco}
+                onChange={e => set('obs_risco', e.target.value)}
+                placeholder="Contexto adicional sobre o risco de retenção deste colaborador…"
+                rows={3}
+                className={inputCls + ' resize-none'}
+              />
             </div>
           </div>
 
