@@ -1,5 +1,5 @@
 import { useAuth } from '../../../lib/auth'
-import { BookOpen, MessageSquare, Target, TrendingUp, CheckCircle2, AlertCircle, Star, Camera, ClipboardList, Users } from 'lucide-react'
+import { BookOpen, MessageSquare, Target, TrendingUp, CheckCircle2, AlertCircle, Star, Camera, ClipboardList, Users, Cake, Building2, Gift } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Avatar from '../../ui/Avatar'
@@ -53,10 +53,120 @@ interface PdiItem { status: string; pct: number }
 interface ProgItem { curso_id: number; modulo_id: number; concluido: boolean }
 interface PesquisaPendente { id: number; nome: string; tipo: string; data_fim: string | null }
 interface AvaliacaoPendente { id: number; nome: string; cargo: string }
+interface Aniversariante {
+  id: number; nome: string; cargo?: string; area?: string; photo_url?: string
+  proxima_data: string
+  data_nascimento?: string
+  data_admissao?: string
+  anos_empresa?: number
+}
 
 function isGestor(role?: string) {
   if (!role) return false
   return role.toLowerCase().includes('gestor') || role.toLowerCase().includes('administrador')
+}
+
+const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']
+
+function diasAte(dataStr: string): number {
+  const hoje = new Date(); hoje.setHours(0,0,0,0)
+  const alvo = new Date(dataStr + 'T00:00:00'); alvo.setHours(0,0,0,0)
+  return Math.round((alvo.getTime() - hoje.getTime()) / 86400000)
+}
+
+function fmtData(dataStr: string) {
+  const d = new Date(dataStr + 'T00:00:00')
+  return `${d.getDate()} ${MESES[d.getMonth()]}`
+}
+
+function BadgeDias({ dias, dataStr }: { dias: number; dataStr: string }) {
+  if (dias === 0) return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500 text-white animate-pulse">Hoje! 🎉</span>
+  if (dias === 1) return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-400 text-white">Amanhã</span>
+  if (dias <= 7)  return <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">em {dias}d</span>
+  return <span className="text-[10px] text-slate-400">{fmtData(dataStr)}</span>
+}
+
+function AniversariantesCard({ nascimento, empresa }: { nascimento: Aniversariante[]; empresa: Aniversariante[] }) {
+  const [aba, setAba] = useState<'nascimento' | 'empresa'>('nascimento')
+  const lista = aba === 'nascimento' ? nascimento : empresa
+  const totalHoje = [...nascimento, ...empresa].filter(a => diasAte(a.proxima_data) === 0).length
+
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-100 dark:border-slate-700">
+        <div className="flex items-center gap-2">
+          <Gift size={15} className="text-rose-400" />
+          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Aniversariantes</h3>
+          {totalHoje > 0 && (
+            <span className="bg-rose-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{totalHoje}</span>
+          )}
+        </div>
+        <span className="text-[10px] text-slate-400">próx. 30 dias</span>
+      </div>
+
+      {/* Abas */}
+      <div className="flex border-b border-slate-100 dark:border-slate-700">
+        <button
+          onClick={() => setAba('nascimento')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors border-b-2 ${aba === 'nascimento' ? 'border-rose-400 text-rose-500 dark:text-rose-400' : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+        >
+          <Cake size={12} /> Aniversário
+          {nascimento.length > 0 && <span className="ml-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{nascimento.length}</span>}
+        </button>
+        <button
+          onClick={() => setAba('empresa')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors border-b-2 ${aba === 'empresa' ? 'border-primary-500 text-primary-600 dark:text-primary-400' : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+        >
+          <Building2 size={12} /> Empresa
+          {empresa.length > 0 && <span className="ml-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{empresa.length}</span>}
+        </button>
+      </div>
+
+      {/* Lista */}
+      <div className="divide-y divide-slate-50 dark:divide-slate-700/50 max-h-72 overflow-y-auto">
+        {lista.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-8 text-center px-4">
+            {aba === 'nascimento'
+              ? <Cake size={24} className="text-slate-200 dark:text-slate-600" />
+              : <Building2 size={24} className="text-slate-200 dark:text-slate-600" />}
+            <p className="text-xs text-slate-400">Nenhum aniversariante nos próximos 30 dias.</p>
+          </div>
+        ) : lista.map(a => {
+          const dias = diasAte(a.proxima_data)
+          const isHoje = dias === 0
+          return (
+            <div key={`${aba}-${a.id}`} className={`flex items-center gap-3 px-4 py-3 ${isHoje ? 'bg-rose-50/60 dark:bg-rose-900/10' : ''}`}>
+              {/* Avatar */}
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${isHoje ? 'ring-2 ring-rose-400' : ''}`}
+                style={{ background: a.photo_url ? 'transparent' : `hsl(${(a.nome.charCodeAt(0) * 37) % 360},55%,70%)` }}>
+                {a.photo_url
+                  ? <img src={a.photo_url} alt={a.nome} className="w-8 h-8 rounded-full object-cover" />
+                  : <span className="text-white text-xs font-bold">{a.nome.charAt(0).toUpperCase()}</span>
+                }
+              </div>
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <p className={`text-xs font-semibold truncate ${isHoje ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-200'}`}>
+                  {a.nome}{isHoje && ' 🎂'}
+                </p>
+                <p className="text-[10px] text-slate-400 truncate">
+                  {a.cargo ?? ''}
+                  {aba === 'empresa' && a.anos_empresa !== undefined && (
+                    <span className={`ml-1 font-semibold ${a.anos_empresa >= 5 ? 'text-amber-500' : 'text-primary-500'}`}>
+                      · {a.anos_empresa} ano{a.anos_empresa !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </p>
+              </div>
+              {/* Badge */}
+              <BadgeDias dias={dias} dataStr={a.proxima_data} />
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 export default function MinhaVisao() {
@@ -93,11 +203,17 @@ export default function MinhaVisao() {
   const [progItems, setProgItems] = useState<ProgItem[]>([])
   const [pesquisasPendentes, setPesquisasPendentes] = useState<PesquisaPendente[]>([])
   const [avaliacoesPendentes, setAvaliacoesPendentes] = useState<AvaliacaoPendente[]>([])
+  const [anivNasc, setAnivNasc] = useState<Aniversariante[]>([])
+  const [anivEmp, setAnivEmp] = useState<Aniversariante[]>([])
 
   useEffect(() => {
     api.pdi.list().then((d: unknown) => setPdiItems((d as PdiItem[]) || [])).catch(() => {})
     api.treinamentoProgresso.list().then((d: unknown) => setProgItems((d as ProgItem[]) || [])).catch(() => {})
     api.pesquisas.minhas().then((d: unknown) => setPesquisasPendentes((d as PesquisaPendente[]) || [])).catch(() => {})
+    api.aniversariantes.list().then((d: any) => {
+      setAnivNasc(d?.nascimento || [])
+      setAnivEmp(d?.empresa || [])
+    }).catch(() => {})
     if (isGestor(user?.role)) {
       api.avaliacoesPendentes.list().then((d: unknown) => setAvaliacoesPendentes((d as AvaliacaoPendente[]) || [])).catch(() => {})
     }
@@ -333,6 +449,9 @@ export default function MinhaVisao() {
 
       {/* ── Coluna direita ── */}
       <div className="space-y-4">
+        {/* Aniversariantes */}
+        <AniversariantesCard nascimento={anivNasc} empresa={anivEmp} />
+
         {/* OKRs */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 space-y-3">
           <div className="flex items-center justify-between">

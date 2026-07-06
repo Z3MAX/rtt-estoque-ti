@@ -444,6 +444,13 @@ export const api = {
     },
   },
 
+  aniversariantes: {
+    list: async () => {
+      if (MOCK) { await delay(200); return { nascimento: [], empresa: [] } }
+      return request<{ nascimento: any[]; empresa: any[] }>(`${BASE}/aniversariantes`)
+    },
+  },
+
   cursoAvaliacoes: {
     get: async (cursoId: number) => {
       if (MOCK) { await delay(200); return { media: null, total: 0, minha_nota: null } }
