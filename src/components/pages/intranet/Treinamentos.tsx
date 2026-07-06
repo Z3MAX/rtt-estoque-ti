@@ -1987,6 +1987,9 @@ function EnviarCursosModal({ todosCursos, onClose }: { todosCursos: Treinamento[
       const res = await api.cursoAtribuicao.getForCurso(cursoSelecionado.id) as any
       setInscritos(res?.inscritos ?? [])
       setShowAdd(false)
+    } catch (err) {
+      console.error('Erro ao adicionar colaborador:', err)
+      alert('Erro ao adicionar colaborador. Tente novamente.')
     } finally {
       setSaving(false)
     }

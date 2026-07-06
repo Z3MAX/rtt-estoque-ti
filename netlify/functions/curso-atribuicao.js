@@ -19,6 +19,14 @@ exports.handler = async (event) => {
   `
 
   try {
+    await sql`ALTER TABLE treinamento_progresso ADD COLUMN IF NOT EXISTS validado BOOLEAN DEFAULT false`
+    await sql`ALTER TABLE treinamento_progresso ADD COLUMN IF NOT EXISTS data_validacao DATE`
+    await sql`ALTER TABLE treinamento_progresso ADD COLUMN IF NOT EXISTS validado_por TEXT`
+  } catch (e) {
+    // columns may already exist or table may not exist yet — safe to ignore
+  }
+
+  try {
     const auth = requireAuth(event)
     const params = event.queryStringParameters || {}
 
