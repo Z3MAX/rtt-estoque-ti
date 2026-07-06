@@ -16,7 +16,7 @@ function parseVideoUrl(url: string, startSec = 0): { type: 'youtube' | 'vimeo' |
   if (!url) return { type: null, embedUrl: null }
   const start = Math.floor(startSec)
   const yt = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
-  if (yt) return { type: 'youtube', embedUrl: `https://www.youtube.com/embed/${yt[1]}?autoplay=1&rel=0&enablejsapi=1${start > 0 ? `&start=${start}` : ''}` }
+  if (yt) return { type: 'youtube', embedUrl: `https://www.youtube.com/embed/${yt[1]}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1${start > 0 ? `&start=${start}` : ''}` }
   const vi = url.match(/vimeo\.com\/(\d+)/)
   if (vi) return { type: 'vimeo', embedUrl: `https://player.vimeo.com/video/${vi[1]}?autoplay=1&api=1${start > 0 ? `#t=${start}s` : ''}` }
   if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(url)) return { type: 'direct', embedUrl: url }
@@ -187,14 +187,20 @@ function VideoPlayer({
               onEnded={() => setIsPlaying(false)}
             />
           ) : embedUrl ? (
-            <iframe
-              ref={iframeRef}
-              src={embedUrl}
-              className="absolute inset-0 w-full h-full"
-              allow="autoplay; fullscreen; picture-in-picture"
-              allowFullScreen
-              onLoad={onIframeLoad}
-            />
+            <>
+              <iframe
+                ref={iframeRef}
+                src={embedUrl}
+                className="absolute inset-0 w-full h-full"
+                allow="autoplay; fullscreen; picture-in-picture"
+                allowFullScreen
+                onLoad={onIframeLoad}
+              />
+              {/* Bloqueia clique no botão "Assistir no YouTube" (canto inferior direito) */}
+              {type === 'youtube' && (
+                <div className="absolute bottom-0 right-0 w-36 h-10 z-10" style={{ pointerEvents: 'all' }} />
+              )}
+            </>
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-white/40 text-sm">
               URL de vídeo inválida
