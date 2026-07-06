@@ -42,6 +42,17 @@ exports.handler = async (event) => {
       )
     `
     await sql`ALTER TABLE pesquisas ADD COLUMN IF NOT EXISTS perguntas JSONB DEFAULT '[]'`
+    await sql`
+      CREATE TABLE IF NOT EXISTS pesquisa_respostas (
+        id             SERIAL PRIMARY KEY,
+        pesquisa_id    INTEGER NOT NULL,
+        colaborador_id INTEGER,
+        user_id        INTEGER,
+        respostas      JSONB NOT NULL DEFAULT '[]',
+        anonima        BOOLEAN DEFAULT false,
+        created_at     TIMESTAMP DEFAULT NOW()
+      )
+    `
 
     if (event.httpMethod === 'GET') {
       // Single survey by ID (used by responder page)
