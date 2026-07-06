@@ -2333,9 +2333,11 @@ export default function TreinamentosPage() {
     ? cursos
     : cursos.filter(c => atribuidosIds.includes(c.id))
 
-  const concluidos   = cursosVisiveis.filter(t => getProgresso(t) === 100).length
-  const emAndamento  = cursosVisiveis.filter(t => { const p = getProgresso(t); return p > 0 && p < 100 }).length
-  const obrigPend    = cursosVisiveis.filter(t => t.obrigatorio && getProgresso(t) < 100).length
+  // Pending obligations are based only on enrolled courses — never on the full catalogue
+  const cursosInscritos = cursos.filter(c => atribuidosIds.includes(c.id))
+  const concluidos   = cursosInscritos.filter(t => getProgresso(t) === 100).length
+  const emAndamento  = cursosInscritos.filter(t => { const p = getProgresso(t); return p > 0 && p < 100 }).length
+  const obrigPend    = cursosInscritos.filter(t => t.obrigatorio && getProgresso(t) < 100).length
   const pctGeral     = cursosVisiveis.length === 0 ? 0 : Math.round(cursosVisiveis.reduce((a, t) => a + getProgresso(t), 0) / cursosVisiveis.length)
 
   const filtered = cursosVisiveis.filter(t => {
