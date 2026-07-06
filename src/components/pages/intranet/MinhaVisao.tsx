@@ -266,7 +266,7 @@ export default function MinhaVisao() {
                     </p>
                   </div>
                   <button
-                    onClick={() => navigate('/intranet/pesquisas')}
+                    onClick={() => navigate(`/intranet/pesquisas/${p.id}/responder`)}
                     className="px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors shrink-0"
                   >
                     Responder

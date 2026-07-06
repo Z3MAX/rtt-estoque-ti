@@ -407,6 +407,10 @@ export const api = {
       if (MOCK) { await delay(300); return [] }
       return request<any[]>(`${BASE}/pesquisas`)
     },
+    get: async (id: number) => {
+      if (MOCK) { await delay(200); return null }
+      return request<any>(`${BASE}/pesquisas?id=${id}`)
+    },
     minhas: async () => {
       if (MOCK) { await delay(300); return [] }
       return request<any[]>(`${BASE}/pesquisas?minhas=1`)
@@ -422,6 +426,21 @@ export const api = {
     delete: async (id: number) => {
       if (MOCK) { await delay(300); return { success: true } }
       return request(`${BASE}/pesquisas?id=${id}`, { method: 'DELETE' })
+    },
+  },
+
+  pesquisaRespostas: {
+    list: async (pesquisaId: number) => {
+      if (MOCK) { await delay(300); return [] }
+      return request<any[]>(`${BASE}/pesquisa-respostas?pesquisa_id=${pesquisaId}`)
+    },
+    jaRespondi: async () => {
+      if (MOCK) { await delay(200); return [] as number[] }
+      return request<number[]>(`${BASE}/pesquisa-respostas?ja_respondi=1`)
+    },
+    submit: async (pesquisaId: number, respostas: any[]) => {
+      if (MOCK) { await delay(400); return { success: true } }
+      return request(`${BASE}/pesquisa-respostas`, { method: 'POST', body: JSON.stringify({ pesquisa_id: pesquisaId, respostas }) })
     },
   },
 

@@ -41,21 +41,47 @@ exports.handler = async (event) => {
         ativo                  BOOLEAN DEFAULT true
       )
     `
+    await sql`ALTER TABLE pesquisas ADD COLUMN IF NOT EXISTS perguntas JSONB DEFAULT '[]'`
 
     if (event.httpMethod === 'GET') {
+      // Single survey by ID (used by responder page)
+      if (params.id) {
+        const id = parseInt(params.id)
+        const rows = await sql`
+          SELECT id, nome, objetivo, tipo, situacao, status, anonima, data_inicio, data_fim,
+                 colaborador_ids, perguntas, created_at
+          FROM pesquisas WHERE id = ${id} AND ativo = true
+        `
+        if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Não encontrada' }) }
+        return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
+      }
+
+      // Surveys pending for current user (MinhaVisão)
       if (params.minhas === '1') {
         const rows = await sql`
           SELECT id, nome, objetivo, tipo, situacao, data_inicio, data_fim, colaborador_ids, created_at
           FROM pesquisas
           WHERE ativo = true AND situacao = 'LIBERADA' AND status = 'ATIVA'
+            AND id NOT IN (
+              SELECT pesquisa_id FROM pesquisa_respostas WHERE user_id = ${auth.userId}
+            )
           ORDER BY created_at DESC
         `
         return { statusCode: 200, headers, body: JSON.stringify(rows) }
       }
+
+      // Admin list — includes total_respostas count
       const rows = await sql`
-        SELECT * FROM pesquisas
-        WHERE ativo = true
-        ORDER BY created_at DESC
+        SELECT p.*,
+               COALESCE(rc.total, 0)::int AS total_respostas
+        FROM pesquisas p
+        LEFT JOIN (
+          SELECT pesquisa_id, COUNT(*) AS total
+          FROM pesquisa_respostas
+          GROUP BY pesquisa_id
+        ) rc ON rc.pesquisa_id = p.id
+        WHERE p.ativo = true
+        ORDER BY p.created_at DESC
       `
       return { statusCode: 200, headers, body: JSON.stringify(rows) }
     }
@@ -66,7 +92,7 @@ exports.handler = async (event) => {
               data_inicio, data_fim, frequencia_pulso, perguntas_por_pulso,
               questionario, email_auto, dias_aviso, relatorio_permissao,
               relatorio_selecionados, notif_respondido, autenticacao_codigo,
-              vinculos_desligamento, colaborador_ids } = body
+              vinculos_desligamento, colaborador_ids, perguntas } = body
       if (!nome) return { statusCode: 400, headers, body: JSON.stringify({ error: 'nome obrigatório' }) }
       if (!tipo) return { statusCode: 400, headers, body: JSON.stringify({ error: 'tipo obrigatório' }) }
       const rows = await sql`
@@ -75,7 +101,7 @@ exports.handler = async (event) => {
           data_inicio, data_fim, frequencia_pulso, perguntas_por_pulso,
           questionario, email_auto, dias_aviso, relatorio_permissao,
           relatorio_selecionados, notif_respondido, autenticacao_codigo,
-          vinculos_desligamento, colaborador_ids, created_by
+          vinculos_desligamento, colaborador_ids, perguntas, created_by
         ) VALUES (
           ${nome}, ${objetivo ?? null}, ${tipo}, ${situacao ?? 'RASCUNHO'}, ${status ?? 'ATIVA'},
           ${anonima ?? false}, ${ocultar_min ?? false},
@@ -85,7 +111,7 @@ exports.handler = async (event) => {
           ${relatorio_permissao ?? true}, ${relatorio_selecionados ?? false},
           ${notif_respondido ?? false}, ${autenticacao_codigo ?? true},
           ${JSON.stringify(vinculos_desligamento ?? [])}, ${JSON.stringify(colaborador_ids ?? [])},
-          ${auth.userId}
+          ${JSON.stringify(perguntas ?? [])}, ${auth.userId}
         )
         RETURNING *
       `
@@ -123,6 +149,7 @@ exports.handler = async (event) => {
           autenticacao_codigo    = COALESCE(${body.autenticacao_codigo ?? null}, autenticacao_codigo),
           vinculos_desligamento  = COALESCE(${body.vinculos_desligamento != null ? JSON.stringify(body.vinculos_desligamento) : null}::jsonb, vinculos_desligamento),
           colaborador_ids        = COALESCE(${body.colaborador_ids != null ? JSON.stringify(body.colaborador_ids) : null}::jsonb, colaborador_ids),
+          perguntas              = COALESCE(${body.perguntas != null ? JSON.stringify(body.perguntas) : null}::jsonb, perguntas),
           updated_at             = NOW()
         WHERE id = ${id}
         RETURNING *
