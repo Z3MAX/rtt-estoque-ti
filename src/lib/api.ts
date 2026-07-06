@@ -394,11 +394,11 @@ export const api = {
   cursoAvaliacao: {
     get: async (cursoId: number) => {
       if (MOCK) { await delay(100); return null }
-      return request<{ nota: number; comentario: string | null } | null>(`${BASE}/curso-avaliacao?curso_id=${cursoId}`)
+      return request<{ nota: number | null; comentario: string | null; media: number | null; total: number } | null>(`${BASE}/curso-avaliacao?curso_id=${cursoId}`)
     },
     save: async (cursoId: number, nota: number, comentario?: string) => {
-      if (MOCK) { await delay(100); return { success: true } }
-      return request(`${BASE}/curso-avaliacao`, { method: 'POST', body: JSON.stringify({ curso_id: cursoId, nota, comentario: comentario || null }) })
+      if (MOCK) { await delay(100); return { nota, comentario: comentario ?? null, media: nota, total: 1 } }
+      return request<{ nota: number; comentario: string | null; media: number; total: number }>(`${BASE}/curso-avaliacao`, { method: 'POST', body: JSON.stringify({ curso_id: cursoId, nota, comentario: comentario || null }) })
     },
   },
 
@@ -441,6 +441,17 @@ export const api = {
     submit: async (pesquisaId: number, respostas: any[]) => {
       if (MOCK) { await delay(400); return { success: true } }
       return request(`${BASE}/pesquisa-respostas`, { method: 'POST', body: JSON.stringify({ pesquisa_id: pesquisaId, respostas }) })
+    },
+  },
+
+  cursoAvaliacoes: {
+    get: async (cursoId: number) => {
+      if (MOCK) { await delay(200); return { media: null, total: 0, minha_nota: null } }
+      return request<{ media: number | null; total: number; minha_nota: number | null }>(`${BASE}/curso-avaliacoes?curso_id=${cursoId}`)
+    },
+    submit: async (cursoId: number, nota: number) => {
+      if (MOCK) { await delay(300); return { media: nota, total: 1, minha_nota: nota } }
+      return request<{ media: number; total: number; minha_nota: number }>(`${BASE}/curso-avaliacoes`, { method: 'POST', body: JSON.stringify({ curso_id: cursoId, nota }) })
     },
   },
 

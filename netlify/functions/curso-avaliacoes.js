@@ -1,5 +1,5 @@
 const { neon } = require('@neondatabase/serverless')
-const { requireAuth, makeHeaders } = require('./_auth')
+const { requireAuth, isAdminRole, makeHeaders } = require('./_auth')
 
 exports.handler = async (event) => {
   const headers = makeHeaders(event)
@@ -16,7 +16,6 @@ exports.handler = async (event) => {
         curso_id   INTEGER NOT NULL,
         user_id    INTEGER NOT NULL,
         nota       SMALLINT NOT NULL CHECK (nota BETWEEN 1 AND 5),
-        comentario TEXT,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW(),
         UNIQUE(curso_id, user_id)
@@ -37,30 +36,27 @@ exports.handler = async (event) => {
         WHERE curso_id = ${cursoId}
       `
       const minha = await sql`
-        SELECT nota, comentario FROM curso_avaliacoes
-        WHERE curso_id = ${cursoId} AND user_id = ${auth.userId}
+        SELECT nota FROM curso_avaliacoes WHERE curso_id = ${cursoId} AND user_id = ${auth.userId}
       `
       return {
         statusCode: 200, headers,
         body: JSON.stringify({
-          nota:       minha[0]?.nota ?? null,
-          comentario: minha[0]?.comentario ?? null,
-          media:      stats.media ? parseFloat(stats.media) : null,
-          total:      parseInt(stats.total),
+          media:  stats.media  ? parseFloat(stats.media) : null,
+          total:  parseInt(stats.total),
+          minha_nota: minha[0]?.nota ?? null,
         }),
       }
     }
 
     if (event.httpMethod === 'POST') {
-      const { curso_id, nota, comentario } = JSON.parse(event.body || '{}')
+      const { curso_id, nota } = JSON.parse(event.body || '{}')
       if (!curso_id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'curso_id obrigatório' }) }
       if (!nota || nota < 1 || nota > 5) return { statusCode: 400, headers, body: JSON.stringify({ error: 'nota deve ser 1–5' }) }
 
       await sql`
-        INSERT INTO curso_avaliacoes (curso_id, user_id, nota, comentario)
-        VALUES (${curso_id}, ${auth.userId}, ${nota}, ${comentario ?? null})
-        ON CONFLICT (curso_id, user_id) DO UPDATE
-          SET nota = ${nota}, comentario = ${comentario ?? null}, updated_at = NOW()
+        INSERT INTO curso_avaliacoes (curso_id, user_id, nota)
+        VALUES (${curso_id}, ${auth.userId}, ${nota})
+        ON CONFLICT (curso_id, user_id) DO UPDATE SET nota = ${nota}, updated_at = NOW()
       `
 
       const [stats] = await sql`
@@ -70,10 +66,9 @@ exports.handler = async (event) => {
       return {
         statusCode: 200, headers,
         body: JSON.stringify({
-          nota,
-          comentario: comentario ?? null,
           media: parseFloat(stats.media),
           total: parseInt(stats.total),
+          minha_nota: nota,
         }),
       }
     }
@@ -81,7 +76,7 @@ exports.handler = async (event) => {
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) }
   } catch (err) {
     if (err.statusCode) return { statusCode: err.statusCode, headers, body: JSON.stringify({ error: err.message }) }
-    console.error('curso-avaliacao error:', err)
+    console.error('curso-avaliacoes error:', err)
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'Erro interno' }) }
   }
 }

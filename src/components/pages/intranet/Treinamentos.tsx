@@ -513,11 +513,70 @@ const TIPO_ICON: Record<string, JSX.Element> = {
   quiz:  <HelpCircle size={13} className="text-emerald-500" />,
 }
 
-function Stars({ value }: { value: number }) {
+function Stars({ value, total }: { value: number | null; total?: number }) {
+  if (value === null) return (
+    <span className="text-[11px] text-slate-400 italic">Sem avaliações</span>
+  )
   return (
     <div className="flex items-center gap-1">
       <Star size={11} className="text-amber-400 fill-amber-400" />
-      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{value.toFixed(1)}</span>
+      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+        {value.toFixed(1)}{total !== undefined && total > 0 ? ` (${total})` : ''}
+      </span>
+    </div>
+  )
+}
+
+function StarsInterativas({ cursoId, mediaInicial, totalInicial, minhaNota: minhaNtInicial }: {
+  cursoId: number; mediaInicial: number | null; totalInicial: number; minhaNota: number | null
+}) {
+  const [hover, setHover] = useState(0)
+  const [minhaNota, setMinhaNota] = useState(minhaNtInicial)
+  const [media, setMedia] = useState(mediaInicial)
+  const [total, setTotal] = useState(totalInicial)
+  const [salvando, setSalvando] = useState(false)
+
+  async function handleClick(nota: number) {
+    if (salvando) return
+    setSalvando(true)
+    try {
+      const res = await api.cursoAvaliacoes.submit(cursoId, nota)
+      setMinhaNota(res!.minha_nota)
+      setMedia(res!.media)
+      setTotal(res!.total)
+    } catch {
+      // silently fail
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  const exibir = hover || minhaNota || 0
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-0.5">
+        {[1, 2, 3, 4, 5].map(n => (
+          <button key={n} type="button" disabled={salvando}
+            onMouseEnter={() => setHover(n)} onMouseLeave={() => setHover(0)}
+            onClick={() => handleClick(n)}
+            className="transition-transform hover:scale-125 disabled:opacity-50 p-0.5">
+            <Star size={18}
+              className={`transition-colors ${n <= exibir ? 'text-amber-400 fill-amber-400' : 'text-slate-300 dark:text-slate-600 fill-transparent'}`} />
+          </button>
+        ))}
+        {minhaNota && (
+          <span className="ml-1.5 text-xs text-slate-400">Sua nota: {minhaNota}/5</span>
+        )}
+      </div>
+      {media !== null && (
+        <p className="text-[11px] text-slate-400">
+          Média: <span className="font-semibold text-amber-500">{media.toFixed(1)}</span>
+          {total > 0 && ` · ${total} avaliação${total !== 1 ? 'ões' : ''}`}
+        </p>
+      )}
+      {media === null && !minhaNota && (
+        <p className="text-[11px] text-slate-400 italic">Seja o primeiro a avaliar este curso</p>
+      )}
     </div>
   )
 }
@@ -1378,19 +1437,24 @@ function CourseModal({ t, onClose, onToggle, moduloConfigs, onSaveConfig, canAdm
   const [avaliacaoComentario, setAvaliacaoComentario] = useState('')
   const [avaliacaoEnviada, setAvaliacaoEnviada] = useState(false)
   const [savingAvaliacao, setSavingAvaliacao] = useState(false)
+  const [mediaReal, setMediaReal] = useState<number | null>(null)
+  const [totalAvaliacoes, setTotalAvaliacoes] = useState(0)
   const pct = getProgresso(t)
 
   useEffect(() => {
-    if (pct < 100) return
     api.cursoAvaliacao.get(t.id).then(r => {
-      if (r) { setAvaliacaoNota(r.nota); setAvaliacaoComentario(r.comentario ?? ''); setAvaliacaoEnviada(true) }
+      if (!r) return
+      if (r.nota) { setAvaliacaoNota(r.nota); setAvaliacaoComentario(r.comentario ?? ''); setAvaliacaoEnviada(true) }
+      setMediaReal(r.media)
+      setTotalAvaliacoes(r.total)
     }).catch(() => {})
-  }, [t.id, pct])
+  }, [t.id])
 
   async function handleEnviarAvaliacao() {
     if (!avaliacaoNota) return
     setSavingAvaliacao(true)
-    await api.cursoAvaliacao.save(t.id, avaliacaoNota, avaliacaoComentario || undefined).catch(() => {})
+    const res = await api.cursoAvaliacao.save(t.id, avaliacaoNota, avaliacaoComentario || undefined).catch(() => null)
+    if (res) { setMediaReal(res.media); setTotalAvaliacoes(res.total) }
     setSavingAvaliacao(false)
     setAvaliacaoEnviada(true)
   }
@@ -1442,7 +1506,7 @@ function CourseModal({ t, onClose, onToggle, moduloConfigs, onSaveConfig, canAdm
             <span className="flex items-center gap-1.5"><Clock size={13} />{t.duracao} de conteúdo</span>
             <span className="flex items-center gap-1.5"><Layers size={13} />{t.modulos.length} módulos</span>
             <span className="flex items-center gap-1.5"><Users size={13} />{t.totalAlunos} alunos</span>
-            <Stars value={t.avaliacao} />
+            <Stars value={mediaReal} total={totalAvaliacoes} />
           </div>
 
           {/* Descrição */}
