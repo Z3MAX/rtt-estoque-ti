@@ -37,7 +37,10 @@ exports.handler = async (event) => {
             col.cargo,
             col.area,
             jsonb_array_length(cu.modulos) AS total_modulos,
-            COALESCE(COUNT(tp.modulo_id) FILTER (WHERE tp.concluido = true), 0) AS modulos_concluidos
+            COALESCE(COUNT(tp.modulo_id) FILTER (WHERE tp.concluido = true), 0) AS modulos_concluidos,
+            COALESCE(BOOL_OR(tp.validado), false)     AS validado,
+            MAX(tp.data_validacao)                    AS data_validacao,
+            MAX(tp.validado_por)                      AS validado_por
           FROM curso_atribuicao ca
           JOIN colaboradores col ON col.id = ca.colaborador_id
           JOIN cursos cu ON cu.id = ca.curso_id

@@ -316,6 +316,10 @@ export const api = {
       if (MOCK) { await delay(100); return { success: true } }
       return request(`${BASE}/treinamento-progresso`, { method: 'POST', body: JSON.stringify({ curso_id: cursoId, modulo_id: moduloId, segundos_assistidos: segundos }) })
     },
+    validar: async (userId: number, cursoId: number) => {
+      if (MOCK) { await delay(200); return { success: true } }
+      return request(`${BASE}/treinamento-progresso`, { method: 'POST', body: JSON.stringify({ validar: true, user_id: userId, curso_id: cursoId }) })
+    },
   },
 
   cursos: {

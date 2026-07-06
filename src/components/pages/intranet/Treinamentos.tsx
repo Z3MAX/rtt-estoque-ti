@@ -1701,36 +1701,68 @@ function TrilhaCard({ trilha, cursos, onCursoClick }: { trilha: Trilha; cursos: 
 
 // ─── RH View ─────────────────────────────────────────────────────────────────
 
+interface InscritoRow {
+  colaborador_id: number
+  nome: string
+  cargo: string
+  area: string
+  total_modulos: number
+  modulos_concluidos: number
+  validado: boolean
+  data_validacao: string | null
+  validado_por: string | null
+}
+
 function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
-  const [funcionarios, setFuncionarios] = useState<ProgressoFuncionario[]>(FUNCIONARIOS_MOCK)
   const [cursoSelecionado, setCursoSelecionado] = useState<number>(todosCursos[0]?.id ?? 0)
+  const [inscritos, setInscritos] = useState<InscritoRow[]>([])
+  const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [apenasObrigatorios, setApenasObrigatorios] = useState(false)
+  const [validandoId, setValidandoId] = useState<number | null>(null)
 
   const cursos = apenasObrigatorios ? todosCursos.filter(t => t.obrigatorio) : todosCursos
   const curso = todosCursos.find(t => t.id === cursoSelecionado) ?? todosCursos[0]
 
-  const lista = funcionarios.filter(f =>
-    !search || f.nome.toLowerCase().includes(search.toLowerCase()) || f.area.toLowerCase().includes(search.toLowerCase())
-  )
+  useEffect(() => {
+    if (!cursoSelecionado) return
+    setLoading(true)
+    api.cursoAtribuicao.getForCurso(cursoSelecionado)
+      .then((data: any) => setInscritos(data?.inscritos ?? []))
+      .catch(() => setInscritos([]))
+      .finally(() => setLoading(false))
+  }, [cursoSelecionado])
 
-  function validar(funcId: number, cursoId: number) {
-    setFuncionarios(prev => prev.map(f => {
-      if (f.id !== funcId) return f
-      const prog = f.progresso[cursoId] || { pct: 0, validado: false }
-      return {
-        ...f,
-        progresso: {
-          ...f.progresso,
-          [cursoId]: { ...prog, validado: true, dataValidacao: new Date().toLocaleDateString('pt-BR') },
-        },
-      }
-    }))
+  // Ao trocar filtro obrigatorio, ajusta o curso selecionado se necessário
+  useEffect(() => {
+    const lista = apenasObrigatorios ? todosCursos.filter(t => t.obrigatorio) : todosCursos
+    if (lista.length > 0 && !lista.find(t => t.id === cursoSelecionado)) {
+      setCursoSelecionado(lista[0].id)
+    }
+  }, [apenasObrigatorios])
+
+  async function handleValidar(inscrito: InscritoRow) {
+    setValidandoId(inscrito.colaborador_id)
+    try {
+      // user_id não está disponível direto — backend resolve pelo colaborador_id via users.colaborador_id
+      await api.treinamentoProgresso.validar(inscrito.colaborador_id, cursoSelecionado)
+      setInscritos(prev => prev.map(i =>
+        i.colaborador_id === inscrito.colaborador_id
+          ? { ...i, validado: true, data_validacao: new Date().toISOString().slice(0, 10) }
+          : i
+      ))
+    } catch { /* noop */ } finally {
+      setValidandoId(null)
+    }
   }
 
+  const lista = inscritos.filter(f =>
+    !search || f.nome.toLowerCase().includes(search.toLowerCase()) || (f.area ?? '').toLowerCase().includes(search.toLowerCase())
+  )
+
   const pendentesValidacao = lista.filter(f => {
-    const p = f.progresso[cursoSelecionado]
-    return p && p.pct === 100 && !p.validado
+    const pct = f.total_modulos > 0 ? Math.round((f.modulos_concluidos / f.total_modulos) * 100) : 0
+    return pct === 100 && !f.validado
   }).length
 
   return (
@@ -1786,16 +1818,20 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
 
       {/* Sumário do curso selecionado */}
       {curso && (
-        <div className={`bg-gradient-to-br ${curso.capa.from} ${curso.capa.to} rounded-2xl p-5 flex items-center gap-4`}>
-          <span className="text-4xl shrink-0">{curso.icone}</span>
-          <div className="flex-1 min-w-0 text-white">
+        <div
+          className={`relative rounded-2xl p-5 flex items-center gap-4 overflow-hidden ${!curso.capaUrl ? `bg-gradient-to-br ${curso.capa.from} ${curso.capa.to}` : 'bg-slate-900'}`}
+          style={curso.capaUrl ? { backgroundImage: `url(${curso.capaUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+        >
+          {curso.capaUrl && <div className="absolute inset-0 bg-black/55" />}
+          <span className="relative text-4xl shrink-0">{curso.icone}</span>
+          <div className="relative flex-1 min-w-0 text-white">
             <p className="font-bold text-base leading-tight">{curso.titulo}</p>
             <p className="text-white/70 text-xs mt-0.5">{curso.modulos.length} módulos · {curso.duracao} · por {curso.instrutor}</p>
           </div>
-          <div className="text-right text-white shrink-0">
-            <p className="text-2xl font-black">
-              {funcionarios.filter(f => (f.progresso[cursoSelecionado]?.pct ?? 0) === 100).length}
-              <span className="text-base font-normal opacity-70">/{funcionarios.length}</span>
+          <div className="relative text-right text-white shrink-0">
+            <p className="text-2xl font-black tabular-nums">
+              {inscritos.filter(f => f.total_modulos > 0 && f.modulos_concluidos >= f.total_modulos).length}
+              <span className="text-base font-normal opacity-70">/{inscritos.length}</span>
             </p>
             <p className="text-xs text-white/70">concluíram</p>
           </div>
@@ -1804,6 +1840,17 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
 
       {/* Tabela */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center py-12 gap-2 text-slate-400 text-sm">
+            <RefreshCw size={14} className="animate-spin" /> Carregando…
+          </div>
+        ) : lista.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-2 text-slate-400 text-sm">
+            <Users size={24} className="opacity-30" />
+            <p>Nenhum colaborador inscrito neste curso</p>
+            <p className="text-xs">Use "Enviar Cursos" para inscrever colaboradores</p>
+          </div>
+        ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -1818,13 +1865,15 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
               {lista.map(f => {
-                const prog = f.progresso[cursoSelecionado]
-                const pct = prog?.pct ?? 0
-                const validado = prog?.validado ?? false
-                const dataVal = prog?.dataValidacao
+                const pct = f.total_modulos > 0 ? Math.round((f.modulos_concluidos / f.total_modulos) * 100) : 0
+                const validado = f.validado
+                const dataVal = f.data_validacao
+                  ? new Date(f.data_validacao).toLocaleDateString('pt-BR')
+                  : null
+                const isValidando = validandoId === f.colaborador_id
 
                 return (
-                  <tr key={f.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                  <tr key={f.colaborador_id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                     <td className="px-4 py-3">
                       <div>
                         <p className="font-medium text-slate-800 dark:text-slate-100 text-xs">{f.nome}</p>
@@ -1834,9 +1883,7 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
                     <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">{f.area}</td>
                     <td className="px-4 py-3 min-w-36">
                       <div className="space-y-1">
-                        <div className="flex justify-between text-[10px]">
-                          <span className="text-slate-400">{pct}%</span>
-                        </div>
+                        <span className="text-[10px] text-slate-400 tabular-nums">{pct}%</span>
                         <ProgressBar pct={pct} sm />
                       </div>
                     </td>
@@ -1871,15 +1918,15 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
                     <td className="px-4 py-3 text-center">
                       {pct === 100 && !validado ? (
                         <button
-                          onClick={() => validar(f.id, cursoSelecionado)}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary-600 hover:bg-primary-700 text-white transition-colors"
+                          onClick={() => handleValidar(f)}
+                          disabled={isValidando}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary-600 hover:bg-primary-700 text-white transition-colors disabled:opacity-60"
                         >
-                          <ShieldCheck size={12} />Validar
+                          {isValidando ? <RefreshCw size={11} className="animate-spin" /> : <ShieldCheck size={12} />}
+                          Validar
                         </button>
                       ) : (
-                        <button className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                          <Eye size={12} />Ver
-                        </button>
+                        <span className="text-[10px] text-slate-300 dark:text-slate-500">—</span>
                       )}
                     </td>
                   </tr>
@@ -1888,6 +1935,7 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
             </tbody>
           </table>
         </div>
+        )}
       </div>
     </div>
   )
