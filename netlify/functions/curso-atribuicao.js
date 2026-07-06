@@ -19,11 +19,23 @@ exports.handler = async (event) => {
   `
 
   try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS treinamento_progresso (
+        id                  SERIAL PRIMARY KEY,
+        user_id             INTEGER NOT NULL,
+        curso_id            INTEGER NOT NULL,
+        modulo_id           INTEGER NOT NULL,
+        concluido           BOOLEAN DEFAULT false,
+        segundos_assistidos INTEGER DEFAULT 0,
+        updated_at          TIMESTAMP DEFAULT NOW(),
+        UNIQUE (user_id, curso_id, modulo_id)
+      )
+    `
     await sql`ALTER TABLE treinamento_progresso ADD COLUMN IF NOT EXISTS validado BOOLEAN DEFAULT false`
     await sql`ALTER TABLE treinamento_progresso ADD COLUMN IF NOT EXISTS data_validacao DATE`
     await sql`ALTER TABLE treinamento_progresso ADD COLUMN IF NOT EXISTS validado_por TEXT`
   } catch (e) {
-    // columns may already exist or table may not exist yet — safe to ignore
+    console.error('curso-atribuicao setup error:', e)
   }
 
   try {
