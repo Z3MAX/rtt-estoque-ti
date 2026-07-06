@@ -144,6 +144,16 @@ exports.handler = async (event) => {
     )
   `
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS curso_atribuicao (
+      id             SERIAL PRIMARY KEY,
+      curso_id       INTEGER NOT NULL,
+      colaborador_id INTEGER NOT NULL,
+      atribuido_em   TIMESTAMP DEFAULT NOW(),
+      UNIQUE(curso_id, colaborador_id)
+    )
+  `
+
   try {
     requireAuth(event)
     const params = event.queryStringParameters || {}
@@ -161,7 +171,18 @@ exports.handler = async (event) => {
         }
         await sql`SELECT setval(pg_get_serial_sequence('cursos','id'), 100)`
       }
-      const rows = await sql`SELECT * FROM cursos WHERE ativo = true ORDER BY ordem, id`
+      const rows = await sql`
+        SELECT c.*,
+               COALESCE(ca.total_alunos, 0)::int AS total_alunos
+        FROM cursos c
+        LEFT JOIN (
+          SELECT curso_id, COUNT(DISTINCT colaborador_id) AS total_alunos
+          FROM curso_atribuicao
+          GROUP BY curso_id
+        ) ca ON ca.curso_id = c.id
+        WHERE c.ativo = true
+        ORDER BY c.ordem, c.id
+      `
       return { statusCode: 200, headers, body: JSON.stringify(rows) }
     }
 
