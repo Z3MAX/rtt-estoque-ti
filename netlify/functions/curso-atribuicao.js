@@ -19,6 +19,12 @@ exports.handler = async (event) => {
   `
 
   try {
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS colaborador_id INTEGER`
+  } catch (e) {
+    console.error('curso-atribuicao users setup error:', e)
+  }
+
+  try {
     await sql`
       CREATE TABLE IF NOT EXISTS treinamento_progresso (
         id                  SERIAL PRIMARY KEY,

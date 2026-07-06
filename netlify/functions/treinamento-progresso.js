@@ -9,6 +9,12 @@ exports.handler = async (event) => {
   const sql = neon(process.env.DATABASE_URL)
 
   try {
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS colaborador_id INTEGER`
+  } catch (e) {
+    console.error('treinamento-progresso users setup error:', e)
+  }
+
+  try {
     await sql`
       CREATE TABLE IF NOT EXISTS treinamento_progresso (
         id                  SERIAL PRIMARY KEY,
