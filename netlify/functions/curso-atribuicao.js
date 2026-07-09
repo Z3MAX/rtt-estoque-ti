@@ -138,10 +138,8 @@ exports.handler = async (event) => {
           )`
           const reqs = await sql`
             SELECT DISTINCT curso_id FROM curso_requisitos
-            WHERE
-              (cargo IS NOT NULL AND area IS NOT NULL AND cargo = ${cargo ?? ''} AND area = ${area ?? ''})
-              OR (cargo IS NOT NULL AND area IS NULL AND cargo = ${cargo ?? ''})
-              OR (cargo IS NULL AND area IS NOT NULL AND area = ${area ?? ''})
+            WHERE (cargo IS NULL OR cargo = ${cargo ?? ''})
+              AND (area  IS NULL OR area  = ${area  ?? ''})
           `
           reqs.forEach(r => requisitosIds.add(r.curso_id))
           // Verifica se existem requisitos configurados no sistema
