@@ -2877,6 +2877,7 @@ function InstrutorView({ user }: { user: any }) {
   const [nivel, setNivel] = useState('Básico')
   const [duracao, setDuracao] = useState('')
   const [icone, setIcone] = useState('📚')
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [capaFrom, setCapaFrom] = useState('from-slate-500')
   const [capaTo, setCapaTo] = useState('to-slate-600')
   const [modulos, setModulos] = useState<ModuloEdit[]>([])
@@ -3123,11 +3124,41 @@ function InstrutorView({ user }: { user: any }) {
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Duração estimada</label>
-              <input value={duracao} onChange={e => setDuracao(e.target.value)} placeholder="Ex: 2h30" className={inputCls} />
+              <select value={duracao} onChange={e => setDuracao(e.target.value)} className={inputCls}>
+                <option value="">Selecione...</option>
+                {['15min','30min','45min','1h','1h30','2h','2h30','3h','3h30','4h','5h','6h','8h','10h','12h','16h','20h','24h','30h','40h'].map(d => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Ícone (emoji)</label>
-              <input value={icone} onChange={e => setIcone(e.target.value)} placeholder="📚" className={inputCls} />
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowEmojiPicker(v => !v)}
+                  className={inputCls + ' flex items-center gap-2 cursor-pointer text-left w-full'}
+                >
+                  <span className="text-xl">{icone || '📚'}</span>
+                  <span className="text-slate-400 text-xs">{icone ? 'Clique para trocar' : 'Selecionar emoji'}</span>
+                </button>
+                {showEmojiPicker && (
+                  <div className="absolute z-50 mt-1 p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl w-72">
+                    <div className="grid grid-cols-8 gap-1 max-h-56 overflow-y-auto">
+                      {['📚','🎓','💡','🏆','⭐','🎯','🔑','🛡️','⚙️','🔧','💻','📱','📊','📈','📋','📝','🗂️','📌','🔍','🔬','🧪','🧠','💪','🤝','👥','🌟','🚀','✅','⚠️','🔒','🔐','🏅','🎖️','🥇','🎨','🎭','🎬','🎤','🎵','🎸','🏋️','⚽','🏀','🎾','🌍','🌱','♻️','💧','🌿','🍀','🐾','🦺','🦾','🧰','🪛','🔩','🪝','📡','💡','🔋','⚡','🌡️','🩺','💊','🏥','🚑','🧯','🪜','🪣','🛒','🏭','🏗️','🏢','🏠','🚗','🚛','✈️','🚢','🌐','🗺️','📍','🏔️','🌊','🌈','☀️','🌙','❄️','🌪️'].map(e => (
+                        <button
+                          key={e}
+                          type="button"
+                          onClick={() => { setIcone(e); setShowEmojiPicker(false) }}
+                          className={`text-xl p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors ${icone === e ? 'bg-primary-100 dark:bg-primary-900/30 ring-1 ring-primary-400' : ''}`}
+                        >
+                          {e}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <div>
