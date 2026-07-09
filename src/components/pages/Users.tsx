@@ -12,6 +12,7 @@ interface AppUser {
   area?: string | null
   active: boolean
   must_change_password?: boolean
+  colaborador_id?: number | null
   created_at: string
 }
 
@@ -57,6 +58,8 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
   const [area, setArea]         = useState(user?.area ?? '')
   const [areaCustom, setAreaCustom] = useState(false)
   const [areas, setAreas]       = useState<string[]>([])
+  const [colaboradorId, setColaboradorId] = useState<number | null>(user?.colaborador_id ?? null)
+  const [colaboradores, setColaboradores] = useState<{ id: number; nome: string; cargo?: string; area?: string }[]>([])
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
@@ -79,6 +82,13 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
         else if (user?.area && merged.includes(user.area)) setAreaCustom(false)
       })
       .catch(() => { /* mantém a lista seed */ })
+
+    api.colaboradores.list()
+      .then((result) => {
+        const cols = result as { id: number; nome: string; cargo?: string; area?: string }[]
+        setColaboradores(cols.sort((a, b) => a.nome.localeCompare(b.nome)))
+      })
+      .catch(() => {})
   }, [])
 
   async function handleSubmit(e: FormEvent) {
@@ -89,7 +99,7 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
     try {
       setLoading(true); setError(''); setEmailWarning(null)
       if (isEdit) {
-        const payload: Record<string, unknown> = { name, email, role, area: area.trim() || null }
+        const payload: Record<string, unknown> = { name, email, role, area: area.trim() || null, colaborador_id: colaboradorId ?? null }
         if (password) payload.password = password
         await api.users.update(user!.id, payload)
         onSaved()
@@ -203,6 +213,26 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
               <p className="text-xs text-slate-400 mt-1">O Gestor só visualizará colaboradores desta área.</p>
             )}
           </div>
+
+          {isEdit && (
+            <div>
+              <label className="label">Colaborador vinculado</label>
+              <select
+                className="input"
+                value={colaboradorId ?? ''}
+                onChange={(e) => setColaboradorId(e.target.value ? Number(e.target.value) : null)}
+                disabled={loading}
+              >
+                <option value="">— Nenhum —</option>
+                {colaboradores.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome}{c.cargo ? ` · ${c.cargo}` : ''}{c.area ? ` (${c.area})` : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-400 mt-1">Vincula este login ao perfil do colaborador para filtrar treinamentos por cargo/área.</p>
+            </div>
+          )}
 
           {/* E-mail não enviado — aviso com motivo */}
           {emailWarning && (

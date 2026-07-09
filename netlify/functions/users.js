@@ -30,7 +30,7 @@ exports.handler = async (event) => {
         return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
       }
       const rows = await sql`
-        SELECT id, name, email, role, area, active, must_change_password, created_at, updated_at
+        SELECT id, name, email, role, area, active, must_change_password, colaborador_id, created_at, updated_at
         FROM users ORDER BY name ASC
       `
       return { statusCode: 200, headers, body: JSON.stringify(rows) }
@@ -120,7 +120,12 @@ exports.handler = async (event) => {
     // PUT — somente administrador
     if (event.httpMethod === 'PUT' && id) {
       const adminPayload = requireAdmin(event)
-      const { name, email, password, role, area, active } = JSON.parse(event.body || '{}')
+
+      try {
+        await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS colaborador_id INTEGER`
+      } catch (e) { /* coluna já existe */ }
+
+      const { name, email, password, role, area, active, colaborador_id } = JSON.parse(event.body || '{}')
 
       if (email !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'E-mail inválido' }) }
@@ -141,24 +146,26 @@ exports.handler = async (event) => {
       if (existingBefore.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Usuário não encontrado' }) }
 
       const updates = {}
-      if (name !== undefined)   updates.name = name.trim()
-      if (email !== undefined)  updates.email = email.toLowerCase()
-      if (role !== undefined)   updates.role = role
-      if (area !== undefined)   updates.area = area || null
-      if (active !== undefined) updates.active = active
-      if (password)             updates.password_hash = await hashPassword(password)
+      if (name !== undefined)            updates.name = name.trim()
+      if (email !== undefined)           updates.email = email.toLowerCase()
+      if (role !== undefined)            updates.role = role
+      if (area !== undefined)            updates.area = area || null
+      if (active !== undefined)          updates.active = active
+      if (password)                      updates.password_hash = await hashPassword(password)
+      if (colaborador_id !== undefined)  updates.colaborador_id = colaborador_id || null
 
       const rows = await sql`
         UPDATE users SET
-          name          = COALESCE(${updates.name ?? null}, name),
-          email         = COALESCE(${updates.email ?? null}, email),
-          role          = COALESCE(${updates.role ?? null}, role),
-          area          = CASE WHEN ${area !== undefined} THEN ${updates.area ?? null} ELSE area END,
-          active        = COALESCE(${updates.active ?? null}, active),
-          password_hash = COALESCE(${updates.password_hash ?? null}, password_hash),
-          updated_at    = NOW()
+          name            = COALESCE(${updates.name ?? null}, name),
+          email           = COALESCE(${updates.email ?? null}, email),
+          role            = COALESCE(${updates.role ?? null}, role),
+          area            = CASE WHEN ${area !== undefined} THEN ${updates.area ?? null} ELSE area END,
+          active          = COALESCE(${updates.active ?? null}, active),
+          password_hash   = COALESCE(${updates.password_hash ?? null}, password_hash),
+          colaborador_id  = CASE WHEN ${colaborador_id !== undefined} THEN ${updates.colaborador_id ?? null} ELSE colaborador_id END,
+          updated_at      = NOW()
         WHERE id = ${id}
-        RETURNING id, name, email, role, area, active, created_at, updated_at
+        RETURNING id, name, email, role, area, active, colaborador_id, created_at, updated_at
       `
       if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Usuário não encontrado' }) }
 

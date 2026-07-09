@@ -104,7 +104,18 @@ exports.handler = async (event) => {
       }
 
       if (!colaboradorId) {
-        return { statusCode: 200, headers, body: JSON.stringify({ colaborador_id: null, curso_ids: [], filtrado_por_requisitos: false }) }
+        // Verifica se há requisitos no sistema — se sim, filtra estrito (mostra nada)
+        let temReqs = false
+        try {
+          await sql`CREATE TABLE IF NOT EXISTS curso_requisitos (
+            id SERIAL PRIMARY KEY, curso_id INTEGER NOT NULL,
+            cargo TEXT, area TEXT, obrigatorio BOOLEAN DEFAULT true,
+            created_at TIMESTAMP DEFAULT NOW(), UNIQUE (curso_id, cargo, area)
+          )`
+          const total = await sql`SELECT COUNT(*) AS n FROM curso_requisitos`
+          temReqs = parseInt(total[0]?.n ?? '0') > 0
+        } catch (e) { /* ignora */ }
+        return { statusCode: 200, headers, body: JSON.stringify({ colaborador_id: null, curso_ids: [], filtrado_por_requisitos: temReqs }) }
       }
 
       // Cursos atribuídos explicitamente
