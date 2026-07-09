@@ -104,14 +104,54 @@ exports.handler = async (event) => {
       }
 
       if (!colaboradorId) {
-        return { statusCode: 200, headers, body: JSON.stringify({ colaborador_id: null, curso_ids: [] }) }
+        return { statusCode: 200, headers, body: JSON.stringify({ colaborador_id: null, curso_ids: [], filtrado_por_requisitos: false }) }
       }
 
-      const rows = await sql`SELECT curso_id FROM curso_atribuicao WHERE colaborador_id = ${colaboradorId}`
+      // Cursos atribuídos explicitamente
+      const atribuidos = await sql`SELECT curso_id FROM curso_atribuicao WHERE colaborador_id = ${colaboradorId}`
+      const atribuidosIds = new Set(atribuidos.map(r => r.curso_id))
+
+      // Cursos pelo cargo/área do colaborador via curso_requisitos
+      const colab = await sql`SELECT cargo, area FROM colaboradores WHERE id = ${colaboradorId} LIMIT 1`
+      const cargo = colab[0]?.cargo || null
+      const area  = colab[0]?.area  || null
+
+      let requisitosIds = new Set()
+      let temRequisitos = false
+      if (cargo || area) {
+        try {
+          await sql`CREATE TABLE IF NOT EXISTS curso_requisitos (
+            id SERIAL PRIMARY KEY, curso_id INTEGER NOT NULL,
+            cargo TEXT, area TEXT, obrigatorio BOOLEAN DEFAULT true,
+            created_at TIMESTAMP DEFAULT NOW(), UNIQUE (curso_id, cargo, area)
+          )`
+          const reqs = await sql`
+            SELECT DISTINCT curso_id FROM curso_requisitos
+            WHERE (cargo IS NOT NULL AND cargo = ${cargo ?? ''})
+               OR (area  IS NOT NULL AND area  = ${area  ?? ''})
+          `
+          reqs.forEach(r => requisitosIds.add(r.curso_id))
+          // Verifica se existem requisitos configurados no sistema
+          const total = await sql`SELECT COUNT(*) AS n FROM curso_requisitos`
+          temRequisitos = parseInt(total[0]?.n ?? '0') > 0
+        } catch (e) {
+          console.error('curso_requisitos lookup error:', e)
+        }
+      }
+
+      // União: atribuídos explicitamente + matching por cargo/área
+      const todos = [...new Set([...atribuidosIds, ...requisitosIds])]
+
+      // Se o sistema tem requisitos configurados → filtrar estrito
+      // Se não tem requisitos nenhum ainda → retorna vazio sinalizando ao frontend que deve mostrar tudo
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify({ colaborador_id: colaboradorId, curso_ids: rows.map(r => r.curso_id) }),
+        body: JSON.stringify({
+          colaborador_id: colaboradorId,
+          curso_ids: todos,
+          filtrado_por_requisitos: temRequisitos,
+        }),
       }
     }
 

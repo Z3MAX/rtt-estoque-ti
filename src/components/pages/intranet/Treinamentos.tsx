@@ -2815,6 +2815,7 @@ export default function TreinamentosPage() {
   const [progressoSegsMap, setProgressoSegsMap] = useState<Record<string, number>>({})
   const [editCurso, setEditCurso] = useState<Treinamento | null | 'new'>(null)
   const [atribuidosIds, setAtribuidosIds] = useState<number[]>([])
+  const [filtradoPorRequisitos, setFiltradoPorRequisitos] = useState(false)
   const [enviarCursos, setEnviarCursos] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -2841,6 +2842,7 @@ export default function TreinamentosPage() {
       setModuloConfigs(configMap)
       setProgressoSegsMap(segsMap)
       setAtribuidosIds((atribuicao as any)?.curso_ids ?? [])
+      setFiltradoPorRequisitos((atribuicao as any)?.filtrado_por_requisitos ?? false)
     }).finally(() => setLoading(false))
   }, [])
 
@@ -2888,10 +2890,13 @@ export default function TreinamentosPage() {
     } : prev)
   }
 
-  // Non-admins only see courses explicitly assigned to them (if any assignments exist)
-  const cursosVisiveis = (isAdmin(user?.role) || atribuidosIds.length === 0)
+  // Admins veem tudo; non-admins veem só os atribuídos/requisitos
+  // Se filtradoPorRequisitos=true o backend já retornou a lista correta (sem fallback de "mostrar tudo")
+  const cursosVisiveis = isAdmin(user?.role)
     ? cursos
-    : cursos.filter(c => atribuidosIds.includes(c.id))
+    : (filtradoPorRequisitos || atribuidosIds.length > 0)
+      ? cursos.filter(c => atribuidosIds.includes(c.id))
+      : cursos
 
   // Pending obligations are based only on enrolled courses — never on the full catalogue
   const cursosInscritos = cursos.filter(c => atribuidosIds.includes(c.id))

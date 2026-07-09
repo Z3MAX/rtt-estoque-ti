@@ -343,8 +343,8 @@ export const api = {
 
   cursoAtribuicao: {
     getMy: async () => {
-      if (MOCK) { await delay(200); return { colaborador_id: null, curso_ids: [] } }
-      return request<{ colaborador_id: number | null; curso_ids: number[] }>(`${BASE}/curso-atribuicao`)
+      if (MOCK) { await delay(200); return { colaborador_id: null, curso_ids: [], filtrado_por_requisitos: false } }
+      return request<{ colaborador_id: number | null; curso_ids: number[]; filtrado_por_requisitos: boolean }>(`${BASE}/curso-atribuicao`)
     },
     getForColab: async (colaboradorId: number) => {
       if (MOCK) { await delay(200); return { colaborador_id: colaboradorId, curso_ids: [] } }
