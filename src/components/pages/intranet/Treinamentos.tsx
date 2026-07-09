@@ -1788,6 +1788,7 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
   const [search, setSearch] = useState('')
   const [apenasObrigatorios, setApenasObrigatorios] = useState(false)
   const [validandoId, setValidandoId] = useState<number | null>(null)
+  const [removendoId, setRemovendoId] = useState<number | null>(null)
 
   // Requisitos tab
   const [requisitos, setRequisitos] = useState<{ cargo?: string; area?: string; obrigatorio: boolean }[]>([])
@@ -1881,6 +1882,18 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
       ))
     } catch { /* noop */ } finally {
       setValidandoId(null)
+    }
+  }
+
+  async function handleRemover(inscrito: InscritoRow) {
+    if (!window.confirm(`Remover ${inscrito.nome} do curso?`)) return
+    setRemovendoId(inscrito.colaborador_id)
+    try {
+      const novosIds = inscritos.filter(i => i.colaborador_id !== inscrito.colaborador_id).map(i => i.colaborador_id)
+      await api.cursoAtribuicao.setForCurso(cursoSelecionado, novosIds)
+      setInscritos(prev => prev.filter(i => i.colaborador_id !== inscrito.colaborador_id))
+    } catch { /* noop */ } finally {
+      setRemovendoId(null)
     }
   }
 
@@ -2076,6 +2089,14 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
                                 <CertificadoBtn colaborador={f.nome} cargo={f.cargo} curso={curso?.titulo ?? ''} instrutor={curso?.instrutor ?? ''} dataValidacao={f.data_validacao} validadoPor={f.validado_por} />
                               )}
                               {pct < 100 && <span className="text-[10px] text-slate-300 dark:text-slate-500">—</span>}
+                              <button
+                                onClick={() => handleRemover(f)}
+                                disabled={removendoId === f.colaborador_id}
+                                title="Remover do curso"
+                                className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-40"
+                              >
+                                {removendoId === f.colaborador_id ? <RefreshCw size={11} className="animate-spin" /> : <Trash2 size={13} />}
+                              </button>
                             </div>
                           </td>
                         </tr>
