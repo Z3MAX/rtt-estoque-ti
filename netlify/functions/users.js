@@ -22,30 +22,6 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'GET') {
       requireAdmin(event)
 
-      // GET ?action=verificar_vinculos — diagnóstico de duplicatas e vínculos ativos
-      if (event.queryStringParameters?.action === 'verificar_vinculos') {
-        // Usuários com vínculo
-        const vinculados = await sql`
-          SELECT u.id AS user_id, u.name AS user_name, u.email, u.role,
-                 u.colaborador_id, c.nome AS colab_nome, c.cargo, c.area
-          FROM users u
-          JOIN colaboradores c ON c.id = u.colaborador_id
-          WHERE u.active = true AND u.colaborador_id IS NOT NULL
-          ORDER BY u.name
-        `
-        // Colaboradores com nome duplicado (case-insensitive)
-        const duplicatas = await sql`
-          SELECT LOWER(TRIM(nome)) AS nome_norm, cargo, area, COUNT(*) AS qtd,
-                 array_agg(id ORDER BY id) AS ids, array_agg(nome ORDER BY id) AS nomes
-          FROM colaboradores
-          WHERE ativo = true
-          GROUP BY LOWER(TRIM(nome)), cargo, area
-          HAVING COUNT(*) > 1
-          ORDER BY nome_norm
-        `
-        return { statusCode: 200, headers, body: JSON.stringify({ vinculados, duplicatas }) }
-      }
-
       // GET ?action=propor_vinculos — sugestões de user→colaborador por similaridade de nome
       if (event.queryStringParameters?.action === 'propor_vinculos') {
         const usuarios = await sql`
@@ -190,26 +166,6 @@ exports.handler = async (event) => {
     }
 
     // PUT ?action=limpar_duplicata — remove colaborador duplicado e migra inscrições para o ID correto
-    if (event.httpMethod === 'PUT' && event.queryStringParameters?.action === 'limpar_duplicata') {
-      requireAdmin(event)
-      const { manter_id, remover_id } = JSON.parse(event.body || '{}')
-      if (!manter_id || !remover_id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'manter_id e remover_id são obrigatórios' }) }
-      if (manter_id === remover_id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'IDs devem ser diferentes' }) }
-
-      // Migra inscrições de curso do duplicado para o original (ignorando conflitos)
-      await sql`
-        INSERT INTO curso_atribuicao (colaborador_id, curso_id, auto_inscrito)
-        SELECT ${manter_id}, curso_id, auto_inscrito FROM curso_atribuicao WHERE colaborador_id = ${remover_id}
-        ON CONFLICT (colaborador_id, curso_id) DO NOTHING
-      `
-      // Remove inscrições do duplicado
-      await sql`DELETE FROM curso_atribuicao WHERE colaborador_id = ${remover_id}`
-      // Desativa o colaborador duplicado (soft-delete)
-      await sql`UPDATE colaboradores SET ativo = false WHERE id = ${remover_id}`
-
-      return { statusCode: 200, headers, body: JSON.stringify({ success: true, migrado: remover_id, mantido: manter_id }) }
-    }
-
     // PUT — somente administrador
     if (event.httpMethod === 'PUT' && id) {
       const adminPayload = requireAdmin(event)
