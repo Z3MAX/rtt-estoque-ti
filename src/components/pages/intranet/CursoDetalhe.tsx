@@ -672,7 +672,7 @@ export default function CursoDetalhe() {
           {/* Video player (when aberto) */}
           {videoAberto !== null && (() => {
             const m = curso.modulos.find(mod => mod.id === videoAberto)
-            if (!m) return null
+            if (!m || m.tipo !== 'video') return null
             const videoUrl = getVideoUrl(m.id)
             const segsKey = `${curso.id}_${m.id}`
             return (
