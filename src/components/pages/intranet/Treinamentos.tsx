@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Search, X, BookOpen, Clock, Star, CheckCircle2, Play, Award,
   ChevronRight, Users, BarChart2, ShieldCheck, Video, FileText,
   HelpCircle, Lock, ChevronDown, ChevronUp, Layers, BadgeCheck,
   AlertTriangle, Eye, Link, Edit2, Save, ExternalLink, RefreshCw,
-  Plus, Trash2, Pencil, Send,
+  Plus, Trash2, Pencil, Send, Download, GraduationCap, Target,
+  FileSpreadsheet, UserCheck, Briefcase,
 } from 'lucide-react'
 import { useAuth, isAdmin, isGestor } from '../../../lib/auth'
 import { api } from '../../../lib/api'
@@ -1783,7 +1784,26 @@ interface InscritoRow {
   validado_por: string | null
 }
 
+// Download helper: converts array of objects to CSV and triggers download
+function downloadCSV(rows: Record<string, any>[], filename: string) {
+  if (!rows.length) return
+  const cols = Object.keys(rows[0])
+  const escape = (v: any) => {
+    const s = v == null ? '' : String(v)
+    return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  const lines = [cols.join(','), ...rows.map(r => cols.map(c => escape(r[c])).join(','))]
+  const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = filename; a.click()
+  URL.revokeObjectURL(url)
+}
+
+type RHTab = 'progresso' | 'requisitos' | 'relatorio' | 'instrutores'
+
 function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
+  const [tab, setTab] = useState<RHTab>('progresso')
   const [cursoSelecionado, setCursoSelecionado] = useState<number>(todosCursos[0]?.id ?? 0)
   const [inscritos, setInscritos] = useState<InscritoRow[]>([])
   const [loading, setLoading] = useState(false)
@@ -1791,19 +1811,68 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
   const [apenasObrigatorios, setApenasObrigatorios] = useState(false)
   const [validandoId, setValidandoId] = useState<number | null>(null)
 
+  // Requisitos tab
+  const [requisitos, setRequisitos] = useState<{ cargo?: string; area?: string; obrigatorio: boolean }[]>([])
+  const [novoReqCargo, setNovoReqCargo] = useState('')
+  const [novoReqArea, setNovoReqArea] = useState('')
+  const [novoReqObrig, setNovoReqObrig] = useState(true)
+  const [savingReq, setSavingReq] = useState(false)
+  const [loadingReq, setLoadingReq] = useState(false)
+
+  // Relatório tab
+  const [relatorioRows, setRelatorioRows] = useState<any[]>([])
+  const [loadingRel, setLoadingRel] = useState(false)
+  const [relCursoId, setRelCursoId] = useState<number | ''>('')
+
+  // Instrutores tab
+  const [instResumo, setInstResumo] = useState<any[]>([])
+  const [instDetalhe, setInstDetalhe] = useState<any[]>([])
+  const [loadingInst, setLoadingInst] = useState(false)
+  const [instSelecionado, setInstSelecionado] = useState<string | null>(null)
+
   const cursos = apenasObrigatorios ? todosCursos.filter(t => t.obrigatorio) : todosCursos
   const curso = todosCursos.find(t => t.id === cursoSelecionado) ?? todosCursos[0]
 
   useEffect(() => {
-    if (!cursoSelecionado) return
+    if (tab !== 'progresso' || !cursoSelecionado) return
     setLoading(true)
     api.cursoAtribuicao.getForCurso(cursoSelecionado)
       .then((data: any) => setInscritos(data?.inscritos ?? []))
       .catch(() => setInscritos([]))
       .finally(() => setLoading(false))
-  }, [cursoSelecionado])
+  }, [cursoSelecionado, tab])
 
-  // Ao trocar filtro obrigatorio, ajusta o curso selecionado se necessário
+  useEffect(() => {
+    if (tab !== 'requisitos' || !cursoSelecionado) return
+    setLoadingReq(true)
+    api.cursoRequisitos.list(cursoSelecionado)
+      .then((rows: any) => setRequisitos(rows.map((r: any) => ({ cargo: r.cargo, area: r.area, obrigatorio: r.obrigatorio }))))
+      .catch(() => setRequisitos([]))
+      .finally(() => setLoadingReq(false))
+  }, [cursoSelecionado, tab])
+
+  useEffect(() => {
+    if (tab !== 'relatorio') return
+    setLoadingRel(true)
+    api.relatorioTreinamentos.colaboradores(relCursoId ? { curso_id: Number(relCursoId) } : undefined)
+      .then((data: any) => setRelatorioRows(data?.rows ?? []))
+      .catch(() => setRelatorioRows([]))
+      .finally(() => setLoadingRel(false))
+  }, [tab, relCursoId])
+
+  useEffect(() => {
+    if (tab !== 'instrutores') return
+    setLoadingInst(true)
+    api.relatorioTreinamentos.instrutores()
+      .then((data: any) => {
+        setInstResumo(data?.resumo ?? [])
+        setInstDetalhe(data?.detalhe ?? [])
+        if (data?.resumo?.length > 0 && !instSelecionado) setInstSelecionado(data.resumo[0].instrutor)
+      })
+      .catch(() => { setInstResumo([]); setInstDetalhe([]) })
+      .finally(() => setLoadingInst(false))
+  }, [tab])
+
   useEffect(() => {
     const lista = apenasObrigatorios ? todosCursos.filter(t => t.obrigatorio) : todosCursos
     if (lista.length > 0 && !lista.find(t => t.id === cursoSelecionado)) {
@@ -1814,7 +1883,6 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
   async function handleValidar(inscrito: InscritoRow) {
     setValidandoId(inscrito.colaborador_id)
     try {
-      // user_id não está disponível direto — backend resolve pelo colaborador_id via users.colaborador_id
       await api.treinamentoProgresso.validar(inscrito.colaborador_id, cursoSelecionado)
       setInscritos(prev => prev.map(i =>
         i.colaborador_id === inscrito.colaborador_id
@@ -1826,6 +1894,21 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
     }
   }
 
+  async function handleSaveRequisitos() {
+    setSavingReq(true)
+    try {
+      await api.cursoRequisitos.save(cursoSelecionado, requisitos)
+    } catch { /* noop */ } finally {
+      setSavingReq(false)
+    }
+  }
+
+  function addRequisito() {
+    if (!novoReqCargo && !novoReqArea) return
+    setRequisitos(prev => [...prev, { cargo: novoReqCargo || undefined, area: novoReqArea || undefined, obrigatorio: novoReqObrig }])
+    setNovoReqCargo(''); setNovoReqArea('')
+  }
+
   const lista = inscritos.filter(f =>
     !search || f.nome.toLowerCase().includes(search.toLowerCase()) || (f.area ?? '').toLowerCase().includes(search.toLowerCase())
   )
@@ -1835,179 +1918,568 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
     return pct === 100 && !f.validado
   }).length
 
+  const TABS: { id: RHTab; label: string; icon: React.ReactNode }[] = [
+    { id: 'progresso',   label: 'Progresso',   icon: <BarChart2 size={13} /> },
+    { id: 'requisitos',  label: 'Requisitos',   icon: <Target size={13} /> },
+    { id: 'relatorio',   label: 'Relatórios',   icon: <FileSpreadsheet size={13} /> },
+    { id: 'instrutores', label: 'Instrutores',  icon: <UserCheck size={13} /> },
+  ]
+
   return (
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">Gestão de Treinamentos</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Acompanhe o progresso de cada colaborador e valide a conclusão</p>
+          <p className="text-xs text-slate-400 mt-0.5">Acompanhe o progresso, defina requisitos e extraia relatórios</p>
         </div>
-        <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-600 dark:text-slate-300">
-          <div
-            onClick={() => setApenasObrigatorios(v => !v)}
-            className={`w-9 h-5 rounded-full transition-colors relative ${apenasObrigatorios ? 'bg-primary-500' : 'bg-slate-200 dark:bg-slate-600'}`}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit">
+        {TABS.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              tab === t.id
+                ? 'bg-white dark:bg-slate-700 shadow text-slate-800 dark:text-slate-100'
+                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
           >
-            <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${apenasObrigatorios ? 'left-4' : 'left-0.5'}`} />
-          </div>
-          Só obrigatórios
-        </label>
+            {t.icon}{t.label}
+          </button>
+        ))}
       </div>
 
-      {/* Alerta de pendências */}
-      {pendentesValidacao > 0 && (
-        <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-3 text-sm text-amber-700 dark:text-amber-400">
-          <AlertTriangle size={16} className="shrink-0" />
-          <span><strong>{pendentesValidacao} colaborador(es)</strong> concluíram "{curso?.titulo}" e aguardam validação.</span>
+      {/* ── Tab: Progresso ── */}
+      {tab === 'progresso' && (
+        <div className="space-y-4">
+          {pendentesValidacao > 0 && (
+            <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-3 text-sm text-amber-700 dark:text-amber-400">
+              <AlertTriangle size={16} className="shrink-0" />
+              <span><strong>{pendentesValidacao} colaborador(es)</strong> concluíram "{curso?.titulo}" e aguardam validação.</span>
+            </div>
+          )}
+
+          <div className="flex gap-3 flex-wrap items-center">
+            <select
+              value={cursoSelecionado}
+              onChange={e => setCursoSelecionado(Number(e.target.value))}
+              className="flex-1 min-w-48 py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              {cursos.map(t => (
+                <option key={t.id} value={t.id}>{t.titulo}{t.obrigatorio ? ' ★' : ''}</option>
+              ))}
+            </select>
+            <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-600 dark:text-slate-300 shrink-0">
+              <div onClick={() => setApenasObrigatorios(v => !v)} className={`w-9 h-5 rounded-full transition-colors relative ${apenasObrigatorios ? 'bg-primary-500' : 'bg-slate-200 dark:bg-slate-600'}`}>
+                <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${apenasObrigatorios ? 'left-4' : 'left-0.5'}`} />
+              </div>
+              Só obrigatórios
+            </label>
+            <div className="relative flex-1 min-w-40">
+              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input className="w-full pl-9 pr-9 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm placeholder-slate-400 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} />
+              {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"><X size={14} /></button>}
+            </div>
+            {lista.length > 0 && (
+              <button
+                onClick={() => downloadCSV(lista.map(f => ({
+                  Colaborador: f.nome, Cargo: f.cargo, Área: f.area,
+                  Progresso: `${f.total_modulos > 0 ? Math.round((f.modulos_concluidos / f.total_modulos) * 100) : 0}%`,
+                  'Módulos concluídos': f.modulos_concluidos,
+                  'Total módulos': f.total_modulos,
+                  Validado: f.validado ? 'Sim' : 'Não',
+                  'Data validação': f.data_validacao ?? '',
+                  'Validado por': f.validado_por ?? '',
+                })), `progresso_${curso?.titulo?.replace(/\s/g, '_') ?? 'curso'}.csv`)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shrink-0"
+              >
+                <Download size={13} />CSV
+              </button>
+            )}
+          </div>
+
+          {curso && (
+            <div className={`relative rounded-2xl p-5 flex items-center gap-4 overflow-hidden ${!curso.capaUrl ? `bg-gradient-to-br ${curso.capa.from} ${curso.capa.to}` : 'bg-slate-900'}`} style={curso.capaUrl ? { backgroundImage: `url(${curso.capaUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
+              {curso.capaUrl && <div className="absolute inset-0 bg-black/55" />}
+              <span className="relative text-4xl shrink-0">{curso.icone}</span>
+              <div className="relative flex-1 min-w-0 text-white">
+                <p className="font-bold text-base leading-tight">{curso.titulo}</p>
+                <p className="text-white/70 text-xs mt-0.5">{curso.modulos.length} módulos · {curso.duracao} · por {curso.instrutor}</p>
+              </div>
+              <div className="relative text-right text-white shrink-0">
+                <p className="text-2xl font-black tabular-nums">
+                  {inscritos.filter(f => f.total_modulos > 0 && f.modulos_concluidos >= f.total_modulos).length}
+                  <span className="text-base font-normal opacity-70">/{inscritos.length}</span>
+                </p>
+                <p className="text-xs text-white/70">concluíram</p>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+            {loading ? (
+              <div className="flex items-center justify-center py-12 gap-2 text-slate-400 text-sm"><RefreshCw size={14} className="animate-spin" /> Carregando…</div>
+            ) : lista.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-2 text-slate-400 text-sm">
+                <Users size={24} className="opacity-30" />
+                <p>Nenhum colaborador inscrito neste curso</p>
+                <p className="text-xs">Use "Enviar Cursos" para inscrever colaboradores</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-100 dark:border-slate-700">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400">Colaborador</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400">Área</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 min-w-32">Progresso</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 dark:text-slate-400">Status</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 dark:text-slate-400">Validação</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 dark:text-slate-400">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                    {lista.map(f => {
+                      const pct = f.total_modulos > 0 ? Math.round((f.modulos_concluidos / f.total_modulos) * 100) : 0
+                      const validado = f.validado
+                      const dataVal = f.data_validacao ? new Date(f.data_validacao).toLocaleDateString('pt-BR') : null
+                      const isValidando = validandoId === f.colaborador_id
+                      return (
+                        <tr key={f.colaborador_id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                          <td className="px-4 py-3">
+                            <p className="font-medium text-slate-800 dark:text-slate-100 text-xs">{f.nome}</p>
+                            <p className="text-[10px] text-slate-400">{f.cargo}</p>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">{f.area}</td>
+                          <td className="px-4 py-3 min-w-36">
+                            <span className="text-[10px] text-slate-400 tabular-nums">{pct}%</span>
+                            <ProgressBar pct={pct} sm />
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {pct === 100 ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"><CheckCircle2 size={10} />Concluído</span>
+                            ) : pct > 0 ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"><Play size={10} />Em andamento</span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">Não iniciado</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {validado ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400"><BadgeCheck size={10} />Validado{dataVal ? ` ${dataVal}` : ''}</span>
+                            ) : pct === 100 ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"><AlertTriangle size={10} />Pendente</span>
+                            ) : (
+                              <span className="text-[10px] text-slate-300 dark:text-slate-600">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              {pct === 100 && !validado && (
+                                <button onClick={() => handleValidar(f)} disabled={isValidando} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary-600 hover:bg-primary-700 text-white transition-colors disabled:opacity-60">
+                                  {isValidando ? <RefreshCw size={11} className="animate-spin" /> : <ShieldCheck size={12} />}Validar
+                                </button>
+                              )}
+                              {pct === 100 && validado && (
+                                <CertificadoBtn colaborador={f.nome} cargo={f.cargo} curso={curso?.titulo ?? ''} instrutor={curso?.instrutor ?? ''} dataValidacao={f.data_validacao} validadoPor={f.validado_por} />
+                              )}
+                              {pct < 100 && <span className="text-[10px] text-slate-300 dark:text-slate-500">—</span>}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      <div className="flex gap-3 flex-wrap">
-        {/* Seletor de curso */}
-        <select
-          value={cursoSelecionado}
-          onChange={e => setCursoSelecionado(Number(e.target.value))}
-          className="flex-1 min-w-48 py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
-        >
-          {cursos.map(t => (
-            <option key={t.id} value={t.id}>{t.titulo}{t.obrigatorio ? ' ★' : ''}</option>
-          ))}
-        </select>
-
-        {/* Busca */}
-        <div className="relative flex-1 min-w-48">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            className="w-full pl-9 pr-9 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm placeholder-slate-400 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            placeholder="Buscar colaborador ou área..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"><X size={14} /></button>}
-        </div>
-      </div>
-
-      {/* Sumário do curso selecionado */}
-      {curso && (
-        <div
-          className={`relative rounded-2xl p-5 flex items-center gap-4 overflow-hidden ${!curso.capaUrl ? `bg-gradient-to-br ${curso.capa.from} ${curso.capa.to}` : 'bg-slate-900'}`}
-          style={curso.capaUrl ? { backgroundImage: `url(${curso.capaUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
-        >
-          {curso.capaUrl && <div className="absolute inset-0 bg-black/55" />}
-          <span className="relative text-4xl shrink-0">{curso.icone}</span>
-          <div className="relative flex-1 min-w-0 text-white">
-            <p className="font-bold text-base leading-tight">{curso.titulo}</p>
-            <p className="text-white/70 text-xs mt-0.5">{curso.modulos.length} módulos · {curso.duracao} · por {curso.instrutor}</p>
+      {/* ── Tab: Requisitos ── */}
+      {tab === 'requisitos' && (
+        <div className="space-y-5">
+          <div className="flex gap-3 flex-wrap items-center">
+            <select
+              value={cursoSelecionado}
+              onChange={e => setCursoSelecionado(Number(e.target.value))}
+              className="flex-1 min-w-48 py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              {todosCursos.map(t => <option key={t.id} value={t.id}>{t.titulo}</option>)}
+            </select>
           </div>
-          <div className="relative text-right text-white shrink-0">
-            <p className="text-2xl font-black tabular-nums">
-              {inscritos.filter(f => f.total_modulos > 0 && f.modulos_concluidos >= f.total_modulos).length}
-              <span className="text-base font-normal opacity-70">/{inscritos.length}</span>
-            </p>
-            <p className="text-xs text-white/70">concluíram</p>
+
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2"><Briefcase size={14} className="text-primary-500" />Requisitos por cargo / área</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Quando um colaborador mudar de cargo ou área, os cursos correspondentes serão atribuídos automaticamente.</p>
+            </div>
+
+            {loadingReq ? (
+              <div className="flex items-center gap-2 text-slate-400 text-sm py-4"><RefreshCw size={14} className="animate-spin" /> Carregando…</div>
+            ) : (
+              <>
+                {/* Lista de requisitos */}
+                {requisitos.length === 0 ? (
+                  <div className="text-xs text-slate-400 py-4 text-center border border-dashed border-slate-200 dark:border-slate-700 rounded-xl">Nenhum requisito definido para este curso</div>
+                ) : (
+                  <div className="space-y-2">
+                    {requisitos.map((r, i) => (
+                      <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-700/50">
+                        <div className="flex-1 min-w-0">
+                          {r.cargo && <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-700 dark:text-slate-200 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-md mr-2"><Briefcase size={10} />{r.cargo}</span>}
+                          {r.area  && <span className="inline-flex items-center gap-1 text-xs font-medium text-violet-700 dark:text-violet-300 bg-violet-100 dark:bg-violet-900/30 px-2 py-0.5 rounded-md"><Target size={10} />{r.area}</span>}
+                        </div>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${r.obrigatorio ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'}`}>{r.obrigatorio ? 'Obrigatório' : 'Opcional'}</span>
+                        <button onClick={() => setRequisitos(prev => prev.filter((_, idx) => idx !== i))} className="text-slate-300 hover:text-red-400 transition-colors"><X size={14} /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Form adicionar requisito */}
+                <div className="flex gap-2 flex-wrap items-end pt-2 border-t border-slate-100 dark:border-slate-700">
+                  <div className="flex-1 min-w-32">
+                    <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1 block">Cargo</label>
+                    <input value={novoReqCargo} onChange={e => setNovoReqCargo(e.target.value)} placeholder="ex: Analista de TI" className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-400" />
+                  </div>
+                  <div className="flex-1 min-w-32">
+                    <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1 block">Área</label>
+                    <input value={novoReqArea} onChange={e => setNovoReqArea(e.target.value)} placeholder="ex: Tecnologia" className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-400" />
+                  </div>
+                  <div className="shrink-0">
+                    <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1 block">Tipo</label>
+                    <select value={novoReqObrig ? 'obrig' : 'opt'} onChange={e => setNovoReqObrig(e.target.value === 'obrig')} className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-200 focus:outline-none">
+                      <option value="obrig">Obrigatório</option>
+                      <option value="opt">Opcional</option>
+                    </select>
+                  </div>
+                  <button onClick={addRequisito} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold transition-colors shrink-0">
+                    <Plus size={13} />Adicionar
+                  </button>
+                </div>
+
+                <div className="flex justify-end">
+                  <button onClick={handleSaveRequisitos} disabled={savingReq} className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors disabled:opacity-60">
+                    {savingReq ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />}Salvar requisitos
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
 
-      {/* Tabela */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center py-12 gap-2 text-slate-400 text-sm">
-            <RefreshCw size={14} className="animate-spin" /> Carregando…
+      {/* ── Tab: Relatórios ── */}
+      {tab === 'relatorio' && (
+        <div className="space-y-4">
+          <div className="flex gap-3 flex-wrap items-center">
+            <select
+              value={relCursoId}
+              onChange={e => setRelCursoId(e.target.value ? Number(e.target.value) : '')}
+              className="flex-1 min-w-48 py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">Todos os cursos</option>
+              {todosCursos.map(t => <option key={t.id} value={t.id}>{t.titulo}</option>)}
+            </select>
+            {relatorioRows.length > 0 && (
+              <button
+                onClick={() => downloadCSV(relatorioRows.map(r => ({
+                  Colaborador: r.colaborador, Cargo: r.cargo, Área: r.area,
+                  Curso: r.curso, Categoria: r.categoria, Instrutor: r.instrutor,
+                  Obrigatório: r.obrigatorio ? 'Sim' : 'Não',
+                  'Total módulos': r.total_modulos,
+                  'Módulos concluídos': r.modulos_concluidos,
+                  '% Conclusão': r.pct_conclusao ?? 0,
+                  Status: r.status,
+                  Validado: r.validado ? 'Sim' : 'Não',
+                  'Data conclusão': r.data_conclusao ? new Date(r.data_conclusao).toLocaleDateString('pt-BR') : '',
+                })), 'relatorio_treinamentos.csv')}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors"
+              >
+                <Download size={13} />Exportar CSV
+              </button>
+            )}
           </div>
-        ) : lista.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-2 text-slate-400 text-sm">
-            <Users size={24} className="opacity-30" />
-            <p>Nenhum colaborador inscrito neste curso</p>
-            <p className="text-xs">Use "Enviar Cursos" para inscrever colaboradores</p>
-          </div>
-        ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-100 dark:border-slate-700">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400">Colaborador</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400">Área</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 min-w-32">Progresso</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 dark:text-slate-400">Status</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 dark:text-slate-400">Validação</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 dark:text-slate-400">Ação</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-              {lista.map(f => {
-                const pct = f.total_modulos > 0 ? Math.round((f.modulos_concluidos / f.total_modulos) * 100) : 0
-                const validado = f.validado
-                const dataVal = f.data_validacao
-                  ? new Date(f.data_validacao).toLocaleDateString('pt-BR')
-                  : null
-                const isValidando = validandoId === f.colaborador_id
 
-                return (
-                  <tr key={f.colaborador_id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                    <td className="px-4 py-3">
-                      <div>
-                        <p className="font-medium text-slate-800 dark:text-slate-100 text-xs">{f.nome}</p>
-                        <p className="text-[10px] text-slate-400">{f.cargo}</p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">{f.area}</td>
-                    <td className="px-4 py-3 min-w-36">
-                      <div className="space-y-1">
-                        <span className="text-[10px] text-slate-400 tabular-nums">{pct}%</span>
-                        <ProgressBar pct={pct} sm />
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {pct === 100 ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
-                          <CheckCircle2 size={10} />Concluído
-                        </span>
-                      ) : pct > 0 ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
-                          <Play size={10} />Em andamento
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
-                          Não iniciado
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {validado ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400">
-                          <BadgeCheck size={10} />Validado{dataVal ? ` ${dataVal}` : ''}
-                        </span>
-                      ) : pct === 100 ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
-                          <AlertTriangle size={10} />Pendente
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-slate-300 dark:text-slate-600">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {pct === 100 && !validado ? (
-                        <button
-                          onClick={() => handleValidar(f)}
-                          disabled={isValidando}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary-600 hover:bg-primary-700 text-white transition-colors disabled:opacity-60"
-                        >
-                          {isValidando ? <RefreshCw size={11} className="animate-spin" /> : <ShieldCheck size={12} />}
-                          Validar
-                        </button>
-                      ) : (
-                        <span className="text-[10px] text-slate-300 dark:text-slate-500">—</span>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+            {loadingRel ? (
+              <div className="flex items-center justify-center py-12 gap-2 text-slate-400 text-sm"><RefreshCw size={14} className="animate-spin" /> Gerando relatório…</div>
+            ) : relatorioRows.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-2 text-slate-400 text-sm">
+                <FileSpreadsheet size={24} className="opacity-30" />
+                <p>Nenhum dado encontrado</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 dark:border-slate-700">
+                      {['Colaborador','Cargo','Área','Curso','Instrutor','Progresso','Status','Validado'].map(h => (
+                        <th key={h} className="px-3 py-3 text-left font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                    {relatorioRows.map((r, i) => (
+                      <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                        <td className="px-3 py-2.5 font-medium text-slate-800 dark:text-slate-100">{r.colaborador}</td>
+                        <td className="px-3 py-2.5 text-slate-500 dark:text-slate-400">{r.cargo}</td>
+                        <td className="px-3 py-2.5 text-slate-500 dark:text-slate-400">{r.area}</td>
+                        <td className="px-3 py-2.5 text-slate-700 dark:text-slate-200 max-w-48 truncate">{r.curso}</td>
+                        <td className="px-3 py-2.5 text-slate-500 dark:text-slate-400">{r.instrutor}</td>
+                        <td className="px-3 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <span className="tabular-nums font-semibold text-slate-700 dark:text-slate-200 w-8">{r.pct_conclusao ?? 0}%</span>
+                            <div className="w-16 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full ${r.pct_conclusao >= 100 ? 'bg-emerald-400' : 'bg-primary-400'}`} style={{ width: `${r.pct_conclusao ?? 0}%` }} />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            r.status === 'Concluído' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
+                            r.status === 'Em andamento' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' :
+                            'bg-slate-100 dark:bg-slate-700 text-slate-500'
+                          }`}>{r.status}</span>
+                        </td>
+                        <td className="px-3 py-2.5 text-center">
+                          {r.validado ? <BadgeCheck size={14} className="text-violet-500 mx-auto" /> : <span className="text-slate-300">—</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
-        )}
-      </div>
+      )}
+
+      {/* ── Tab: Instrutores ── */}
+      {tab === 'instrutores' && (
+        <div className="space-y-4">
+          {loadingInst ? (
+            <div className="flex items-center justify-center py-12 gap-2 text-slate-400 text-sm"><RefreshCw size={14} className="animate-spin" /> Carregando instrutores…</div>
+          ) : instResumo.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-2 text-slate-400 text-sm">
+              <GraduationCap size={28} className="opacity-30" />
+              <p>Nenhum instrutor cadastrado nos cursos</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Resumo cards */}
+              <div className="space-y-2">
+                {instResumo.map((inst: any) => (
+                  <button
+                    key={inst.instrutor}
+                    onClick={() => setInstSelecionado(inst.instrutor)}
+                    className={`w-full text-left p-4 rounded-2xl border transition-all ${
+                      instSelecionado === inst.instrutor
+                        ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-200 dark:border-primary-700'
+                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-400 to-indigo-500 flex items-center justify-center shrink-0">
+                        <span className="text-white font-bold text-sm">{inst.instrutor?.[0]?.toUpperCase() ?? '?'}</span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{inst.instrutor}</p>
+                        <p className="text-[10px] text-slate-400">{inst.total_cursos} curso{inst.total_cursos !== 1 ? 's' : ''} · {inst.total_alunos} aluno{inst.total_alunos !== 1 ? 's' : ''}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-center gap-3">
+                      <div className="flex-1">
+                        <div className="flex justify-between text-[10px] text-slate-400 mb-1">
+                          <span>% conclusão médio</span>
+                          <span className="font-semibold text-slate-600 dark:text-slate-300">{inst.pct_conclusao_medio ?? 0}%</span>
+                        </div>
+                        <div className="h-1 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                          <div className="h-full bg-violet-400 rounded-full" style={{ width: `${inst.pct_conclusao_medio ?? 0}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Detalhe do instrutor */}
+              <div className="md:col-span-2">
+                {instSelecionado && (() => {
+                  const cursosDaInst = instDetalhe.filter((d: any) => d.instrutor === instSelecionado)
+                  const inst = instResumo.find((r: any) => r.instrutor === instSelecionado)
+                  return (
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                      <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center gap-3">
+                        <GraduationCap size={16} className="text-violet-500" />
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{instSelecionado}</p>
+                          <p className="text-[10px] text-slate-400">{inst?.total_cursos} cursos · {inst?.total_alunos} alunos no total</p>
+                        </div>
+                        {cursosDaInst.length > 0 && (
+                          <button
+                            onClick={() => downloadCSV(cursosDaInst.map((d: any) => ({
+                              Instrutor: d.instrutor, Curso: d.titulo, Categoria: d.categoria,
+                              Obrigatório: d.obrigatorio ? 'Sim' : 'Não',
+                              'Total alunos': d.total_alunos, Concluídos: d.concluidos,
+                              'Em andamento': d.em_andamento, 'Não iniciados': d.nao_iniciados,
+                              '% Conclusão': d.pct_conclusao,
+                            })), `instrutor_${instSelecionado.replace(/\s/g,'_')}.csv`)}
+                            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                          >
+                            <Download size={12} />CSV
+                          </button>
+                        )}
+                      </div>
+                      <div className="divide-y divide-slate-100 dark:divide-slate-700">
+                        {cursosDaInst.map((d: any) => (
+                          <div key={d.curso_id} className="px-5 py-4">
+                            <div className="flex items-start justify-between gap-3 mb-3">
+                              <div>
+                                <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{d.titulo}</p>
+                                <p className="text-[10px] text-slate-400">{d.categoria}{d.obrigatorio ? ' · Obrigatório' : ''}</p>
+                              </div>
+                              <span className="text-xs font-bold text-slate-600 dark:text-slate-300 tabular-nums shrink-0">{d.pct_conclusao}%</span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-3 text-center">
+                              {[
+                                { label: 'Concluídos', value: d.concluidos, cls: 'text-emerald-600 dark:text-emerald-400' },
+                                { label: 'Em andamento', value: d.em_andamento, cls: 'text-blue-600 dark:text-blue-400' },
+                                { label: 'Não iniciados', value: d.nao_iniciados, cls: 'text-slate-400' },
+                              ].map(s => (
+                                <div key={s.label} className="bg-slate-50 dark:bg-slate-700/50 rounded-lg py-2">
+                                  <p className={`text-lg font-black tabular-nums ${s.cls}`}>{s.value}</p>
+                                  <p className="text-[9px] text-slate-400">{s.label}</p>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="mt-3 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                              <div className="h-full bg-violet-400 rounded-full" style={{ width: `${d.pct_conclusao}%` }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
+  )
+}
+
+// ─── Certificado ─────────────────────────────────────────────────────────────
+
+function CertificadoBtn({
+  colaborador, cargo, curso, instrutor, dataValidacao, validadoPor,
+}: {
+  colaborador: string; cargo: string; curso: string; instrutor: string
+  dataValidacao: string | null; validadoPor: string | null
+}) {
+  const [open, setOpen] = useState(false)
+
+  const dataFmt = dataValidacao
+    ? new Date(dataValidacao).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+    : new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+
+  function imprimir() {
+    const w = window.open('', '_blank', 'width=900,height=650')
+    if (!w) return
+    w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Certificado</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Georgia, serif; background: #fff; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+  .cert { width: 840px; min-height: 560px; border: 12px double #1e3a5f; padding: 48px 64px; position: relative; background: #fff; }
+  .cert::before { content: ''; position: absolute; inset: 8px; border: 2px solid #c9a84c; pointer-events: none; }
+  .logo { text-align: center; margin-bottom: 24px; }
+  .logo-title { font-size: 22px; font-weight: bold; color: #1e3a5f; letter-spacing: 4px; text-transform: uppercase; }
+  h1 { font-size: 42px; text-align: center; color: #1e3a5f; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+  .sub { text-align: center; color: #888; font-size: 13px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 32px; }
+  .body { text-align: center; font-size: 15px; color: #333; line-height: 1.9; }
+  .name { font-size: 30px; color: #1e3a5f; font-weight: bold; font-style: italic; display: block; margin: 8px 0; }
+  .course { font-size: 20px; color: #c9a84c; font-weight: bold; display: block; margin: 4px 0 8px; }
+  .divider { width: 120px; height: 2px; background: #c9a84c; margin: 28px auto; }
+  .footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 40px; }
+  .sig { text-align: center; }
+  .sig-line { width: 200px; border-bottom: 1px solid #333; margin-bottom: 6px; }
+  .sig-name { font-size: 12px; color: #555; }
+  .sig-role { font-size: 10px; color: #999; letter-spacing: 1px; text-transform: uppercase; }
+  .date { text-align: right; font-size: 12px; color: #888; }
+  @media print { body { padding: 0; } }
+</style></head><body>
+<div class="cert">
+  <div class="logo"><span class="logo-title">RTT Shop</span></div>
+  <h1>Certificado</h1>
+  <p class="sub">de conclusão</p>
+  <div class="body">
+    <p>Certificamos que</p>
+    <span class="name">${colaborador}</span>
+    <p>concluiu com êxito o curso</p>
+    <span class="course">${curso}</span>
+    <p>${cargo ? `atuando como <strong>${cargo}</strong>` : ''}</p>
+  </div>
+  <div class="divider"></div>
+  <div class="footer">
+    <div class="sig">
+      <div class="sig-line"></div>
+      <p class="sig-name">${instrutor || 'Instrutor'}</p>
+      <p class="sig-role">Instrutor</p>
+    </div>
+    <div class="date">
+      <p>${dataFmt}</p>
+      ${validadoPor ? `<p style="font-size:10px;color:#aaa;margin-top:4px">Validado por ${validadoPor}</p>` : ''}
+    </div>
+    <div class="sig">
+      <div class="sig-line"></div>
+      <p class="sig-name">${validadoPor || 'RH'}</p>
+      <p class="sig-role">Recursos Humanos</p>
+    </div>
+  </div>
+</div>
+<script>window.onload=()=>{window.print()}<\/script>
+</body></html>`)
+    w.document.close()
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors"
+      >
+        <Award size={11} />Certificado
+      </button>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setOpen(false)}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-5" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2"><Award size={16} className="text-amber-500" />Certificado de Conclusão</h3>
+              <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={16} /></button>
+            </div>
+            <div className="border border-amber-200 dark:border-amber-800 rounded-xl p-5 bg-amber-50 dark:bg-amber-900/10 space-y-2">
+              <p className="text-xs text-slate-500 dark:text-slate-400">Colaborador</p>
+              <p className="text-base font-bold text-slate-800 dark:text-slate-100">{colaborador}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">Curso</p>
+              <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">{curso}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">Data de conclusão</p>
+              <p className="text-sm text-slate-700 dark:text-slate-200">{dataFmt}</p>
+              {validadoPor && <p className="text-[11px] text-slate-400 mt-1">Validado por {validadoPor}</p>}
+            </div>
+            <button onClick={imprimir} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-colors">
+              <Download size={14} />Imprimir / Salvar PDF
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 

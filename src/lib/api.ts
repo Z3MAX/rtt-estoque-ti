@@ -451,6 +451,38 @@ export const api = {
     },
   },
 
+  cursoRequisitos: {
+    list: async (cursoId?: number) => {
+      if (MOCK) { await delay(200); return [] }
+      const qs = cursoId ? `?curso_id=${cursoId}` : ''
+      return request<any[]>(`${BASE}/curso-requisitos${qs}`)
+    },
+    save: async (cursoId: number, requisitos: { cargo?: string; area?: string; obrigatorio: boolean }[]) => {
+      if (MOCK) { await delay(300); return { success: true } }
+      return request(`${BASE}/curso-requisitos`, { method: 'POST', body: JSON.stringify({ curso_id: cursoId, requisitos }) })
+    },
+    autoAssign: async (colaboradorId: number, cargo: string, area: string) => {
+      if (MOCK) { await delay(200); return { success: true, auto_assigned: 0 } }
+      return request<{ success: boolean; auto_assigned: number }>(`${BASE}/curso-requisitos`, { method: 'PUT', body: JSON.stringify({ colaborador_id: colaboradorId, cargo, area }) })
+    },
+  },
+
+  relatorioTreinamentos: {
+    colaboradores: async (params?: { curso_id?: number; instrutor?: string }) => {
+      if (MOCK) { await delay(400); return { tipo: 'colaboradores', rows: [] } }
+      const qs = new URLSearchParams({ tipo: 'colaboradores' })
+      if (params?.curso_id)  qs.set('curso_id',  String(params.curso_id))
+      if (params?.instrutor) qs.set('instrutor', params.instrutor)
+      return request<{ tipo: string; rows: any[] }>(`${BASE}/relatorio-treinamentos?${qs}`)
+    },
+    instrutores: async (instrutor?: string) => {
+      if (MOCK) { await delay(400); return { tipo: 'instrutores', resumo: [], detalhe: [] } }
+      const qs = new URLSearchParams({ tipo: 'instrutores' })
+      if (instrutor) qs.set('instrutor', instrutor)
+      return request<{ tipo: string; resumo: any[]; detalhe: any[] }>(`${BASE}/relatorio-treinamentos?${qs}`)
+    },
+  },
+
   cursoAvaliacoes: {
     get: async (cursoId: number) => {
       if (MOCK) { await delay(200); return { media: null, total: 0, minha_nota: null } }

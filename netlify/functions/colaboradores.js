@@ -226,7 +226,39 @@ exports.handler = async (event) => {
       const changes = computeDiff(before[0] || {}, rows[0], ['nome', 'cargo', 'nivel', 'area', 'email', 'gestor_nome'])
       const userName = await getUserName(sql, authPayload.userId)
       await logAudit(sql, { entityType: 'colaborador', entityId: rows[0].id, entityName: rows[0].nome, action: 'updated', changes, userId: authPayload.userId, userName })
-      return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
+
+      // Promoção: se cargo ou area mudou, auto-atribuir cursos requeridos para o novo perfil
+      const cargoMudou = before[0]?.cargo !== rows[0].cargo
+      const areaMudou  = before[0]?.area  !== rows[0].area
+      let cursosAutoAtribuidos = 0
+      if (cargoMudou || areaMudou) {
+        try {
+          await sql`CREATE TABLE IF NOT EXISTS curso_requisitos (
+            id SERIAL PRIMARY KEY, curso_id INTEGER NOT NULL,
+            cargo TEXT, area TEXT, obrigatorio BOOLEAN DEFAULT true,
+            created_at TIMESTAMP DEFAULT NOW(), UNIQUE (curso_id, cargo, area)
+          )`
+          const novoCargo = rows[0].cargo || ''
+          const novaArea  = rows[0].area  || ''
+          const cursosReq = await sql`
+            SELECT DISTINCT curso_id FROM curso_requisitos
+            WHERE (cargo IS NOT NULL AND cargo = ${novoCargo})
+               OR (area IS NOT NULL AND area = ${novaArea})
+          `
+          for (const { curso_id } of cursosReq) {
+            const res = await sql`
+              INSERT INTO curso_atribuicao (colaborador_id, curso_id)
+              VALUES (${id}, ${curso_id})
+              ON CONFLICT DO NOTHING
+            `
+            if (res.count > 0) cursosAutoAtribuidos++
+          }
+        } catch (e) {
+          console.error('auto-assign cursos error:', e)
+        }
+      }
+
+      return { statusCode: 200, headers, body: JSON.stringify({ ...rows[0], cursos_auto_atribuidos: cursosAutoAtribuidos }) }
     }
 
     if (event.httpMethod === 'DELETE') {
