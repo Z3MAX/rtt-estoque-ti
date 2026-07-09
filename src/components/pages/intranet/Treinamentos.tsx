@@ -2803,13 +2803,10 @@ function EnviarCursosModal({ todosCursos, onClose }: { todosCursos: Treinamento[
 
 // ─── Área do Instrutor ────────────────────────────────────────────────────────
 
-type EditorTab = 'info' | 'modulos' | 'requisitos' | 'instrutores'
-
 function InstrutorView({ user }: { user: any }) {
   const [cursos, setCursos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [editando, setEditando] = useState<any | null | 'new'>(null)
-  const [tab, setTab] = useState<EditorTab>('info')
   const [saving, setSaving] = useState(false)
   const [publicando, setPublicando] = useState(false)
   const [deletando, setDeletando] = useState(false)
@@ -2860,9 +2857,7 @@ function InstrutorView({ user }: { user: any }) {
     setModulos((curso.modulos ?? []).map((m: any) => ({ ...m })))
     setInstrutores(curso.instrutores ?? [])
     setRequisitos([])
-    setTab('info')
 
-    // Carrega cargos/áreas disponíveis e requisitos existentes
     if (!cargosDisponiveis.length) {
       api.colaboradores.list().then((cols: any[]) => {
         setCargosDisponiveis([...new Set(cols.map((c: any) => c.cargo).filter(Boolean))].sort())
@@ -2880,7 +2875,7 @@ function InstrutorView({ user }: { user: any }) {
     setEditando('new')
     setTitulo(''); setDescricao(''); setCategoria('Geral'); setNivel('Básico')
     setDuracao(''); setIcone('📚'); setCapaFrom('from-slate-500'); setCapaTo('to-slate-600')
-    setModulos([]); setInstrutores([]); setTab('info')
+    setModulos([]); setInstrutores([])
   }
 
   function voltar() { setEditando(null); setBuscarUser('') }
@@ -3029,202 +3024,181 @@ function InstrutorView({ user }: { user: any }) {
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit">
-          {([
-            ['info', 'Informações', null],
-            ['modulos', 'Módulos', modulos.length > 0 ? modulos.length : null],
-            ['requisitos', 'Requisitos', requisitos.length > 0 ? requisitos.length : null],
-            ['instrutores', 'Instrutores', instrutores.length > 0 ? instrutores.length : null],
-          ] as [EditorTab, string, number | null][]).map(([id, label, badge]) => (
-            <button key={id} onClick={() => setTab(id)} disabled={isNew && id !== 'info'}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 flex items-center gap-1 ${tab === id ? 'bg-white dark:bg-slate-700 shadow text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>
-              {label}{badge !== null && <span className="text-[10px] bg-slate-200 dark:bg-slate-600 px-1.5 py-0.5 rounded-full">{badge}</span>}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab: Informações */}
-        {tab === 'info' && (
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Título *</label>
-                <input value={titulo} onChange={e => setTitulo(e.target.value)} placeholder="Ex: Introdução à Segurança do Trabalho" className={inputCls} />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Descrição</label>
-                <textarea value={descricao} onChange={e => setDescricao(e.target.value)} rows={3} placeholder="Descreva o objetivo e o conteúdo do curso..." className={inputCls + ' resize-none'} />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Categoria</label>
-                <select value={categoria} onChange={e => setCategoria(e.target.value)} className={inputCls}>
-                  {['Compliance', 'Segurança', 'Soft Skills', 'Liderança', 'Técnico', 'Operacional', 'Geral'].map(c => <option key={c}>{c}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Nível</label>
-                <select value={nivel} onChange={e => setNivel(e.target.value)} className={inputCls}>
-                  {['Básico', 'Intermediário', 'Avançado'].map(n => <option key={n}>{n}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Duração estimada</label>
-                <input value={duracao} onChange={e => setDuracao(e.target.value)} placeholder="Ex: 2h30" className={inputCls} />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Ícone (emoji)</label>
-                <input value={icone} onChange={e => setIcone(e.target.value)} placeholder="📚" className={inputCls} />
-              </div>
+        {/* Informações */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-5">
+          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Informações</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Título *</label>
+              <input value={titulo} onChange={e => setTitulo(e.target.value)} placeholder="Ex: Introdução à Segurança do Trabalho" className={inputCls} />
             </div>
-
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Descrição</label>
+              <textarea value={descricao} onChange={e => setDescricao(e.target.value)} rows={3} placeholder="Descreva o objetivo e o conteúdo do curso..." className={inputCls + ' resize-none'} />
+            </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Cor da capa</label>
-              <div className="flex gap-2 flex-wrap">
-                {CAPAS.map(c => (
-                  <button key={c.from} onClick={() => { setCapaFrom(c.from); setCapaTo(c.to) }}
-                    className={`w-8 h-8 rounded-full bg-gradient-to-br ${c.from} ${c.to} transition-transform hover:scale-110 ${capaFrom === c.from ? 'ring-2 ring-offset-2 ring-primary-500 scale-110' : ''}`} />
-                ))}
-              </div>
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Categoria</label>
+              <select value={categoria} onChange={e => setCategoria(e.target.value)} className={inputCls}>
+                {['Compliance', 'Segurança', 'Soft Skills', 'Liderança', 'Técnico', 'Operacional', 'Geral'].map(c => <option key={c}>{c}</option>)}
+              </select>
             </div>
-
-            <div className={`rounded-xl bg-gradient-to-br ${capaFrom} ${capaTo} p-4 text-white flex items-center gap-3`}>
-              <span className="text-2xl">{icone || '📚'}</span>
-              <div>
-                <p className="font-semibold text-sm">{titulo || 'Título do curso'}</p>
-                <p className="text-xs opacity-70">{categoria} · {nivel}{duracao ? ` · ${duracao}` : ''}</p>
-              </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Nível</label>
+              <select value={nivel} onChange={e => setNivel(e.target.value)} className={inputCls}>
+                {['Básico', 'Intermediário', 'Avançado'].map(n => <option key={n}>{n}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Duração estimada</label>
+              <input value={duracao} onChange={e => setDuracao(e.target.value)} placeholder="Ex: 2h30" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Ícone (emoji)</label>
+              <input value={icone} onChange={e => setIcone(e.target.value)} placeholder="📚" className={inputCls} />
             </div>
           </div>
-        )}
-
-        {/* Tab: Módulos */}
-        {tab === 'modulos' && (
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{modulos.length} módulo{modulos.length !== 1 ? 's' : ''}</p>
-              <button onClick={addModulo} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-primary-600 hover:bg-primary-700 text-white transition-colors">
-                <Plus size={12} />Adicionar módulo
-              </button>
-            </div>
-            {modulos.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-12 gap-3 text-slate-300 dark:text-slate-600">
-                <BookOpen size={32} className="opacity-50" />
-                <p className="text-sm">Nenhum módulo ainda</p>
-                <button onClick={addModulo} className="text-xs text-primary-500 hover:text-primary-600 font-medium">+ Adicionar primeiro módulo</button>
-              </div>
-            )}
-            <div className="space-y-3">
-              {modulos.map((m, idx) => (
-                <div key={m.id} className="border border-slate-100 dark:border-slate-700 rounded-xl p-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-400 w-5">{idx + 1}</span>
-                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <input value={m.titulo} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, titulo: e.target.value } : x))}
-                        placeholder="Título do módulo" className={inputCls + ' sm:col-span-2'} />
-                      <select value={m.tipo} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, tipo: e.target.value as TipoModulo } : x))} className={inputCls}>
-                        <option value="video">Vídeo</option>
-                        <option value="pdf">PDF / Material</option>
-                        <option value="quiz">Quiz</option>
-                        <option value="texto">Texto</option>
-                      </select>
-                    </div>
-                    <div className="flex gap-1">
-                      <button onClick={() => setModulos(prev => { const a = [...prev]; if (idx > 0) { [a[idx-1], a[idx]] = [a[idx], a[idx-1]] } return a })} disabled={idx === 0} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 transition-colors"><ChevronUp size={13} /></button>
-                      <button onClick={() => setModulos(prev => { const a = [...prev]; if (idx < a.length-1) { [a[idx], a[idx+1]] = [a[idx+1], a[idx]] } return a })} disabled={idx === modulos.length-1} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 transition-colors"><ChevronDown size={13} /></button>
-                      <button onClick={() => setModulos(prev => prev.filter((_, i) => i !== idx))} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Trash2 size={13} /></button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-7">
-                    <input value={m.duracao ?? ''} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, duracao: e.target.value } : x))}
-                      placeholder="Duração (ex: 20min)" className={inputCls} />
-                    <input value={m.url ?? ''} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, url: e.target.value } : x))}
-                      placeholder="URL do vídeo ou arquivo" className={inputCls} />
-                    <textarea value={m.descricao ?? ''} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, descricao: e.target.value } : x))}
-                      placeholder="Descrição (opcional)" rows={2} className={inputCls + ' resize-none sm:col-span-2'} />
-                  </div>
-                </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Cor da capa</label>
+            <div className="flex gap-2 flex-wrap">
+              {CAPAS.map(c => (
+                <button key={c.from} onClick={() => { setCapaFrom(c.from); setCapaTo(c.to) }}
+                  className={`w-8 h-8 rounded-full bg-gradient-to-br ${c.from} ${c.to} transition-transform hover:scale-110 ${capaFrom === c.from ? 'ring-2 ring-offset-2 ring-primary-500 scale-110' : ''}`} />
               ))}
             </div>
           </div>
-        )}
-
-        {/* Tab: Requisitos */}
-        {tab === 'requisitos' && (
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-5">
+          <div className={`rounded-xl bg-gradient-to-br ${capaFrom} ${capaTo} p-4 text-white flex items-center gap-3`}>
+            <span className="text-2xl">{icone || '📚'}</span>
             <div>
-              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2"><Briefcase size={14} className="text-primary-500" />Requisitos por cargo / área</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Defina quais cargos e áreas receberão este curso automaticamente.</p>
+              <p className="font-semibold text-sm">{titulo || 'Título do curso'}</p>
+              <p className="text-xs opacity-70">{categoria} · {nivel}{duracao ? ` · ${duracao}` : ''}</p>
             </div>
-            {loadingReq ? (
-              <div className="flex items-center gap-2 text-slate-400 text-sm py-4"><RefreshCw size={14} className="animate-spin" />Carregando…</div>
-            ) : (
-              <>
-                {requisitos.length === 0 ? (
-                  <div className="text-xs text-slate-400 py-6 text-center border border-dashed border-slate-200 dark:border-slate-700 rounded-xl">Nenhum requisito definido — o curso não será atribuído automaticamente</div>
-                ) : (
-                  <div className="space-y-2">
-                    {requisitos.map((r, i) => (
-                      <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-700/50">
-                        <div className="flex-1 min-w-0 flex flex-wrap gap-1.5">
-                          {r.cargo && <span className="inline-flex items-center gap-1 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-md"><Briefcase size={10} />{r.cargo}</span>}
-                          {r.area  && <span className="inline-flex items-center gap-1 text-xs font-medium bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-2 py-0.5 rounded-md"><Target size={10} />{r.area}</span>}
-                          {!r.cargo && !r.area && <span className="text-xs text-slate-400 italic">Todos os colaboradores</span>}
-                        </div>
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${r.obrigatorio ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'}`}>{r.obrigatorio ? 'Obrigatório' : 'Opcional'}</span>
-                        <button onClick={() => setRequisitos(prev => prev.filter((_, idx) => idx !== i))} className="text-slate-300 hover:text-red-400 transition-colors shrink-0"><X size={14} /></button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="flex gap-2 flex-wrap items-end pt-2 border-t border-slate-100 dark:border-slate-700">
-                  <div className="flex-1 min-w-40">
-                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Cargo</label>
-                    <select value={novoReqCargo} onChange={e => setNovoReqCargo(e.target.value)} className={inputCls}>
-                      <option value="">— Qualquer cargo —</option>
-                      {cargosDisponiveis.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                  <div className="flex-1 min-w-40">
-                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Área</label>
-                    <select value={novoReqArea} onChange={e => setNovoReqArea(e.target.value)} className={inputCls}>
-                      <option value="">— Qualquer área —</option>
-                      {areasDisponiveis.map(a => <option key={a} value={a}>{a}</option>)}
-                    </select>
-                  </div>
-                  <div className="shrink-0">
-                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Tipo</label>
-                    <select value={novoReqObrig ? 'obrig' : 'opt'} onChange={e => setNovoReqObrig(e.target.value === 'obrig')} className={inputCls}>
-                      <option value="obrig">Obrigatório</option>
-                      <option value="opt">Opcional</option>
-                    </select>
-                  </div>
-                  <button onClick={addRequisito} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold transition-colors shrink-0">
-                    <Plus size={13} />Adicionar
-                  </button>
-                </div>
-
-                <div className="flex justify-end">
-                  <button onClick={handleSaveRequisitos} disabled={savingReq} className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors disabled:opacity-60">
-                    {savingReq ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />}Salvar requisitos
-                  </button>
-                </div>
-              </>
-            )}
           </div>
-        )}
+        </div>
 
-        {/* Tab: Instrutores */}
-        {tab === 'instrutores' && (
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-5">
-            {isNew && (
-              <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-xs">
-                <AlertTriangle size={14} />Salve o curso primeiro para poder adicionar co-instrutores.
+        {/* Módulos */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Módulos <span className="text-slate-400 font-normal">({modulos.length})</span></h3>
+            <button onClick={addModulo} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-primary-600 hover:bg-primary-700 text-white transition-colors">
+              <Plus size={12} />Adicionar módulo
+            </button>
+          </div>
+          {modulos.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-10 gap-3 text-slate-300 dark:text-slate-600">
+              <BookOpen size={28} className="opacity-50" />
+              <p className="text-sm text-slate-400">Nenhum módulo ainda</p>
+              <button onClick={addModulo} className="text-xs text-primary-500 hover:text-primary-600 font-medium">+ Adicionar primeiro módulo</button>
+            </div>
+          )}
+          <div className="space-y-3">
+            {modulos.map((m, idx) => (
+              <div key={m.id} className="border border-slate-100 dark:border-slate-700 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-400 w-5">{idx + 1}</span>
+                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <input value={m.titulo} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, titulo: e.target.value } : x))}
+                      placeholder="Título do módulo" className={inputCls + ' sm:col-span-2'} />
+                    <select value={m.tipo} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, tipo: e.target.value as TipoModulo } : x))} className={inputCls}>
+                      <option value="video">Vídeo</option>
+                      <option value="pdf">PDF / Material</option>
+                      <option value="quiz">Quiz</option>
+                      <option value="texto">Texto</option>
+                    </select>
+                  </div>
+                  <div className="flex gap-1">
+                    <button onClick={() => setModulos(prev => { const a = [...prev]; if (idx > 0) { [a[idx-1], a[idx]] = [a[idx], a[idx-1]] } return a })} disabled={idx === 0} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 transition-colors"><ChevronUp size={13} /></button>
+                    <button onClick={() => setModulos(prev => { const a = [...prev]; if (idx < a.length-1) { [a[idx], a[idx+1]] = [a[idx+1], a[idx]] } return a })} disabled={idx === modulos.length-1} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 transition-colors"><ChevronDown size={13} /></button>
+                    <button onClick={() => setModulos(prev => prev.filter((_, i) => i !== idx))} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Trash2 size={13} /></button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-7">
+                  <input value={m.duracao ?? ''} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, duracao: e.target.value } : x))}
+                    placeholder="Duração (ex: 20min)" className={inputCls} />
+                  <input value={m.url ?? ''} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, url: e.target.value } : x))}
+                    placeholder="URL do vídeo ou arquivo" className={inputCls} />
+                  <textarea value={m.descricao ?? ''} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, descricao: e.target.value } : x))}
+                    placeholder="Descrição (opcional)" rows={2} className={inputCls + ' resize-none sm:col-span-2'} />
+                </div>
               </div>
-            )}
-            <div>
-              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-3">Instrutores do curso</p>
+            ))}
+          </div>
+        </div>
+
+        {/* Requisitos */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-5">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2"><Briefcase size={14} className="text-primary-500" />Requisitos por cargo / área</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Defina quais cargos e áreas receberão este curso automaticamente.</p>
+          </div>
+          {isNew ? (
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-xs">
+              <AlertTriangle size={14} />Salve o curso primeiro para configurar os requisitos.
+            </div>
+          ) : loadingReq ? (
+            <div className="flex items-center gap-2 text-slate-400 text-sm py-4"><RefreshCw size={14} className="animate-spin" />Carregando…</div>
+          ) : (
+            <>
+              {requisitos.length === 0 ? (
+                <div className="text-xs text-slate-400 py-6 text-center border border-dashed border-slate-200 dark:border-slate-700 rounded-xl">Nenhum requisito definido — o curso não será atribuído automaticamente</div>
+              ) : (
+                <div className="space-y-2">
+                  {requisitos.map((r, i) => (
+                    <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-700/50">
+                      <div className="flex-1 min-w-0 flex flex-wrap gap-1.5">
+                        {r.cargo && <span className="inline-flex items-center gap-1 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-md"><Briefcase size={10} />{r.cargo}</span>}
+                        {r.area  && <span className="inline-flex items-center gap-1 text-xs font-medium bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-2 py-0.5 rounded-md"><Target size={10} />{r.area}</span>}
+                        {!r.cargo && !r.area && <span className="text-xs text-slate-400 italic">Todos os colaboradores</span>}
+                      </div>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${r.obrigatorio ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'}`}>{r.obrigatorio ? 'Obrigatório' : 'Opcional'}</span>
+                      <button onClick={() => setRequisitos(prev => prev.filter((_, idx) => idx !== i))} className="text-slate-300 hover:text-red-400 transition-colors shrink-0"><X size={14} /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2 flex-wrap items-end pt-2 border-t border-slate-100 dark:border-slate-700">
+                <div className="flex-1 min-w-40">
+                  <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Cargo</label>
+                  <select value={novoReqCargo} onChange={e => setNovoReqCargo(e.target.value)} className={inputCls}>
+                    <option value="">— Qualquer cargo —</option>
+                    {cargosDisponiveis.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div className="flex-1 min-w-40">
+                  <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Área</label>
+                  <select value={novoReqArea} onChange={e => setNovoReqArea(e.target.value)} className={inputCls}>
+                    <option value="">— Qualquer área —</option>
+                    {areasDisponiveis.map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                </div>
+                <div className="shrink-0">
+                  <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Tipo</label>
+                  <select value={novoReqObrig ? 'obrig' : 'opt'} onChange={e => setNovoReqObrig(e.target.value === 'obrig')} className={inputCls}>
+                    <option value="obrig">Obrigatório</option>
+                    <option value="opt">Opcional</option>
+                  </select>
+                </div>
+                <button onClick={addRequisito} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold transition-colors shrink-0">
+                  <Plus size={13} />Adicionar
+                </button>
+              </div>
+              <div className="flex justify-end">
+                <button onClick={handleSaveRequisitos} disabled={savingReq} className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors disabled:opacity-60">
+                  {savingReq ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />}Salvar requisitos
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Instrutores */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-4">
+          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2"><Users size={14} className="text-primary-500" />Instrutores</h3>
+          {isNew ? (
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-xs">
+              <AlertTriangle size={14} />Salve o curso primeiro para poder adicionar co-instrutores.
+            </div>
+          ) : (
+            <>
               <div className="space-y-2">
                 {instrutores.map((inst: any) => (
                   <div key={inst.user_id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
@@ -3233,7 +3207,7 @@ function InstrutorView({ user }: { user: any }) {
                     </div>
                     <span className="flex-1 text-sm font-medium text-slate-700 dark:text-slate-200">{inst.nome}</span>
                     {inst.user_id === user?.id && <span className="text-[10px] text-slate-400">você</span>}
-                    {inst.user_id !== user?.id && !isNew && (
+                    {inst.user_id !== user?.id && (
                       <button onClick={() => removerInstrutor(inst.user_id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
                         <Trash2 size={13} />
                       </button>
@@ -3241,8 +3215,6 @@ function InstrutorView({ user }: { user: any }) {
                   </div>
                 ))}
               </div>
-            </div>
-            {!isNew && (
               <div>
                 <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Adicionar co-instrutor</p>
                 <div className="relative">
@@ -3269,9 +3241,9 @@ function InstrutorView({ user }: { user: any }) {
                   </div>
                 )}
               </div>
-            )}
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
     )
   }
