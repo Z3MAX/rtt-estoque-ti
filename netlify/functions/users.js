@@ -21,6 +21,54 @@ exports.handler = async (event) => {
     // GET — somente administrador pode listar usuários
     if (event.httpMethod === 'GET') {
       requireAdmin(event)
+
+      // GET ?action=propor_vinculos — sugestões de user→colaborador por similaridade de nome
+      if (event.queryStringParameters?.action === 'propor_vinculos') {
+        const usuarios = await sql`
+          SELECT id, name, email, role FROM users
+          WHERE active = true AND (colaborador_id IS NULL)
+          ORDER BY name
+        `
+        const colaboradores = await sql`
+          SELECT id, nome, cargo, area FROM colaboradores
+          WHERE ativo = true
+          ORDER BY nome
+        `
+
+        // Normaliza nome para comparação: minúsculas, sem acentos, sem espaços duplos
+        function norm(s) {
+          return (s || '').toLowerCase()
+            .normalize('NFD').replace(/[̀-ͯ]/g, '')
+            .replace(/\s+/g, ' ').trim()
+        }
+        function tokens(s) { return norm(s).split(' ').filter(Boolean) }
+        function score(a, b) {
+          const ta = tokens(a), tb = tokens(b)
+          if (norm(a) === norm(b)) return 1.0
+          const matches = ta.filter(t => tb.includes(t)).length
+          return matches / Math.max(ta.length, tb.length)
+        }
+
+        const propostas = []
+        for (const u of usuarios) {
+          let melhor = null, melhorScore = 0
+          for (const c of colaboradores) {
+            const s = score(u.name, c.nome)
+            if (s > melhorScore) { melhorScore = s; melhor = c }
+          }
+          if (melhor && melhorScore >= 0.5) {
+            propostas.push({
+              user_id: u.id, user_name: u.name, user_email: u.email, user_role: u.role,
+              colaborador_id: melhor.id, colaborador_nome: melhor.nome,
+              colaborador_cargo: melhor.cargo, colaborador_area: melhor.area,
+              score: Math.round(melhorScore * 100),
+            })
+          }
+        }
+        propostas.sort((a, b) => b.score - a.score)
+        return { statusCode: 200, headers, body: JSON.stringify({ propostas }) }
+      }
+
       if (id) {
         const rows = await sql`
           SELECT id, name, email, role, area, active, created_at, updated_at

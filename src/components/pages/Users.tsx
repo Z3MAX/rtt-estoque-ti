@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react'
-import { Users, Plus, Pencil, ShieldCheck, Wrench, ToggleLeft, ToggleRight, X, Eye, EyeOff, Search, Mail, AlertTriangle, CheckCircle2, Send, Trash2, UserPlus, RefreshCw, CheckSquare, Square, MailCheck } from 'lucide-react'
+import { Users, Plus, Pencil, ShieldCheck, Wrench, ToggleLeft, ToggleRight, X, Eye, EyeOff, Search, Mail, AlertTriangle, CheckCircle2, Send, Trash2, UserPlus, RefreshCw, CheckSquare, Square, MailCheck, Link2 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import ConfirmDialog from '../ui/ConfirmDialog'
@@ -285,6 +285,148 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
   )
 }
 
+/* ─── VincularModal ─────────────────────────────────────────────────────── */
+interface Proposta {
+  user_id: number; user_name: string; user_email: string; user_role: string
+  colaborador_id: number; colaborador_nome: string; colaborador_cargo: string; colaborador_area: string
+  score: number
+}
+
+function VincularModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const [propostas, setPropostas] = useState<Proposta[]>([])
+  const [selecionados, setSelecionados] = useState<Set<number>>(new Set())
+  const [loading, setLoading] = useState(true)
+  const [applying, setApplying] = useState(false)
+  const [applied, setApplied] = useState(0)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    api.users.proposeLinks()
+      .then(r => {
+        const props = (r as any).propostas as Proposta[]
+        setPropostas(props)
+        setSelecionados(new Set(props.filter(p => p.score >= 80).map(p => p.user_id)))
+      })
+      .catch(() => setError('Erro ao carregar sugestões'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  function toggle(userId: number) {
+    setSelecionados(prev => {
+      const next = new Set(prev)
+      next.has(userId) ? next.delete(userId) : next.add(userId)
+      return next
+    })
+  }
+
+  async function aplicar() {
+    const aprovados = propostas.filter(p => selecionados.has(p.user_id))
+    if (aprovados.length === 0) return
+    setApplying(true)
+    let count = 0
+    try {
+      for (const p of aprovados) {
+        await api.users.update(p.user_id, { colaborador_id: p.colaborador_id })
+        count++
+      }
+      setApplied(count)
+      onDone()
+    } catch {
+      setError('Erro ao aplicar vínculos')
+    } finally {
+      setApplying(false)
+    }
+  }
+
+  function scoreColor(s: number) {
+    if (s === 100) return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+    if (s >= 80)  return 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
+    return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl border border-slate-100 dark:border-slate-700 flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-700 shrink-0">
+          <div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <Link2 size={18} className="text-primary-500" /> Vincular Usuários a Colaboradores
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+              Revise as sugestões automáticas por similaridade de nome. Desmarque as incorretas antes de aplicar.
+            </p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {loading && <p className="text-sm text-slate-400 text-center py-8">Analisando correspondências...</p>}
+          {!loading && propostas.length === 0 && (
+            <p className="text-sm text-slate-400 text-center py-8">Nenhuma correspondência encontrada. Todos os usuários já estão vinculados ou sem colaborador correspondente.</p>
+          )}
+          {!loading && propostas.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                <span className="font-semibold text-emerald-600">{selecionados.size}</span> de {propostas.length} selecionados para vincular
+              </p>
+              {propostas.map(p => (
+                <button
+                  key={p.user_id}
+                  onClick={() => toggle(p.user_id)}
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${
+                    selecionados.has(p.user_id)
+                      ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/10'
+                      : 'border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-600'
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 transition-colors ${
+                    selecionados.has(p.user_id) ? 'bg-primary-500 border-primary-500' : 'border-slate-300 dark:border-slate-600'
+                  }`}>
+                    {selecionados.has(p.user_id) && <CheckSquare size={12} className="text-white" />}
+                  </div>
+                  <div className="flex-1 min-w-0 grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-0.5">Usuário</p>
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{p.user_name}</p>
+                      <p className="text-xs text-slate-400 truncate">{p.user_email}</p>
+                      <span className="inline-block mt-1 text-xs px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">{p.user_role}</span>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-0.5">Colaborador</p>
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{p.colaborador_nome}</p>
+                      <p className="text-xs text-slate-400 truncate">{p.colaborador_cargo}{p.colaborador_area ? ` · ${p.colaborador_area}` : ''}</p>
+                    </div>
+                  </div>
+                  <span className={`shrink-0 text-xs font-bold px-2 py-1 rounded-lg ${scoreColor(p.score)}`}>{p.score}%</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {error && <p className="text-sm text-red-500 mt-3">{error}</p>}
+          {applied > 0 && <p className="text-sm text-emerald-600 font-semibold mt-3">{applied} vínculo(s) aplicado(s) com sucesso.</p>}
+        </div>
+
+        {!loading && propostas.length > 0 && (
+          <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-700 flex gap-3 shrink-0">
+            <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+              Fechar
+            </button>
+            <button
+              onClick={aplicar}
+              disabled={applying || selecionados.size === 0}
+              className="flex-1 btn-primary justify-center py-2.5"
+            >
+              {applying ? <><RefreshCw size={14} className="animate-spin" /> Aplicando...</> : `Vincular ${selecionados.size} usuário(s)`}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 /* ─── Page ───────────────────────────────────────────────────────────────── */
 export default function UsersPage() {
   const { user: currentUser } = useAuth()
@@ -302,6 +444,7 @@ export default function UsersPage() {
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
   const [deletingBulk, setDeletingBulk] = useState(false)
   const [sendingInvites, setSendingInvites] = useState(false)
+  const [showVincular, setShowVincular] = useState(false)
 
   const userIsAdmin = currentUser?.role === 'Administrador de RH' || currentUser?.role === 'Administrador de TI' || currentUser?.role === 'Administrador Master'
 
@@ -448,6 +591,9 @@ export default function UsersPage() {
                 Enviar Convites ({users.filter(u => u.role === 'Gestor' && u.must_change_password && u.active).length})
               </button>
             )}
+            <button onClick={() => setShowVincular(true)} className="btn-secondary gap-2" title="Vincular automaticamente usuários aos seus perfis de colaborador">
+              <Link2 size={15} /> Vincular Colaboradores
+            </button>
             <button onClick={() => setModalUser(null)} className="btn-primary">
               <Plus size={16} /> Novo Usuário
             </button>
@@ -667,6 +813,13 @@ export default function UsersPage() {
       )}
 
       {/* Modal */}
+      {showVincular && (
+        <VincularModal
+          onClose={() => setShowVincular(false)}
+          onDone={async () => { setShowVincular(false); await load() }}
+        />
+      )}
+
       {modalUser !== undefined && (
         <UserModal
           user={modalUser}

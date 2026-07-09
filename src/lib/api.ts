@@ -210,6 +210,10 @@ export const api = {
       if (MOCK) { await delay(600); return { success: true } }
       return request(`${BASE}/resend-invite`, { method: 'POST', body: JSON.stringify({ userId }) })
     },
+    proposeLinks: async () => {
+      if (MOCK) { await delay(400); return { propostas: [] } }
+      return request<{ propostas: any[] }>(`${BASE}/users?action=propor_vinculos`)
+    },
   },
 
   departamentos: {
