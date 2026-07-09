@@ -808,144 +808,191 @@ export default function CursoDetalhe() {
             )}
 
             {modulosExpanded && (
-              <div className="divide-y divide-slate-50 dark:divide-slate-800">
+              <div className="px-5 py-4 space-y-1">
                 {curso.modulos.map((m, idx) => {
                   const bloqueado = idx > 0 && !curso.modulos[idx - 1].concluido
                   const videoUrl = getVideoUrl(m.id)
                   const temVideo = !!videoUrl
                   const isEditando = editando === m.id
-                  const isVideoAberto = videoAberto === m.id
                   const isExpandivel = m.tipo === 'quiz' || m.tipo === 'texto' || m.tipo === 'link' || (m.tipo === 'video' && temVideo)
                   const isAberto = videoAberto === m.id
+                  const isUltimo = idx === curso.modulos.length - 1
 
                   const TIPO_LABEL: Record<string, string> = { video: 'Vídeo', pdf: 'PDF', quiz: 'Quiz', texto: 'Artigo', link: 'Link externo' }
 
-                  const TIPO_BADGE: Record<string, string> = {
-                    video:  'bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400',
-                    pdf:    'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
-                    quiz:   'bg-violet-50 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400',
-                    texto:  'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400',
-                    link:   'bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400',
+                  const TIPO_COLORS: Record<string, { bg: string; text: string; icon: string }> = {
+                    video: { bg: 'bg-primary-100 dark:bg-primary-900/40', text: 'text-primary-600 dark:text-primary-400', icon: 'text-primary-500' },
+                    pdf:   { bg: 'bg-amber-100 dark:bg-amber-900/40',   text: 'text-amber-600 dark:text-amber-400',   icon: 'text-amber-500' },
+                    quiz:  { bg: 'bg-violet-100 dark:bg-violet-900/40', text: 'text-violet-600 dark:text-violet-400', icon: 'text-violet-500' },
+                    texto: { bg: 'bg-emerald-100 dark:bg-emerald-900/40', text: 'text-emerald-600 dark:text-emerald-400', icon: 'text-emerald-500' },
+                    link:  { bg: 'bg-sky-100 dark:bg-sky-900/40',       text: 'text-sky-600 dark:text-sky-400',       icon: 'text-sky-500' },
                   }
+                  const tc = TIPO_COLORS[m.tipo] ?? TIPO_COLORS.link
 
                   return (
-                    <div key={m.id} id={`modulo-${m.id}`}>
-                      <div
-                        onClick={() => {
-                          if (bloqueado) return
-                          if (m.tipo === 'video' && temVideo) { setVideoAberto(isAberto ? null : m.id); return }
-                          if (m.tipo === 'pdf' && m.url) { window.open(m.url, '_blank'); return }
-                          if (m.tipo === 'link' && m.url) { window.open(m.url, '_blank'); return }
-                          if (m.tipo === 'quiz' || m.tipo === 'texto') { setVideoAberto(isAberto ? null : m.id); return }
-                          if (m.tipo === 'pdf' && !m.url) handleToggle(curso.id, m.id, !m.concluido)
-                        }}
-                        className={`flex items-center gap-3 px-5 py-3.5 transition-colors ${
-                          bloqueado
-                            ? 'opacity-40 cursor-not-allowed'
-                            : m.tipo === 'video' && !temVideo && !canAdmin
-                            ? 'cursor-default'
-                            : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40'
-                        } ${isAberto ? 'bg-slate-50 dark:bg-slate-800/40' : ''}`}
-                      >
-                        {/* Step number / status */}
-                        <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold transition-colors ${
+                    <div key={m.id} id={`modulo-${m.id}`} className="flex gap-3">
+
+                      {/* ── Stepper column ── */}
+                      <div className="flex flex-col items-center shrink-0 w-8">
+                        {/* Circle */}
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold border-2 transition-all ${
                           m.concluido
-                            ? 'bg-emerald-500 text-white'
+                            ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-200 dark:shadow-emerald-900'
                             : bloqueado
-                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                            ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-300'
+                            : isAberto
+                            ? 'bg-primary-500 border-primary-500 text-white shadow-sm shadow-primary-200 dark:shadow-primary-900'
+                            : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400'
                         }`}>
                           {m.concluido
-                            ? <CheckCircle2 size={14} className="text-white" />
+                            ? <CheckCircle2 size={14} />
                             : bloqueado
-                            ? <Lock size={11} className="text-slate-400" />
+                            ? <Lock size={10} />
                             : <span>{idx + 1}</span>}
                         </div>
-
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-medium truncate ${m.concluido ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-700 dark:text-slate-200'}`}>{m.titulo}</p>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${TIPO_BADGE[m.tipo]}`}>{TIPO_LABEL[m.tipo] ?? m.tipo}</span>
-                            <span className="text-[11px] text-slate-400">{m.duracao}</span>
-                          </div>
-                        </div>
-
-                        {/* Admin: URL do vídeo */}
-                        {canAdmin && m.tipo === 'video' && !isEditando && (
-                          <button
-                            onClick={e => { e.stopPropagation(); setEditando(m.id); setEditUrl(videoUrl) }}
-                            className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg text-slate-300 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
-                            title="Editar URL do vídeo"
-                          >
-                            <Edit2 size={11} />
-                          </button>
-                        )}
-
-                        {!bloqueado && isExpandivel && (
-                          isAberto
-                            ? <ChevronUp size={13} className="text-slate-400 shrink-0" />
-                            : <ChevronDown size={13} className="text-slate-400 shrink-0" />
-                        )}
-                        {!bloqueado && m.tipo === 'video' && !temVideo && !canAdmin && (
-                          <span className="text-[10px] text-slate-300">Sem vídeo</span>
+                        {/* Connector line */}
+                        {!isUltimo && (
+                          <div className={`w-0.5 flex-1 min-h-[12px] my-1 rounded-full transition-colors ${
+                            m.concluido ? 'bg-emerald-300 dark:bg-emerald-700' : 'bg-slate-150 dark:bg-slate-700'
+                          }`} />
                         )}
                       </div>
 
-                      {/* Admin: editar URL do vídeo */}
-                      {isEditando && (
-                        <div className="px-5 pb-3 pt-0 flex gap-2" onClick={e => e.stopPropagation()}>
-                          <div className="flex-1 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs">
-                            <Link size={11} className="text-slate-400 shrink-0" />
-                            <input
-                              value={editUrl}
-                              onChange={e => setEditUrl(e.target.value)}
-                              placeholder="URL do YouTube, Vimeo ou .mp4"
-                              className="flex-1 bg-transparent outline-none text-slate-700 dark:text-slate-200 placeholder:text-slate-400"
-                              autoFocus
+                      {/* ── Content column ── */}
+                      <div className={`flex-1 min-w-0 mb-${isUltimo ? '0' : '1'}`}>
+                        <div
+                          onClick={() => {
+                            if (bloqueado) return
+                            if (m.tipo === 'video' && temVideo) { setVideoAberto(isAberto ? null : m.id); return }
+                            if (m.tipo === 'pdf' && m.url) { window.open(m.url, '_blank'); return }
+                            if (m.tipo === 'link' && m.url) { window.open(m.url, '_blank'); return }
+                            if (m.tipo === 'quiz' || m.tipo === 'texto') { setVideoAberto(isAberto ? null : m.id); return }
+                            if (m.tipo === 'pdf' && !m.url) handleToggle(curso.id, m.id, !m.concluido)
+                          }}
+                          className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all ${
+                            isAberto
+                              ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-200 dark:border-primary-800'
+                              : m.concluido
+                              ? 'bg-emerald-50/60 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/30'
+                              : bloqueado
+                              ? 'bg-slate-50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800 opacity-50'
+                              : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 hover:shadow-sm'
+                          } ${
+                            bloqueado ? 'cursor-not-allowed' :
+                            m.tipo === 'video' && !temVideo && !canAdmin ? 'cursor-default' :
+                            'cursor-pointer'
+                          }`}
+                        >
+                          {/* Type icon */}
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                            m.concluido ? 'bg-emerald-100 dark:bg-emerald-900/30' : tc.bg
+                          }`}>
+                            {m.concluido
+                              ? <CheckCircle2 size={16} className="text-emerald-600 dark:text-emerald-400" />
+                              : <span className={tc.icon}>{TIPO_ICON[m.tipo]}</span>}
+                          </div>
+
+                          {/* Text */}
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-semibold leading-snug truncate ${
+                              m.concluido
+                                ? 'text-slate-400 dark:text-slate-500'
+                                : 'text-slate-700 dark:text-slate-200'
+                            }`}>
+                              {m.titulo || TIPO_LABEL[m.tipo]}
+                            </p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className={`text-[10px] font-bold uppercase tracking-wide ${
+                                m.concluido ? 'text-slate-300 dark:text-slate-600' : tc.text
+                              }`}>{TIPO_LABEL[m.tipo]}</span>
+                              {m.duracao && m.duracao !== '—' && (
+                                <>
+                                  <span className="text-slate-200 dark:text-slate-700">·</span>
+                                  <span className="text-[11px] text-slate-400">{m.duracao}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Admin: URL do vídeo */}
+                          {canAdmin && m.tipo === 'video' && !isEditando && (
+                            <button
+                              onClick={e => { e.stopPropagation(); setEditando(m.id); setEditUrl(videoUrl) }}
+                              className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg text-slate-300 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
+                              title="Editar URL do vídeo"
+                            >
+                              <Edit2 size={11} />
+                            </button>
+                          )}
+
+                          {!bloqueado && isExpandivel && (
+                            isAberto
+                              ? <ChevronUp size={13} className="text-slate-400 shrink-0" />
+                              : <ChevronDown size={13} className="text-slate-400 shrink-0" />
+                          )}
+                          {!bloqueado && m.tipo === 'video' && !temVideo && !canAdmin && (
+                            <span className="text-[10px] text-slate-300 shrink-0">Sem vídeo</span>
+                          )}
+                        </div>
+
+                        {/* Admin: editar URL do vídeo */}
+                        {isEditando && (
+                          <div className="mt-2 flex gap-2" onClick={e => e.stopPropagation()}>
+                            <div className="flex-1 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs">
+                              <Link size={11} className="text-slate-400 shrink-0" />
+                              <input
+                                value={editUrl}
+                                onChange={e => setEditUrl(e.target.value)}
+                                placeholder="URL do YouTube, Vimeo ou .mp4"
+                                className="flex-1 bg-transparent outline-none text-slate-700 dark:text-slate-200 placeholder:text-slate-400"
+                                autoFocus
+                              />
+                              {editUrl && (
+                                <button onClick={() => setEditUrl('')} className="text-slate-400 hover:text-slate-600">
+                                  <X size={11} />
+                                </button>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => saveUrl(m.id)}
+                              disabled={savingUrl}
+                              className="px-3 py-2 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                            >
+                              <Save size={11} />
+                              {savingUrl ? 'Salvando…' : 'Salvar'}
+                            </button>
+                            <button onClick={() => setEditando(null)} className="px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 text-xs transition-colors">
+                              <X size={11} />
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Conteúdo expandido — quiz */}
+                        {!bloqueado && isAberto && m.tipo === 'quiz' && m.quiz && (
+                          <div className="mt-2">
+                            <QuizPlayer
+                              modulo={m}
+                              onConcluido={() => handleToggle(curso.id, m.id, true)}
                             />
-                            {editUrl && (
-                              <button onClick={() => setEditUrl('')} className="text-slate-400 hover:text-slate-600">
-                                <X size={11} />
-                              </button>
-                            )}
                           </div>
-                          <button
-                            onClick={() => saveUrl(m.id)}
-                            disabled={savingUrl}
-                            className="px-3 py-2 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                          >
-                            <Save size={11} />
-                            {savingUrl ? 'Salvando…' : 'Salvar'}
-                          </button>
-                          <button onClick={() => setEditando(null)} className="px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 text-xs transition-colors">
-                            <X size={11} />
-                          </button>
-                        </div>
-                      )}
+                        )}
 
-                      {/* Conteúdo expandido */}
-                      {!bloqueado && isAberto && m.tipo === 'quiz' && m.quiz && (
-                        <div className="px-5 pb-5">
-                          <QuizPlayer
-                            modulo={m}
-                            onConcluido={() => handleToggle(curso.id, m.id, true)}
-                          />
-                        </div>
-                      )}
-
-                      {!bloqueado && isAberto && m.tipo === 'texto' && m.conteudo && (
-                        <div className="px-5 pb-5">
-                          <div className="prose prose-sm dark:prose-invert max-w-none text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
-                            {m.conteudo}
+                        {/* Conteúdo expandido — texto */}
+                        {!bloqueado && isAberto && m.tipo === 'texto' && m.conteudo && (
+                          <div className="mt-2">
+                            <div className="prose prose-sm dark:prose-invert max-w-none text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
+                              {m.conteudo}
+                            </div>
+                            <button
+                              onClick={() => handleToggle(curso.id, m.id, true)}
+                              className="mt-2 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition-colors"
+                            >
+                              <CheckCircle2 size={13} /> Marcar como lido
+                            </button>
                           </div>
-                          <button
-                            onClick={() => handleToggle(curso.id, m.id, true)}
-                            className="mt-3 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition-colors"
-                          >
-                            <CheckCircle2 size={13} /> Marcar como lido
-                          </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
+                      {/* end content column */}
                     </div>
                   )
                 })}
