@@ -543,7 +543,7 @@ export default function CursoDetalhe() {
     const pct = getProgresso(curso.modulos)
     if (pct < 100) return
     api.cursoAvaliacao.get(curso.id).then(r => {
-      if (r) { setAvaliacaoNota(r.nota); setAvaliacaoComentario(r.comentario ?? ''); setAvaliacaoEnviada(true) }
+      if (r?.nota) { setAvaliacaoNota(r.nota); setAvaliacaoComentario(r.comentario ?? ''); setAvaliacaoEnviada(true) }
     }).catch(() => {})
   }, [curso?.id, curso && getProgresso(curso.modulos)])
 
@@ -575,9 +575,9 @@ export default function CursoDetalhe() {
   async function handleEnviarAvaliacao() {
     if (!avaliacaoNota || !curso) return
     setSavingAvaliacao(true)
-    await api.cursoAvaliacao.save(curso.id, avaliacaoNota, avaliacaoComentario || undefined).catch(() => {})
+    const res = await api.cursoAvaliacao.save(curso.id, avaliacaoNota, avaliacaoComentario || undefined).catch(() => null)
     setSavingAvaliacao(false)
-    setAvaliacaoEnviada(true)
+    if (res) setAvaliacaoEnviada(true)
   }
 
   if (loading) {
