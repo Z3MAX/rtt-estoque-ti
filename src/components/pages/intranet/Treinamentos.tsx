@@ -651,7 +651,7 @@ function ModuloEditorCard({ m, idx, total, onChange, onDelete, onMove }: {
   onDelete: () => void
   onMove: (dir: -1 | 1) => void
 }) {
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(true)
 
   function set(field: keyof ModuloEdit, value: any) {
     onChange({ ...m, [field]: value })
