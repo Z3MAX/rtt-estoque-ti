@@ -671,53 +671,68 @@ export default function CursoDetalhe() {
         className={`relative overflow-hidden ${!curso.capaUrl ? `bg-gradient-to-br ${curso.capa.from} ${curso.capa.to}` : 'bg-slate-900'}`}
         style={curso.capaUrl ? { backgroundImage: `url(${curso.capaUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
       >
-        {curso.capaUrl && <div className="absolute inset-0 bg-black/55" />}
-        <div className="absolute inset-0 opacity-[0.07]"
-          style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '18px 18px' }} />
+        {curso.capaUrl && <div className="absolute inset-0 bg-black/60" />}
+        {/* dot grid */}
+        <div className="absolute inset-0 opacity-[0.06]"
+          style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+        {/* radial glow */}
+        <div className="absolute inset-0 opacity-20"
+          style={{ background: 'radial-gradient(ellipse 70% 60% at 50% 100%, white, transparent)' }} />
 
-        <div className="relative max-w-6xl mx-auto px-6 pt-5 pb-10">
-          {/* Breadcrumb / Back */}
+        <div className="relative max-w-6xl mx-auto px-6 pt-5 pb-12">
           <button
             onClick={() => navigate('/intranet/treinamentos')}
-            className="flex items-center gap-1.5 text-white/70 hover:text-white text-xs font-medium mb-6 transition-colors"
+            className="flex items-center gap-1.5 text-white/60 hover:text-white text-xs font-medium mb-8 transition-colors"
           >
             <ArrowLeft size={14} />
             Treinamentos
           </button>
 
-          <div className="flex gap-6 items-end">
-            <span className="text-[64px] leading-none drop-shadow-lg select-none hidden sm:block">{curso.icone}</span>
+          <div className="flex gap-7 items-start">
+            {/* Emoji badge */}
+            <div className="hidden sm:flex w-20 h-20 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/20 items-center justify-center shrink-0 shadow-lg">
+              <span className="text-[44px] leading-none select-none">{curso.icone}</span>
+            </div>
+
             <div className="flex-1 min-w-0">
               {/* Badges */}
               <div className="flex flex-wrap gap-2 mb-3">
                 {curso.obrigatorio && (
-                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-black/20 backdrop-blur-sm text-white tracking-wide uppercase">
+                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-rose-500/80 backdrop-blur-sm text-white tracking-wide uppercase">
                     Obrigatório
                   </span>
                 )}
-                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full bg-black/20 backdrop-blur-sm text-white`}>
+                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-sm text-white">
                   {curso.nivel}
                 </span>
-                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-black/20 backdrop-blur-sm text-white">
+                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-sm text-white">
                   {curso.categoria}
                 </span>
               </div>
 
-              <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight mb-2">{curso.titulo}</h1>
-              <p className="text-white/70 text-sm mb-4 leading-relaxed max-w-2xl">{curso.descricao}</p>
+              <h1 className="text-2xl sm:text-4xl font-black text-white leading-tight mb-3 drop-shadow-sm">{curso.titulo}</h1>
+              <p className="text-white/65 text-sm mb-5 leading-relaxed max-w-2xl">{curso.descricao}</p>
 
-              {/* Stats */}
-              <div className="flex flex-wrap gap-4 text-white/80 text-xs font-medium">
-                <span className="flex items-center gap-1.5"><Clock size={13} />{curso.duracao} de conteúdo</span>
-                <span className="flex items-center gap-1.5"><Layers size={13} />{curso.modulos.length} módulos</span>
-                <span className="flex items-center gap-1.5"><Users size={13} />{curso.totalAlunos} alunos</span>
-                <span className="flex items-center gap-1.5">
-                  <Star size={13} className="fill-amber-300 text-amber-300" />
-                  {curso.avaliacao.toFixed(1)}
-                </span>
+              {/* Stats chips */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                {[
+                  { icon: <Clock size={12} />, text: `${curso.duracao}` },
+                  { icon: <Layers size={12} />, text: `${curso.modulos.length} módulos` },
+                  { icon: <Users size={12} />, text: `${curso.totalAlunos} alunos` },
+                  { icon: <Star size={12} className="fill-amber-300 text-amber-300" />, text: curso.avaliacao.toFixed(1) },
+                ].map(({ icon, text }) => (
+                  <span key={text} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-sm text-white/90 text-xs font-medium border border-white/10">
+                    {icon}{text}
+                  </span>
+                ))}
               </div>
 
-              <p className="text-white/50 text-xs mt-3">Instrutor: <span className="text-white/80 font-semibold">{curso.instrutor}</span></p>
+              <div className="flex items-center gap-2.5">
+                <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${curso.capa.from} ${curso.capa.to} flex items-center justify-center border-2 border-white/30 text-sm`}>
+                  {curso.icone}
+                </div>
+                <span className="text-white/50 text-xs">Instrutor: <span className="text-white/85 font-semibold">{curso.instrutor}</span></span>
+              </div>
             </div>
           </div>
         </div>
@@ -752,15 +767,16 @@ export default function CursoDetalhe() {
 
           {/* O que você vai aprender */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-800">
-            <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
+            <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">
               <Award size={16} className="text-primary-500" />
               O que você vai aprender
             </h2>
-            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <p className="text-xs text-slate-400 mb-4">Conteúdo abordado neste curso</p>
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {curso.modulos.filter(m => m.tipo !== 'quiz' && m.tipo !== 'link').map(m => (
-                <li key={m.id} className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-300">
-                  <CheckCircle2 size={13} className="text-emerald-500 shrink-0 mt-0.5" />
-                  {m.titulo}
+                <li key={m.id} className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/50">
+                  <span className="mt-0.5 shrink-0">{TIPO_ICON[m.tipo]}</span>
+                  <span className="text-xs text-slate-700 dark:text-slate-200 leading-snug font-medium">{m.titulo}</span>
                 </li>
               ))}
             </ul>
@@ -772,15 +788,24 @@ export default function CursoDetalhe() {
               onClick={() => setModulosExpanded(v => !v)}
               className="w-full flex items-center justify-between p-5 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <Layers size={15} className="text-primary-500" />
                 <span className="text-sm font-bold text-slate-800 dark:text-slate-100">Conteúdo do curso</span>
-                <span className="text-xs text-slate-400">· {curso.modulos.length} módulos</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[11px] font-semibold text-slate-500 dark:text-slate-400">{curso.modulos.length} módulos</span>
+                {concluidos > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-900/30 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">{concluidos} concluídos</span>
+                )}
               </div>
               {modulosExpanded
                 ? <ChevronUp size={15} className="text-slate-400" />
                 : <ChevronDown size={15} className="text-slate-400" />}
             </button>
+            {/* progress strip */}
+            {pct > 0 && pct < 100 && (
+              <div className="h-0.5 bg-slate-100 dark:bg-slate-800">
+                <div className="h-full bg-primary-400 transition-all duration-700" style={{ width: `${pct}%` }} />
+              </div>
+            )}
 
             {modulosExpanded && (
               <div className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -795,6 +820,14 @@ export default function CursoDetalhe() {
 
                   const TIPO_LABEL: Record<string, string> = { video: 'Vídeo', pdf: 'PDF', quiz: 'Quiz', texto: 'Artigo', link: 'Link externo' }
 
+                  const TIPO_BADGE: Record<string, string> = {
+                    video:  'bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400',
+                    pdf:    'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
+                    quiz:   'bg-violet-50 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400',
+                    texto:  'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400',
+                    link:   'bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400',
+                  }
+
                   return (
                     <div key={m.id} id={`modulo-${m.id}`}>
                       <div
@@ -808,23 +841,33 @@ export default function CursoDetalhe() {
                         }}
                         className={`flex items-center gap-3 px-5 py-3.5 transition-colors ${
                           bloqueado
-                            ? 'opacity-50 cursor-not-allowed'
+                            ? 'opacity-40 cursor-not-allowed'
                             : m.tipo === 'video' && !temVideo && !canAdmin
                             ? 'cursor-default'
                             : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40'
-                        }`}
+                        } ${isAberto ? 'bg-slate-50 dark:bg-slate-800/40' : ''}`}
                       >
-                        <div className="w-7 h-7 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center shrink-0">
-                          {m.concluido
-                            ? <CheckCircle2 size={16} className="text-emerald-500" />
+                        {/* Step number / status */}
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold transition-colors ${
+                          m.concluido
+                            ? 'bg-emerald-500 text-white'
                             : bloqueado
-                            ? <Lock size={12} className="text-slate-400" />
-                            : TIPO_ICON[m.tipo]}
+                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                        }`}>
+                          {m.concluido
+                            ? <CheckCircle2 size={14} className="text-white" />
+                            : bloqueado
+                            ? <Lock size={11} className="text-slate-400" />
+                            : <span>{idx + 1}</span>}
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{m.titulo}</p>
-                          <p className="text-xs text-slate-400">{TIPO_LABEL[m.tipo] ?? m.tipo} · {m.duracao}</p>
+                          <p className={`text-sm font-medium truncate ${m.concluido ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-700 dark:text-slate-200'}`}>{m.titulo}</p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${TIPO_BADGE[m.tipo]}`}>{TIPO_LABEL[m.tipo] ?? m.tipo}</span>
+                            <span className="text-[11px] text-slate-400">{m.duracao}</span>
+                          </div>
                         </div>
 
                         {/* Admin: URL do vídeo */}
@@ -912,60 +955,74 @@ export default function CursoDetalhe() {
 
           {/* Avaliação do curso */}
           {pct === 100 && (
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-800">
-              <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">
-                <Star size={15} className="text-amber-400" />
-                {avaliacaoEnviada ? 'Sua avaliação' : 'Avaliar este curso'}
-              </h2>
-              {!avaliacaoEnviada && (
-                <p className="text-xs text-slate-400 mb-4">Parabéns por concluir! Sua opinião ajuda outros colaboradores.</p>
-              )}
-              <div className="flex gap-1.5 mb-3">
-                {[1, 2, 3, 4, 5].map(i => (
-                  <button
-                    key={i}
-                    disabled={avaliacaoEnviada}
-                    onClick={() => setAvaliacaoNota(i)}
-                    className="transition-transform hover:scale-110 disabled:cursor-default"
-                  >
-                    <Star
-                      size={26}
-                      className={i <= (avaliacaoNota ?? 0) ? 'text-amber-400 fill-amber-400' : 'text-slate-200 dark:text-slate-700'}
-                    />
-                  </button>
-                ))}
-              </div>
-              {!avaliacaoEnviada && (
-                <textarea
-                  value={avaliacaoComentario}
-                  onChange={e => setAvaliacaoComentario(e.target.value)}
-                  placeholder="Comentário opcional…"
-                  rows={2}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-primary-400 resize-none mb-3 transition-colors"
-                />
-              )}
+            <div className={`rounded-2xl shadow-sm border overflow-hidden ${avaliacaoEnviada ? 'border-amber-200 dark:border-amber-800/50' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'}`}>
               {avaliacaoEnviada ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
-                    <CheckCircle2 size={14} /> Avaliação enviada — obrigado!
-                    {avaliacaoComentario && <span className="text-slate-400 font-normal ml-1">"{avaliacaoComentario}"</span>}
+                /* ── Estado: avaliação enviada ── */
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/10 p-6 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
+                      <Award size={18} className="text-amber-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800 dark:text-slate-100">Avaliação enviada!</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Obrigado pela sua opinião</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex gap-0.5">
+                      {[1,2,3,4,5].map(i => (
+                        <Star key={i} size={18} className={i <= (avaliacaoNota ?? 0) ? 'text-amber-400 fill-amber-400' : 'text-slate-200 dark:text-slate-700'} />
+                      ))}
+                    </div>
+                    {avaliacaoComentario && (
+                      <span className="text-xs text-slate-500 dark:text-slate-400 italic ml-1">"{avaliacaoComentario}"</span>
+                    )}
                   </div>
                   <button
                     onClick={() => setShowCertModal(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold transition-colors w-full justify-center"
+                    className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-colors w-full justify-center shadow-sm shadow-amber-500/30"
                   >
-                    <Award size={14} /> Gerar certificado
+                    <Award size={15} /> Gerar certificado
                   </button>
                 </div>
               ) : (
-                <button
-                  onClick={handleEnviarAvaliacao}
-                  disabled={!avaliacaoNota || savingAvaliacao}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-xs font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <Send size={12} />
-                  {savingAvaliacao ? 'Enviando…' : 'Enviar avaliação'}
-                </button>
+                /* ── Estado: aguardando avaliação ── */
+                <div className="p-6">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Star size={15} className="text-amber-400 fill-amber-400" />
+                    <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">Avaliar este curso</h2>
+                  </div>
+                  <p className="text-xs text-slate-400 mb-4">Parabéns por concluir! Sua opinião ajuda outros colaboradores.</p>
+                  <div className="flex gap-1.5 mb-4">
+                    {[1, 2, 3, 4, 5].map(i => (
+                      <button
+                        key={i}
+                        onClick={() => setAvaliacaoNota(i)}
+                        className="transition-transform hover:scale-115 active:scale-95"
+                      >
+                        <Star
+                          size={30}
+                          className={i <= (avaliacaoNota ?? 0) ? 'text-amber-400 fill-amber-400' : 'text-slate-200 dark:text-slate-700 hover:text-amber-200'}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    value={avaliacaoComentario}
+                    onChange={e => setAvaliacaoComentario(e.target.value)}
+                    placeholder="Comentário opcional…"
+                    rows={2}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-primary-400 resize-none mb-3 transition-colors"
+                  />
+                  <button
+                    onClick={handleEnviarAvaliacao}
+                    disabled={!avaliacaoNota || savingAvaliacao}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-xs font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed w-full justify-center"
+                  >
+                    <Send size={12} />
+                    {savingAvaliacao ? 'Enviando…' : 'Enviar avaliação'}
+                  </button>
+                </div>
               )}
             </div>
           )}
@@ -976,15 +1033,35 @@ export default function CursoDetalhe() {
 
           {/* Progress card */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-slate-100 dark:border-slate-800">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Seu progresso</span>
-              <span className={`text-2xl font-black tabular-nums ${pct === 100 ? 'text-emerald-600' : 'text-primary-600'}`}>{pct}%</span>
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-4">Seu progresso</span>
+
+            {/* Ring + bar */}
+            <div className="flex items-center gap-4 mb-4">
+              {/* SVG ring */}
+              <div className="relative shrink-0 w-16 h-16">
+                <svg viewBox="0 0 56 56" className="w-full h-full -rotate-90">
+                  <circle cx="28" cy="28" r="22" fill="none" stroke="currentColor" strokeWidth="5" className="text-slate-100 dark:text-slate-800" />
+                  <circle
+                    cx="28" cy="28" r="22" fill="none" strokeWidth="5"
+                    stroke={pct === 100 ? '#10b981' : '#6366f1'}
+                    strokeLinecap="round"
+                    strokeDasharray={`${2 * Math.PI * 22}`}
+                    strokeDashoffset={`${2 * Math.PI * 22 * (1 - pct / 100)}`}
+                    className="transition-all duration-700"
+                  />
+                </svg>
+                <span className={`absolute inset-0 flex items-center justify-center text-base font-black tabular-nums ${pct === 100 ? 'text-emerald-600' : 'text-primary-600'}`}>
+                  {pct}%
+                </span>
+              </div>
+              <div className="flex-1">
+                <ProgressBar pct={pct} />
+                <p className="text-[11px] text-slate-400 mt-1.5">{concluidos} de {curso.modulos.length} módulos concluídos</p>
+              </div>
             </div>
-            <ProgressBar pct={pct} />
-            <p className="text-[11px] text-slate-400 mt-2">{concluidos} de {curso.modulos.length} módulos concluídos</p>
 
             {pct === 100 ? (
-              <div className="mt-4 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800">
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800">
                 <Award size={16} className="text-emerald-500 shrink-0" />
                 <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">Curso concluído!</span>
               </div>
@@ -1006,7 +1083,7 @@ export default function CursoDetalhe() {
                     document.getElementById(`modulo-${proximo.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
                   }, 100)
                 }}
-                className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-sm font-semibold transition-all"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-sm font-semibold transition-all shadow-sm shadow-primary-500/20"
               >
                 <Play size={14} />
                 {concluidos === 0 ? 'Começar curso' : 'Continuar'}
@@ -1015,15 +1092,17 @@ export default function CursoDetalhe() {
           </div>
 
           {/* Sobre o instrutor */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-slate-100 dark:border-slate-800">
-            <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Instrutor</h3>
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${curso.capa.from} ${curso.capa.to} flex items-center justify-center shrink-0`}>
-                <span className="text-lg leading-none">{curso.icone}</span>
+          <div className={`rounded-2xl p-5 shadow-sm border border-white/10 bg-gradient-to-br ${curso.capa.from} ${curso.capa.to} relative overflow-hidden`}>
+            <div className="absolute inset-0 opacity-10"
+              style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '14px 14px' }} />
+            <h3 className="text-[10px] font-bold text-white/60 uppercase tracking-wider mb-3 relative">Instrutor</h3>
+            <div className="flex items-center gap-3 relative">
+              <div className="w-11 h-11 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0 border-2 border-white/30 text-xl">
+                {curso.icone}
               </div>
               <div>
-                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{curso.instrutor}</p>
-                <p className="text-xs text-slate-400">{curso.categoria}</p>
+                <p className="text-sm font-bold text-white">{curso.instrutor}</p>
+                <p className="text-xs text-white/60">{curso.categoria}</p>
               </div>
             </div>
           </div>
