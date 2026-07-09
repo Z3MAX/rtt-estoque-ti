@@ -321,14 +321,6 @@ interface Trilha {
   cor: string
 }
 
-interface ProgressoFuncionario {
-  id: number
-  nome: string
-  cargo: string
-  area: string
-  progresso: Record<number, { pct: number; validado: boolean; dataValidacao?: string }>
-}
-
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
 const TRILHAS: Trilha[] = [
@@ -482,21 +474,6 @@ function dbToTreinamento(row: any, progressoMap: Record<string, boolean> = {}): 
     trilhaId: row.trilha_id ?? undefined,
   }
 }
-
-const FUNCIONARIOS_MOCK: ProgressoFuncionario[] = [
-  { id: 1, nome: 'Ana Silva',        cargo: 'Analista de RH',       area: 'Recursos Humanos',
-    progresso: { 1: { pct: 60, validado: false }, 2: { pct: 30, validado: false }, 6: { pct: 100, validado: true, dataValidacao: '2025-05-20' }, 7: { pct: 100, validado: true, dataValidacao: '2025-05-18' } } },
-  { id: 2, nome: 'Bruno Costa',      cargo: 'Analista Comercial',   area: 'Comercial',
-    progresso: { 1: { pct: 100, validado: true, dataValidacao: '2025-06-01' }, 2: { pct: 75, validado: false }, 7: { pct: 100, validado: true, dataValidacao: '2025-06-03' } } },
-  { id: 3, nome: 'Carlos Mendes',    cargo: 'Gerente de RH',        area: 'Recursos Humanos',
-    progresso: { 1: { pct: 100, validado: true, dataValidacao: '2025-04-10' }, 2: { pct: 100, validado: true, dataValidacao: '2025-04-12' }, 4: { pct: 50, validado: false }, 6: { pct: 100, validado: true, dataValidacao: '2025-04-15' }, 7: { pct: 100, validado: true, dataValidacao: '2025-04-11' } } },
-  { id: 4, nome: 'Daniela Rocha',    cargo: 'Coordenadora Fiscal',  area: 'Financeiro',
-    progresso: { 1: { pct: 40, validado: false }, 7: { pct: 100, validado: true, dataValidacao: '2025-05-30' } } },
-  { id: 5, nome: 'Eduardo Pires',    cargo: 'Assistente Comercial', area: 'Comercial',
-    progresso: { 2: { pct: 20, validado: false } } },
-  { id: 6, nome: 'Fernanda Lima',    cargo: 'Supervisora de Vendas',area: 'Comercial',
-    progresso: { 1: { pct: 100, validado: true, dataValidacao: '2025-06-10' }, 2: { pct: 100, validado: false }, 3: { pct: 85, validado: false }, 7: { pct: 100, validado: true, dataValidacao: '2025-06-10' } } },
-]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -2407,6 +2384,10 @@ function CertificadoBtn({
     ? new Date(dataValidacao).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
     : new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 
+  function esc(s: string) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  }
+
   function imprimir() {
     const w = window.open('', '_blank', 'width=900,height=650')
     if (!w) return
@@ -2438,16 +2419,16 @@ function CertificadoBtn({
   <p class="sub">de conclusão</p>
   <div class="body">
     <p>Certificamos que</p>
-    <span class="name">${colaborador}</span>
+    <span class="name">${esc(colaborador)}</span>
     <p>concluiu com êxito o curso</p>
-    <span class="course">${curso}</span>
-    <p>${cargo ? `atuando como <strong>${cargo}</strong>` : ''}</p>
+    <span class="course">${esc(curso)}</span>
+    <p>${cargo ? `atuando como <strong>${esc(cargo)}</strong>` : ''}</p>
   </div>
   <div class="divider"></div>
   <div class="footer">
     <div class="sig">
       <div class="sig-line"></div>
-      <p class="sig-name">${instrutor || 'Instrutor'}</p>
+      <p class="sig-name">${esc(instrutor || 'Instrutor')}</p>
       <p class="sig-role">Instrutor</p>
     </div>
     <div class="date">
@@ -2456,7 +2437,7 @@ function CertificadoBtn({
     </div>
     <div class="sig">
       <div class="sig-line"></div>
-      <p class="sig-name">${validadoPor || 'RH'}</p>
+      <p class="sig-name">${esc(validadoPor || 'RH')}</p>
       <p class="sig-role">Recursos Humanos</p>
     </div>
   </div>
@@ -2983,7 +2964,7 @@ export default function TreinamentosPage() {
                 <span className="text-6xl font-black text-slate-900 dark:text-slate-50 tabular-nums leading-none">{pctGeral}</span>
                 <span className="text-2xl font-bold text-slate-200 dark:text-slate-700 leading-none">%</span>
               </div>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-2">{concluidos} de {cursos.length} cursos concluídos</p>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-2">{concluidos} de {cursosInscritos.length} cursos concluídos</p>
             </div>
 
             {/* Stats + barra */}
@@ -3108,17 +3089,21 @@ export default function TreinamentosPage() {
             )
           ) : (
             <div className="space-y-3">
-              {TRILHAS.filter(tr => {
-                const cursosDaTrilha = cursos.filter(t => t.trilhaId === tr.id)
-                return categoria === 'Todos' || cursosDaTrilha.some(t => t.categoria === categoria)
-              }).map(trilha => (
-                <TrilhaCard
-                  key={trilha.id}
-                  trilha={trilha}
-                  cursos={cursos.filter(t => t.trilhaId === trilha.id)}
-                  onCursoClick={t => navigate(`/intranet/treinamentos/${t.id}`)}
-                />
-              ))}
+              {/* Trilhas derivadas dos cursos reais que possuem trilha_id */}
+              {Array.from(new Set(cursosVisiveis.filter(t => t.trilhaId).map(t => t.trilhaId!))).map(trilhaId => {
+                const trilhaCursos = cursosVisiveis.filter(t => t.trilhaId === trilhaId && (categoria === 'Todos' || t.categoria === categoria))
+                if (trilhaCursos.length === 0) return null
+                const trilhaMock = TRILHAS.find(tr => tr.id === trilhaId)
+                const trilha = trilhaMock ?? { id: trilhaId, titulo: `Trilha ${trilhaId}`, descricao: '', cor: '#6366f1', icone: '📚' }
+                return (
+                  <TrilhaCard
+                    key={trilhaId}
+                    trilha={trilha}
+                    cursos={trilhaCursos}
+                    onCursoClick={t => navigate(`/intranet/treinamentos/${t.id}`)}
+                  />
+                )
+              })}
               {/* Cursos sem trilha */}
               {cursos.filter(t => !t.trilhaId && (categoria === 'Todos' || t.categoria === categoria)).length > 0 && (
                 <div className="space-y-2">

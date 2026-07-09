@@ -100,7 +100,7 @@ exports.handler = async (event) => {
         }
       }
 
-      return { statusCode: 200, headers, body: JSON.stringify({ success: true, auto_inscritos: autoInscritos, debug }) }
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true, auto_inscritos: autoInscritos }) }
     }
 
     // POST ?auto_assign=1: auto-assign courses to a colaborador based on their cargo/area
@@ -108,11 +108,11 @@ exports.handler = async (event) => {
       const { colaborador_id, cargo, area } = JSON.parse(event.body || '{}')
       if (!colaborador_id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'colaborador_id obrigatório' }) }
 
-      // Find courses required for this cargo or area
+      // Find courses where cargo AND area both match (NULL = wildcard)
       const cursosRequeridos = await sql`
         SELECT DISTINCT curso_id FROM curso_requisitos
         WHERE (cargo IS NULL OR cargo = ${cargo ?? ''})
-           OR (area IS NULL OR area = ${area ?? ''})
+          AND (area  IS NULL OR area  = ${area  ?? ''})
       `
 
       let autoAssigned = 0
