@@ -155,6 +155,8 @@ exports.handler = async (event) => {
   `
   await sql`ALTER TABLE cursos ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'publicado'`
   await sql`ALTER TABLE cursos ADD COLUMN IF NOT EXISTS capa_url TEXT`
+  await sql`ALTER TABLE cursos ADD COLUMN IF NOT EXISTS versao INTEGER DEFAULT 1`
+  await sql`ALTER TABLE cursos ADD COLUMN IF NOT EXISTS versao_pai_id INTEGER`
   await sql`
     CREATE TABLE IF NOT EXISTS curso_instrutores (
       id         SERIAL PRIMARY KEY,
@@ -197,6 +199,19 @@ exports.handler = async (event) => {
         const cId = parseInt(params.curso_id || '0')
         if (!cId) return { statusCode: 400, headers, body: JSON.stringify({ error: 'curso_id obrigatório' }) }
         const rows = await sql`SELECT user_id, nome, created_at FROM curso_instrutores WHERE curso_id = ${cId} ORDER BY created_at`
+        return { statusCode: 200, headers, body: JSON.stringify(rows) }
+      }
+
+      // Cursos inativos onde o usuário tem progresso (histórico de versões)
+      if (params.action === 'inativos') {
+        const rows = await sql`
+          SELECT DISTINCT c.*,
+            (SELECT COUNT(*) FROM treinamento_progresso tp WHERE tp.curso_id = c.id AND tp.user_id = ${auth.userId} AND tp.concluido = true)::int AS modulos_concluidos
+          FROM cursos c
+          JOIN treinamento_progresso tp ON tp.curso_id = c.id AND tp.user_id = ${auth.userId}
+          WHERE c.ativo = true AND c.status = 'inativo'
+          ORDER BY c.updated_at DESC
+        `
         return { statusCode: 200, headers, body: JSON.stringify(rows) }
       }
 
@@ -279,12 +294,47 @@ exports.handler = async (event) => {
         return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
       }
 
+      if (params.action === 'nova_versao') {
+        if (!cursoId) return { statusCode: 400, headers, body: JSON.stringify({ error: 'id obrigatório' }) }
+        if (!isAdminRole(auth.role)) {
+          const check = await sql`SELECT id FROM curso_instrutores WHERE curso_id = ${cursoId} AND user_id = ${auth.userId}`
+          if (check.length === 0) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
+        }
+        const [old] = await sql`SELECT * FROM cursos WHERE id = ${cursoId} AND ativo = true`
+        if (!old) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Curso não encontrado' }) }
+        if (old.status !== 'publicado') return { statusCode: 400, headers, body: JSON.stringify({ error: 'Somente cursos publicados podem gerar nova versão' }) }
+
+        const novaPaiId = old.versao_pai_id ?? old.id
+        const novaVersao = (old.versao ?? 1) + 1
+
+        const [novo] = await sql`
+          INSERT INTO cursos (titulo, descricao, categoria, duracao, nivel, obrigatorio, instrutor, avaliacao, total_alunos, capa_from, capa_to, capa_url, icone, trilha_id, modulos, ordem, status, versao, versao_pai_id)
+          VALUES (${old.titulo}, ${old.descricao}, ${old.categoria}, ${old.duracao}, ${old.nivel}, ${old.obrigatorio}, ${old.instrutor}, ${old.avaliacao}, ${old.total_alunos}, ${old.capa_from}, ${old.capa_to}, ${old.capa_url}, ${old.icone}, ${old.trilha_id}, ${old.modulos}, ${old.ordem}, 'rascunho', ${novaVersao}, ${novaPaiId})
+          RETURNING *
+        `
+        // Marca versão antiga como inativa
+        await sql`UPDATE cursos SET status = 'inativo', updated_at = NOW() WHERE id = ${cursoId}`
+        // Copia instrutores para nova versão
+        await sql`
+          INSERT INTO curso_instrutores (curso_id, user_id, nome)
+          SELECT ${novo.id}, user_id, nome FROM curso_instrutores WHERE curso_id = ${cursoId}
+          ON CONFLICT DO NOTHING
+        `
+        return { statusCode: 200, headers, body: JSON.stringify(novo) }
+      }
+
       if (!cursoId) return { statusCode: 400, headers, body: JSON.stringify({ error: 'id obrigatório' }) }
 
       // Verifica permissão: admin ou instrutor do curso
       if (!isAdminRole(auth.role)) {
         const check = await sql`SELECT id FROM curso_instrutores WHERE curso_id = ${cursoId} AND user_id = ${auth.userId}`
         if (check.length === 0) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
+      }
+
+      // Bloqueia edição de curso publicado
+      const cursoAtual = await sql`SELECT status FROM cursos WHERE id = ${cursoId}`
+      if (cursoAtual[0]?.status === 'publicado') {
+        return { statusCode: 403, headers, body: JSON.stringify({ error: 'Curso publicado não pode ser editado. Use "Atualizar versão".' }) }
       }
 
       const { titulo, descricao, categoria, duracao, nivel, obrigatorio, instrutor, avaliacao, capa_from, capa_to, capa_url, icone, trilha_id, modulos, ordem } = JSON.parse(event.body || '{}')

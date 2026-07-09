@@ -359,6 +359,12 @@ export const api = {
     removeInstrutor: async (cursoId: number, userId: number) => {
       return request(`${BASE}/cursos?action=rem_instrutor`, { method: 'DELETE', body: JSON.stringify({ curso_id: cursoId, user_id: userId }) })
     },
+    novaVersao: async (id: number) => {
+      return request(`${BASE}/cursos?action=nova_versao&id=${id}`, { method: 'PUT', body: JSON.stringify({}) })
+    },
+    getInativos: async () => {
+      return request<any[]>(`${BASE}/cursos?action=inativos`)
+    },
   },
 
   cursoAtribuicao: {

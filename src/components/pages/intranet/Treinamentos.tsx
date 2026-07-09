@@ -7,7 +7,7 @@ import {
   AlertTriangle, Eye, Link, Edit2, Save, ExternalLink, RefreshCw,
   Plus, Trash2, Pencil, Send, Download, GraduationCap, Target,
   FileSpreadsheet, UserCheck, Briefcase, ArrowLeft, BookMarked, UserPlus,
-  Globe, FilePen,
+  Globe, FilePen, Archive,
 } from 'lucide-react'
 import { useAuth, isAdmin, isGestor, isInstrutor } from '../../../lib/auth'
 import { api } from '../../../lib/api'
@@ -2995,6 +2995,20 @@ function InstrutorView({ user }: { user: any }) {
     } finally { setPublicando(false) }
   }
 
+  async function atualizarVersao() {
+    if (editando === 'new' || !editando) return
+    setPublicando(true)
+    try {
+      const novo = await api.cursos.novaVersao(editando.id) as any
+      novo.instrutores = instrutores
+      setCursos(prev => [novo, ...prev.filter(c => c.id !== editando.id)])
+      setEditando(novo)
+      showToast('Nova versão criada! O curso anterior foi marcado como inativo.')
+    } catch {
+      showToast('Erro ao criar nova versão. Tente novamente.', 'error')
+    } finally { setPublicando(false) }
+  }
+
   async function excluir() {
     if (editando === 'new' || !editando) return
     if (!confirmarExcluir) { setConfirmarExcluir(true); return }
@@ -3098,8 +3112,19 @@ function InstrutorView({ user }: { user: any }) {
           )}
         </div>
 
+        {/* Banner de curso publicado */}
+        {isPublicado && (
+          <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl">
+            <Lock size={15} className="text-amber-500 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Curso publicado — somente leitura</p>
+              <p className="text-xs text-amber-600 dark:text-amber-500 mt-0.5">Para fazer alterações, crie uma nova versão clicando em "Atualizar versão". O histórico desta versão será mantido para todos os alunos.</p>
+            </div>
+          </div>
+        )}
+
         {/* Informações */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-5">
+        <div className={`bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-5${isPublicado ? ' pointer-events-none opacity-60' : ''}`}>
           <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Informações</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
@@ -3180,7 +3205,7 @@ function InstrutorView({ user }: { user: any }) {
         </div>
 
         {/* Módulos */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-4">
+        <div className={`bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-4${isPublicado ? ' pointer-events-none opacity-60' : ''}`}>
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Módulos <span className="text-slate-400 font-normal">({modulos.length})</span></h3>
             <button onClick={addModulo} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-primary-600 hover:bg-primary-700 text-white transition-colors">
@@ -3216,7 +3241,7 @@ function InstrutorView({ user }: { user: any }) {
         </div>
 
         {/* Requisitos */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-5">
+        <div className={`bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-5${isPublicado ? ' pointer-events-none opacity-60' : ''}`}>
           <div>
             <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2"><Briefcase size={14} className="text-primary-500" />Requisitos por cargo / área</h3>
             <p className="text-xs text-slate-400 mt-0.5">Defina quais cargos e áreas receberão este curso automaticamente.</p>
@@ -3277,7 +3302,7 @@ function InstrutorView({ user }: { user: any }) {
         </div>
 
         {/* Instrutores */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-4">
+        <div className={`bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-4${isPublicado ? ' pointer-events-none opacity-60' : ''}`}>
           <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2"><Users size={14} className="text-primary-500" />Instrutores</h3>
           {isNew ? (
             <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-xs">
@@ -3350,14 +3375,22 @@ function InstrutorView({ user }: { user: any }) {
             )
           ) : <div />}
           <div className="flex items-center gap-3">
-            {podPublicar && (
-              <button onClick={publicar} disabled={publicando} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-60">
-                {publicando ? <RefreshCw size={14} className="animate-spin" /> : <Globe size={14} />}Publicar curso
+            {isPublicado ? (
+              <button onClick={atualizarVersao} disabled={publicando} className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-white transition-colors disabled:opacity-60">
+                {publicando ? <RefreshCw size={14} className="animate-spin" /> : <Archive size={14} />}Atualizar versão
               </button>
+            ) : (
+              <>
+                {podPublicar && (
+                  <button onClick={publicar} disabled={publicando} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-60">
+                    {publicando ? <RefreshCw size={14} className="animate-spin" /> : <Globe size={14} />}Publicar curso
+                  </button>
+                )}
+                <button onClick={salvar} disabled={saving || !titulo.trim()} className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-primary-600 hover:bg-primary-700 text-white transition-colors disabled:opacity-60">
+                  {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}Salvar
+                </button>
+              </>
             )}
-            <button onClick={salvar} disabled={saving || !titulo.trim()} className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-primary-600 hover:bg-primary-700 text-white transition-colors disabled:opacity-60">
-              {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}Salvar
-            </button>
           </div>
         </div>
       <Toast msg={toastMsg} type={toastType} />
@@ -3410,9 +3443,16 @@ function InstrutorView({ user }: { user: any }) {
                       <span className="text-xl shrink-0">{curso.icone ?? '📚'}</span>
                       <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 leading-tight line-clamp-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">{curso.titulo}</p>
                     </div>
-                    <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${isPublicado ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
-                      {isPublicado ? 'Publicado' : 'Rascunho'}
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {(curso.versao ?? 1) > 1 && (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                          v{curso.versao}
+                        </span>
+                      )}
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isPublicado ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
+                        {isPublicado ? 'Publicado' : 'Rascunho'}
+                      </span>
+                    </div>
                   </div>
                   {curso.descricao && <p className="text-[11px] text-slate-400 dark:text-slate-500 line-clamp-2">{curso.descricao}</p>}
                   <div className="flex items-center gap-3 text-[11px] text-slate-400">
@@ -3452,6 +3492,10 @@ export default function TreinamentosPage() {
   const [filtradoPorRequisitos, setFiltradoPorRequisitos] = useState(false)
   const [enviarCursos, setEnviarCursos] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [subTab, setSubTab] = useState<'ativos' | 'inativos'>('ativos')
+  const [cursosInativos, setCursosInativos] = useState<any[]>([])
+  const [loadingInativos, setLoadingInativos] = useState(false)
+  const [inativosLoaded, setInativosLoaded] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -3479,6 +3523,18 @@ export default function TreinamentosPage() {
       setFiltradoPorRequisitos((atribuicao as any)?.filtrado_por_requisitos ?? false)
     }).finally(() => setLoading(false))
   }, [])
+
+  async function loadInativos() {
+    if (inativosLoaded) return
+    setLoadingInativos(true)
+    try {
+      const rows = await api.cursos.getInativos() as any[]
+      setCursosInativos(rows)
+      setInativosLoaded(true)
+    } catch {
+      setCursosInativos([])
+    } finally { setLoadingInativos(false) }
+  }
 
   async function saveConfig(cursoId: number, moduloId: number, url: string | null) {
     await api.moduloConfig.save(cursoId, moduloId, url)
@@ -3608,6 +3664,22 @@ export default function TreinamentosPage() {
 
       {view === 'instrutor' ? <InstrutorView user={user} /> : view === 'gestao' ? <RHView todosCursos={cursos} /> : (
         <>
+          {/* Sub-tabs: Ativos / Inativos */}
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => setSubTab('ativos')}
+              className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors ${subTab === 'ativos' ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+            >
+              Meus cursos
+            </button>
+            <button
+              onClick={() => { setSubTab('inativos'); loadInativos() }}
+              className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 ${subTab === 'inativos' ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+            >
+              <Archive size={12} />Cursos inativos
+            </button>
+          </div>
+          {subTab === 'ativos' ? (<>
           {/* Resumo de progresso */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 px-6 py-5 flex flex-col sm:flex-row items-stretch gap-5">
             {/* Número principal */}
@@ -3764,6 +3836,47 @@ export default function TreinamentosPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                     {cursos.filter(t => !t.trilhaId && (categoria === 'Todos' || t.categoria === categoria)).map(t => (
                       <CourseCard key={t.id} t={t} onClick={() => navigate(`/intranet/treinamentos/${t.id}`)} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          </>) : (
+            <div className="space-y-4">
+              {loadingInativos ? (
+                <div className="flex items-center justify-center py-20 text-slate-300 dark:text-slate-600">
+                  <RefreshCw size={24} className="animate-spin" />
+                </div>
+              ) : cursosInativos.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-4 text-slate-400">
+                  <Archive size={32} className="opacity-40" />
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-slate-500">Nenhum curso inativo</p>
+                    <p className="text-xs mt-1 text-slate-400">Cursos que você iniciou ou concluiu e foram substituídos por novas versões aparecerão aqui.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Cursos que você realizou ou estava em andamento e foram substituídos por uma nova versão. Seu progresso é mantido como histórico.</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {cursosInativos.map((t: any) => (
+                      <div key={t.id} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden opacity-75">
+                        <div className={`h-2 bg-gradient-to-r ${t.capa_from ?? 'from-slate-400'} ${t.capa_to ?? 'to-slate-500'}`} />
+                        <div className="p-4 space-y-2">
+                          <div className="flex items-start gap-2 justify-between">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-xl shrink-0">{t.icone ?? '📚'}</span>
+                              <p className="text-sm font-semibold text-slate-600 dark:text-slate-300 leading-tight line-clamp-2">{t.titulo}</p>
+                            </div>
+                            <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                              {t.versao ? `v${t.versao}` : 'Inativo'}
+                            </span>
+                          </div>
+                          {t.descricao && <p className="text-[11px] text-slate-400 line-clamp-2">{t.descricao}</p>}
+                          <p className="text-[10px] text-slate-400 flex items-center gap-1"><Archive size={10} />Versão desativada · histórico mantido</p>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>
