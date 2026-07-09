@@ -736,7 +736,7 @@ export default function CursoDetalhe() {
                   const TIPO_LABEL: Record<string, string> = { video: 'Vídeo', pdf: 'PDF', quiz: 'Quiz', texto: 'Artigo', link: 'Link externo' }
 
                   return (
-                    <div key={m.id}>
+                    <div key={m.id} id={`modulo-${m.id}`}>
                       <div
                         onClick={() => {
                           if (bloqueado) return
@@ -924,14 +924,19 @@ export default function CursoDetalhe() {
               <button
                 onClick={() => {
                   const proximo = curso.modulos.find(m => !m.concluido)
-                  if (proximo) {
-                    const videoUrl = getVideoUrl(proximo.id)
-                    if (proximo.tipo === 'video' && videoUrl) {
-                      setVideoAberto(proximo.id)
-                      setModulosExpanded(true)
-                      window.scrollTo({ top: 0, behavior: 'smooth' })
-                    }
+                  if (!proximo) return
+                  setModulosExpanded(true)
+                  const videoUrl = getVideoUrl(proximo.id)
+                  if (proximo.tipo === 'video' && videoUrl) {
+                    setVideoAberto(proximo.id)
+                  } else if ((proximo.tipo === 'pdf' || proximo.tipo === 'link') && proximo.url) {
+                    window.open(proximo.url, '_blank')
+                  } else if (proximo.tipo === 'quiz' || proximo.tipo === 'texto') {
+                    setVideoAberto(proximo.id)
                   }
+                  setTimeout(() => {
+                    document.getElementById(`modulo-${proximo.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  }, 100)
                 }}
                 className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-sm font-semibold transition-all"
               >
