@@ -90,10 +90,10 @@ exports.handler = async (event) => {
           ORDER BY col.nome
         `
 
-        // Deduplica por nome+cargo+área — mantém o com mais progresso
+        // Deduplica por nome+cargo+área (case-insensitive) — mantém o com mais progresso
         const seen = new Map()
         for (const r of rawRows) {
-          const key = `${r.nome}||${r.cargo}||${r.area}`
+          const key = `${(r.nome||'').toLowerCase().trim()}||${(r.cargo||'').toLowerCase().trim()}||${(r.area||'').toLowerCase().trim()}`
           const prev = seen.get(key)
           if (!prev || parseInt(r.modulos_concluidos) > parseInt(prev.modulos_concluidos)) {
             seen.set(key, r)
