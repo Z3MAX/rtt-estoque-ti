@@ -72,12 +72,24 @@ exports.handler = async (event) => {
 
       // Auto-inscreve colaboradores cujo cargo+área batem com os novos requisitos
       let autoInscritos = 0
+      const debug = []
       for (const r of (requisitos ?? [])) {
-        const colaboradores = await sql`
-          SELECT id FROM colaboradores
-          WHERE (${r.cargo ?? null} IS NULL OR cargo = ${r.cargo ?? null})
-            AND (${r.area  ?? null} IS NULL OR area  = ${r.area  ?? null})
-        `
+        const cargo = r.cargo || null
+        const area  = r.area  || null
+
+        let colaboradores
+        if (cargo && area) {
+          colaboradores = await sql`SELECT id, nome FROM colaboradores WHERE cargo = ${cargo} AND area = ${area}`
+        } else if (cargo) {
+          colaboradores = await sql`SELECT id, nome FROM colaboradores WHERE cargo = ${cargo}`
+        } else if (area) {
+          colaboradores = await sql`SELECT id, nome FROM colaboradores WHERE area = ${area}`
+        } else {
+          colaboradores = await sql`SELECT id, nome FROM colaboradores`
+        }
+
+        debug.push({ cargo, area, encontrados: colaboradores.length })
+
         for (const { id: colaborador_id } of colaboradores) {
           await sql`
             INSERT INTO curso_atribuicao (colaborador_id, curso_id)
@@ -88,7 +100,7 @@ exports.handler = async (event) => {
         }
       }
 
-      return { statusCode: 200, headers, body: JSON.stringify({ success: true, auto_inscritos: autoInscritos }) }
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true, auto_inscritos: autoInscritos, debug }) }
     }
 
     // POST ?auto_assign=1: auto-assign courses to a colaborador based on their cargo/area
