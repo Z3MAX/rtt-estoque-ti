@@ -3550,22 +3550,6 @@ export default function TreinamentosPage() {
           <p className="text-sm text-slate-400 mt-0.5">Trilhas de desenvolvimento disponíveis para você</p>
         </div>
         <div className="flex items-center gap-2">
-          {isAdmin(user?.role) && (
-            <>
-              <button
-                onClick={() => setEnviarCursos(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-700 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white transition-colors"
-              >
-                <Send size={13} />Enviar Cursos
-              </button>
-              <button
-                onClick={() => setEditCurso('new')}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
-              >
-                <Plus size={13} />Novo curso
-              </button>
-            </>
-          )}
           <div className="flex gap-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-xl text-sm">
             <button
               onClick={() => setView('meus')}
