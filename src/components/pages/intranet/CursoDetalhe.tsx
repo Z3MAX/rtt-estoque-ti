@@ -509,6 +509,7 @@ export default function CursoDetalhe() {
   const [avaliacaoComentario, setAvaliacaoComentario] = useState('')
   const [avaliacaoEnviada, setAvaliacaoEnviada] = useState(false)
   const [savingAvaliacao, setSavingAvaliacao] = useState(false)
+  const [showCertModal, setShowCertModal] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -578,6 +579,65 @@ export default function CursoDetalhe() {
     const res = await api.cursoAvaliacao.save(curso.id, avaliacaoNota, avaliacaoComentario || undefined).catch(() => null)
     setSavingAvaliacao(false)
     if (res) setAvaliacaoEnviada(true)
+  }
+
+  function imprimirCertificado() {
+    if (!curso || !user) return
+    const dataFmt = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+    function esc(s: string) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+    const w = window.open('', '_blank', 'width=900,height=650')
+    if (!w) return
+    w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Certificado</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Georgia, serif; background: #fff; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+  .cert { width: 840px; min-height: 560px; border: 12px double #1e3a5f; padding: 48px 64px; position: relative; background: #fff; }
+  .cert::before { content: ''; position: absolute; inset: 8px; border: 2px solid #c9a84c; pointer-events: none; }
+  .logo { text-align: center; margin-bottom: 24px; }
+  .logo-title { font-size: 22px; font-weight: bold; color: #1e3a5f; letter-spacing: 4px; text-transform: uppercase; }
+  h1 { font-size: 42px; text-align: center; color: #1e3a5f; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+  .sub { text-align: center; color: #888; font-size: 13px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 32px; }
+  .body { text-align: center; font-size: 15px; color: #333; line-height: 1.9; }
+  .name { font-size: 30px; color: #1e3a5f; font-weight: bold; font-style: italic; display: block; margin: 8px 0; }
+  .course { font-size: 20px; color: #c9a84c; font-weight: bold; display: block; margin: 4px 0 8px; }
+  .divider { width: 120px; height: 2px; background: #c9a84c; margin: 28px auto; }
+  .footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 40px; }
+  .sig { text-align: center; }
+  .sig-line { width: 200px; border-bottom: 1px solid #333; margin-bottom: 6px; }
+  .sig-name { font-size: 12px; color: #555; }
+  .sig-role { font-size: 10px; color: #999; letter-spacing: 1px; text-transform: uppercase; }
+  .date { text-align: right; font-size: 12px; color: #888; }
+  @media print { body { padding: 0; } }
+</style></head><body>
+<div class="cert">
+  <div class="logo"><span class="logo-title">RTT Shop</span></div>
+  <h1>Certificado</h1>
+  <p class="sub">de conclusão</p>
+  <div class="body">
+    <p>Certificamos que</p>
+    <span class="name">${esc(user.name)}</span>
+    <p>concluiu com êxito o curso</p>
+    <span class="course">${esc(curso.titulo)}</span>
+    ${user.area ? `<p>atuando na área de <strong>${esc(user.area)}</strong></p>` : ''}
+  </div>
+  <div class="divider"></div>
+  <div class="footer">
+    <div class="sig">
+      <div class="sig-line"></div>
+      <p class="sig-name">${esc(curso.instrutor || 'Instrutor')}</p>
+      <p class="sig-role">Instrutor</p>
+    </div>
+    <div class="date"><p>${dataFmt}</p></div>
+    <div class="sig">
+      <div class="sig-line"></div>
+      <p class="sig-name">Recursos Humanos</p>
+      <p class="sig-role">RH / Treinamentos</p>
+    </div>
+  </div>
+</div>
+<script>window.onload=()=>{window.print()}<\/script>
+</body></html>`)
+    w.document.close()
   }
 
   if (loading) {
@@ -885,9 +945,17 @@ export default function CursoDetalhe() {
                 />
               )}
               {avaliacaoEnviada ? (
-                <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
-                  <CheckCircle2 size={14} /> Avaliação enviada — obrigado!
-                  {avaliacaoComentario && <span className="text-slate-400 font-normal ml-1">"{avaliacaoComentario}"</span>}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
+                    <CheckCircle2 size={14} /> Avaliação enviada — obrigado!
+                    {avaliacaoComentario && <span className="text-slate-400 font-normal ml-1">"{avaliacaoComentario}"</span>}
+                  </div>
+                  <button
+                    onClick={() => setShowCertModal(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold transition-colors w-full justify-center"
+                  >
+                    <Award size={14} /> Gerar certificado
+                  </button>
                 </div>
               ) : (
                 <button
@@ -984,6 +1052,50 @@ export default function CursoDetalhe() {
           </div>
         </div>
       </div>
+
+      {/* Modal certificado */}
+      {showCertModal && curso && user && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowCertModal(false)}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Award size={16} className="text-amber-500" />Certificado de Conclusão
+              </h3>
+              <button onClick={() => setShowCertModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="border border-amber-200 dark:border-amber-800 rounded-xl p-5 bg-amber-50 dark:bg-amber-900/10 space-y-3">
+              <div>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Colaborador</p>
+                <p className="text-base font-bold text-slate-800 dark:text-slate-100">{user.name}</p>
+              </div>
+              {user.area && (
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Área</p>
+                  <p className="text-sm text-slate-700 dark:text-slate-200">{user.area}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Curso</p>
+                <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">{curso.titulo}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Data de conclusão</p>
+                <p className="text-sm text-slate-700 dark:text-slate-200">{new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+              </div>
+            </div>
+
+            <button
+              onClick={imprimirCertificado}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-colors"
+            >
+              <Award size={15} />Imprimir / Salvar PDF
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
