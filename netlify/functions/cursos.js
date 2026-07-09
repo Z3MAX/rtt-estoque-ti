@@ -245,11 +245,11 @@ exports.handler = async (event) => {
         return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
       }
 
-      const { titulo, descricao, categoria, duracao, nivel, obrigatorio, instrutor, avaliacao, total_alunos, capa_from, capa_to, capa_url, icone, trilha_id, modulos, ordem } = JSON.parse(event.body || '{}')
+      const { titulo, descricao, categoria, duracao, nivel, obrigatorio, instrutor, avaliacao, total_alunos, capa_from, capa_to, capa_url, icone, trilha_id, modulos, ordem, status: bodyStatus } = JSON.parse(event.body || '{}')
       if (!titulo) return { statusCode: 400, headers, body: JSON.stringify({ error: 'titulo obrigatório' }) }
 
       // Área do Instrutor sempre cria como rascunho (força via body)
-      const status = body.status === 'rascunho' ? 'rascunho' : (isAdminRole(auth.role) ? 'publicado' : 'rascunho')
+      const status = bodyStatus === 'rascunho' ? 'rascunho' : (isAdminRole(auth.role) ? 'publicado' : 'rascunho')
       const instrutorNome = isInstrutor ? auth.name : (instrutor ?? '')
 
       const rows = await sql`
