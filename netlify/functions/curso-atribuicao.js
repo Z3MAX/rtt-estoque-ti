@@ -18,6 +18,18 @@ exports.handler = async (event) => {
     )
   `
 
+  // Remove duplicatas e garante UNIQUE constraint
+  try {
+    await sql`
+      DELETE FROM curso_atribuicao a
+      USING curso_atribuicao b
+      WHERE a.id > b.id
+        AND a.colaborador_id = b.colaborador_id
+        AND a.curso_id = b.curso_id
+    `
+    await sql`ALTER TABLE curso_atribuicao ADD CONSTRAINT IF NOT EXISTS curso_atribuicao_colab_curso_unique UNIQUE (colaborador_id, curso_id)`
+  } catch (e) { /* constraint já existe */ }
+
   try {
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS colaborador_id INTEGER`
   } catch (e) {
