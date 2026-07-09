@@ -317,8 +317,9 @@ interface Trilha {
   id: number
   titulo: string
   descricao: string
-  cursoIds: number[]
+  cursoIds?: number[]
   cor: string
+  icone?: string
 }
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
