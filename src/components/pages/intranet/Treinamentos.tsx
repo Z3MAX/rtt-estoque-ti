@@ -3546,8 +3546,12 @@ export default function TreinamentosPage() {
       {/* Header + tabs */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Treinamentos</h1>
-          <p className="text-sm text-slate-400 mt-0.5">Trilhas de desenvolvimento disponíveis para você</p>
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+            {view === 'instrutor' ? 'Área do Instrutor' : view === 'gestao' ? 'Gestão de Treinamentos' : 'Treinamentos'}
+          </h1>
+          <p className="text-sm text-slate-400 mt-0.5">
+            {view === 'instrutor' ? 'Crie e gerencie os cursos que você ministra' : view === 'gestao' ? 'Acompanhe o progresso, defina requisitos e extraia relatórios' : 'Trilhas de desenvolvimento disponíveis para você'}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex gap-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-xl text-sm">
