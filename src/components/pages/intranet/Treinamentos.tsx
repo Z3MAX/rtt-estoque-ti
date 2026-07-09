@@ -2885,17 +2885,24 @@ function InstrutorView({ user }: { user: any }) {
     setSaving(true)
     try {
       const payload = { titulo: titulo.trim(), descricao, categoria, nivel, duracao, icone, capa_from: capaFrom, capa_to: capaTo, modulos, instrutor: user?.name ?? '', ordem: 0, obrigatorio: false, avaliacao: 5.0, status: 'rascunho' }
+      let cursoId: number
       if (editando === 'new') {
         const novo = await api.cursos.create(payload) as any
         novo.instrutores = [{ user_id: user?.id, nome: user?.name }]
         setCursos(prev => [novo, ...prev])
         setEditando(novo)
         setInstrutores(novo.instrutores)
+        cursoId = novo.id
       } else {
         const atualizado = await api.cursos.update(editando.id, payload) as any
         atualizado.instrutores = instrutores
         setCursos(prev => prev.map(c => c.id === atualizado.id ? atualizado : c))
         setEditando(atualizado)
+        cursoId = atualizado.id
+      }
+      // Salva requisitos junto com o curso
+      if (requisitos.length >= 0) {
+        await api.cursoRequisitos.save(cursoId, requisitos).catch(() => {})
       }
     } catch { /* noop */ } finally { setSaving(false) }
   }
@@ -2996,8 +3003,8 @@ function InstrutorView({ user }: { user: any }) {
 
     return (
       <div className="space-y-4">
-        {/* Header */}
-        <div className="flex items-center gap-3 flex-wrap">
+        {/* Header — só navegação */}
+        <div className="flex items-center gap-3">
           <button onClick={voltar} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors">
             <ArrowLeft size={15} />Meus cursos
           </button>
@@ -3008,20 +3015,6 @@ function InstrutorView({ user }: { user: any }) {
               {isPublicado ? 'Publicado' : 'Rascunho'}
             </span>
           )}
-          <div className="flex-1" />
-          {!isNew && !isPublicado && (
-            <button onClick={excluir} disabled={deletando} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50">
-              <Trash2 size={12} />Excluir
-            </button>
-          )}
-          {podPublicar && (
-            <button onClick={publicar} disabled={publicando} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-60">
-              {publicando ? <RefreshCw size={11} className="animate-spin" /> : <Globe size={12} />}Publicar
-            </button>
-          )}
-          <button onClick={salvar} disabled={saving || !titulo.trim()} className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-semibold bg-primary-600 hover:bg-primary-700 text-white transition-colors disabled:opacity-60">
-            {saving ? <RefreshCw size={11} className="animate-spin" /> : <Save size={12} />}Salvar
-          </button>
         </div>
 
         {/* Informações */}
@@ -3168,11 +3161,6 @@ function InstrutorView({ user }: { user: any }) {
                   <Plus size={13} />Adicionar
                 </button>
               </div>
-              <div className="flex justify-end">
-                <button onClick={handleSaveRequisitos} disabled={savingReq} className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors disabled:opacity-60">
-                  {savingReq ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />}Salvar requisitos
-                </button>
-              </div>
             </>
           )}
         </div>
@@ -3230,6 +3218,25 @@ function InstrutorView({ user }: { user: any }) {
               </div>
             </>
           )}
+        </div>
+
+        {/* Botões de ação — final da página */}
+        <div className="flex items-center justify-between pt-2 pb-6">
+          {!isNew && !isPublicado ? (
+            <button onClick={excluir} disabled={deletando} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium text-red-500 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50">
+              <Trash2 size={14} />Excluir curso
+            </button>
+          ) : <div />}
+          <div className="flex items-center gap-3">
+            {podPublicar && (
+              <button onClick={publicar} disabled={publicando} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-60">
+                {publicando ? <RefreshCw size={14} className="animate-spin" /> : <Globe size={14} />}Publicar curso
+              </button>
+            )}
+            <button onClick={salvar} disabled={saving || !titulo.trim()} className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-primary-600 hover:bg-primary-700 text-white transition-colors disabled:opacity-60">
+              {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}Salvar
+            </button>
+          </div>
         </div>
       </div>
     )
