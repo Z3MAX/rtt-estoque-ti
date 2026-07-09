@@ -309,7 +309,7 @@ exports.handler = async (event) => {
 
         const [novo] = await sql`
           INSERT INTO cursos (titulo, descricao, categoria, duracao, nivel, obrigatorio, instrutor, avaliacao, total_alunos, capa_from, capa_to, capa_url, icone, trilha_id, modulos, ordem, status, versao, versao_pai_id)
-          VALUES (${old.titulo}, ${old.descricao}, ${old.categoria}, ${old.duracao}, ${old.nivel}, ${old.obrigatorio}, ${old.instrutor}, ${old.avaliacao}, ${old.total_alunos}, ${old.capa_from}, ${old.capa_to}, ${old.capa_url}, ${old.icone}, ${old.trilha_id}, ${old.modulos}, ${old.ordem}, 'rascunho', ${novaVersao}, ${novaPaiId})
+          VALUES (${old.titulo}, ${old.descricao ?? null}, ${old.categoria}, ${old.duracao ?? ''}, ${old.nivel}, ${old.obrigatorio ?? false}, ${old.instrutor ?? ''}, ${old.avaliacao ?? 5.0}, ${old.total_alunos ?? 0}, ${old.capa_from ?? 'from-slate-500'}, ${old.capa_to ?? 'to-slate-600'}, ${old.capa_url ?? null}, ${old.icone ?? '📚'}, ${old.trilha_id ?? null}, ${JSON.stringify(old.modulos ?? [])}, ${old.ordem ?? 0}, 'rascunho', ${novaVersao}, ${novaPaiId})
           RETURNING *
         `
         // Marca versão antiga como inativa
