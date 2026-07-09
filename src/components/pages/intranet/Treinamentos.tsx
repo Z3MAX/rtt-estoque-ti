@@ -1980,12 +1980,6 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">Gestão de Treinamentos</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Acompanhe o progresso, defina requisitos e extraia relatórios</p>
-        </div>
-      </div>
 
       {/* Tabs */}
       <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit">
@@ -3344,10 +3338,7 @@ function InstrutorView({ user }: { user: any }) {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Área do Instrutor</h3>
-          <p className="text-xs text-slate-400 mt-0.5">Crie e gerencie os cursos que você ministra</p>
-        </div>
+        <div></div>
         <button onClick={novoCurso} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-primary-600 hover:bg-primary-700 text-white transition-colors">
           <Plus size={13} />Novo curso
         </button>
