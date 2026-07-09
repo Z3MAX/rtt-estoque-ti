@@ -3112,12 +3112,29 @@ function InstrutorView({ user }: { user: any }) {
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-7">
-                  <input value={m.duracao ?? ''} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, duracao: e.target.value } : x))}
-                    placeholder="Duração (ex: 20min)" className={inputCls} />
-                  <input value={m.url ?? ''} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, url: e.target.value } : x))}
-                    placeholder="URL do vídeo ou arquivo" className={inputCls} />
+                  {/* Duração — só para vídeo e pdf */}
+                  {(m.tipo === 'video' || m.tipo === 'pdf') && (
+                    <input value={m.duracao ?? ''} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, duracao: e.target.value } : x))}
+                      placeholder="Duração (ex: 20min)" className={inputCls} />
+                  )}
+                  {/* URL — vídeo, pdf e quiz (não texto) */}
+                  {m.tipo === 'video' && (
+                    <input value={m.url ?? ''} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, url: e.target.value } : x))}
+                      placeholder="URL do vídeo (YouTube, Vimeo...)" className={inputCls} />
+                  )}
+                  {m.tipo === 'pdf' && (
+                    <input value={m.url ?? ''} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, url: e.target.value } : x))}
+                      placeholder="URL do arquivo (PDF, DOC...)" className={inputCls} />
+                  )}
+                  {m.tipo === 'quiz' && (
+                    <input value={m.url ?? ''} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, url: e.target.value } : x))}
+                      placeholder="Link do quiz (opcional)" className={`${inputCls} sm:col-span-2`} />
+                  )}
+                  {/* Descrição / Conteúdo */}
                   <textarea value={m.descricao ?? ''} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, descricao: e.target.value } : x))}
-                    placeholder="Descrição (opcional)" rows={2} className={inputCls + ' resize-none sm:col-span-2'} />
+                    placeholder={m.tipo === 'texto' ? 'Conteúdo do texto...' : 'Descrição (opcional)'}
+                    rows={m.tipo === 'texto' ? 5 : 2}
+                    className={inputCls + ' resize-none sm:col-span-2'} />
                 </div>
               </div>
             ))}
