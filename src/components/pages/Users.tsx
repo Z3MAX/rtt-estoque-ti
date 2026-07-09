@@ -15,13 +15,14 @@ interface AppUser {
   created_at: string
 }
 
-const ROLES = ['Administrador Master', 'Administrador de RH', 'Administrador de RH / Gestor', 'Gestor']
+const ROLES = ['Administrador Master', 'Administrador de RH', 'Administrador de RH / Gestor', 'Gestor', 'Beta Teste']
 
 const ROLE_STYLE: Record<string, string> = {
   'Administrador Master':      'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 border-violet-200 dark:border-violet-800',
   'Administrador de RH':       'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 border-primary-200 dark:border-primary-800',
   'Administrador de RH / Gestor': 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800',
   'Gestor':                    'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800',
+  'Beta Teste':                'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-800',
   // backward compat
   'Administrador de TI':       'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 border-primary-200 dark:border-primary-800',
 }
