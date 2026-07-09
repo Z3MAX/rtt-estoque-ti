@@ -3092,51 +3092,21 @@ function InstrutorView({ user }: { user: any }) {
           )}
           <div className="space-y-3">
             {modulos.map((m, idx) => (
-              <div key={m.id} className="border border-slate-100 dark:border-slate-700 rounded-xl p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-400 w-5">{idx + 1}</span>
-                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <input value={m.titulo} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, titulo: e.target.value } : x))}
-                      placeholder="Título do módulo" className={inputCls + ' sm:col-span-2'} />
-                    <select value={m.tipo} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, tipo: e.target.value as TipoModulo } : x))} className={inputCls}>
-                      <option value="video">Vídeo</option>
-                      <option value="pdf">PDF / Material</option>
-                      <option value="quiz">Quiz</option>
-                      <option value="texto">Texto</option>
-                    </select>
-                  </div>
-                  <div className="flex gap-1">
-                    <button onClick={() => setModulos(prev => { const a = [...prev]; if (idx > 0) { [a[idx-1], a[idx]] = [a[idx], a[idx-1]] } return a })} disabled={idx === 0} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 transition-colors"><ChevronUp size={13} /></button>
-                    <button onClick={() => setModulos(prev => { const a = [...prev]; if (idx < a.length-1) { [a[idx], a[idx+1]] = [a[idx+1], a[idx]] } return a })} disabled={idx === modulos.length-1} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 transition-colors"><ChevronDown size={13} /></button>
-                    <button onClick={() => setModulos(prev => prev.filter((_, i) => i !== idx))} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Trash2 size={13} /></button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-7">
-                  {/* Duração — só para vídeo e pdf */}
-                  {(m.tipo === 'video' || m.tipo === 'pdf') && (
-                    <input value={m.duracao ?? ''} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, duracao: e.target.value } : x))}
-                      placeholder="Duração (ex: 20min)" className={inputCls} />
-                  )}
-                  {/* URL — vídeo, pdf e quiz (não texto) */}
-                  {m.tipo === 'video' && (
-                    <input value={m.url ?? ''} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, url: e.target.value } : x))}
-                      placeholder="URL do vídeo (YouTube, Vimeo...)" className={inputCls} />
-                  )}
-                  {m.tipo === 'pdf' && (
-                    <input value={m.url ?? ''} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, url: e.target.value } : x))}
-                      placeholder="URL do arquivo (PDF, DOC...)" className={inputCls} />
-                  )}
-                  {m.tipo === 'quiz' && (
-                    <input value={m.url ?? ''} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, url: e.target.value } : x))}
-                      placeholder="Link do quiz (opcional)" className={`${inputCls} sm:col-span-2`} />
-                  )}
-                  {/* Descrição / Conteúdo */}
-                  <textarea value={m.descricao ?? ''} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, descricao: e.target.value } : x))}
-                    placeholder={m.tipo === 'texto' ? 'Conteúdo do texto...' : 'Descrição (opcional)'}
-                    rows={m.tipo === 'texto' ? 5 : 2}
-                    className={inputCls + ' resize-none sm:col-span-2'} />
-                </div>
-              </div>
+              <ModuloEditorCard
+                key={m.id}
+                m={m}
+                idx={idx}
+                total={modulos.length}
+                onChange={updated => setModulos(prev => prev.map((x, i) => i === idx ? updated : x))}
+                onDelete={() => setModulos(prev => prev.filter((_, i) => i !== idx))}
+                onMove={dir => setModulos(prev => {
+                  const a = [...prev]
+                  const t = idx + dir
+                  if (t < 0 || t >= a.length) return a
+                  ;[a[idx], a[t]] = [a[t], a[idx]]
+                  return a
+                })}
+              />
             ))}
           </div>
         </div>
