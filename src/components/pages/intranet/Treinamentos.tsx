@@ -3350,7 +3350,7 @@ export default function TreinamentosPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const podeGerenciar = isAdmin(user?.role) || isGestor(user?.role)
-  const podeInstrutor = isAdmin(user?.role) || isInstrutor(user?.role)
+  const podeInstrutor = isAdmin(user?.role) || isInstrutor(user?.role, user?.roles)
 
   const [view, setView] = useState<'meus' | 'gestao' | 'instrutor'>('meus')
   const [search, setSearch] = useState('')

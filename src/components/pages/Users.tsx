@@ -9,6 +9,7 @@ interface AppUser {
   name: string
   email: string
   role: string
+  roles?: string[]
   area?: string | null
   active: boolean
   must_change_password?: boolean
@@ -17,6 +18,7 @@ interface AppUser {
 }
 
 const ROLES = ['Administrador Master', 'Administrador de RH', 'Administrador de RH / Gestor', 'Gestor', 'Beta Teste']
+const SECONDARY_ROLES = ['Instrutor']
 
 const ROLE_STYLE: Record<string, string> = {
   'Administrador Master':      'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 border-violet-200 dark:border-violet-800',
@@ -24,6 +26,7 @@ const ROLE_STYLE: Record<string, string> = {
   'Administrador de RH / Gestor': 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800',
   'Gestor':                    'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800',
   'Beta Teste':                'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-800',
+  'Instrutor':                 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800',
   // backward compat
   'Administrador de TI':       'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 border-primary-200 dark:border-primary-800',
 }
@@ -55,6 +58,9 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
   const [email, setEmail]       = useState(user?.email ?? '')
   const [password, setPassword] = useState('')
   const [role, setRole]         = useState(user?.role ?? 'Gestor')
+  const [secondaryRoles, setSecondaryRoles] = useState<string[]>(
+    (user?.roles ?? []).filter(r => SECONDARY_ROLES.includes(r))
+  )
   const [area, setArea]         = useState(user?.area ?? '')
   const [areaCustom, setAreaCustom] = useState(false)
   const [areas, setAreas]       = useState<string[]>([])
@@ -98,13 +104,14 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
 
     try {
       setLoading(true); setError(''); setEmailWarning(null)
+      const allRoles = [role, ...secondaryRoles.filter(r => r !== role)]
       if (isEdit) {
-        const payload: Record<string, unknown> = { name, email, role, area: area.trim() || null, colaborador_id: colaboradorId ?? null }
+        const payload: Record<string, unknown> = { name, email, role, roles: allRoles, area: area.trim() || null, colaborador_id: colaboradorId ?? null }
         if (password) payload.password = password
         await api.users.update(user!.id, payload)
         onSaved()
       } else {
-        const result = await api.users.create({ name, email, role, area: area.trim() || null }) as { emailSent?: boolean; emailError?: string }
+        const result = await api.users.create({ name, email, role, roles: allRoles, area: area.trim() || null }) as { emailSent?: boolean; emailError?: string }
         // Se a conta foi criada mas o e-mail não foi enviado, avisa sem fechar o modal
         if (result.emailSent === false) {
           setEmailWarning(result.emailError || 'E-mail de convite não pôde ser enviado')
@@ -163,10 +170,33 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
             </div>
           )}
           <div>
-            <label className="label">Perfil de acesso</label>
+            <label className="label">Perfil de acesso principal</label>
             <select className="input" value={role} onChange={(e) => setRole(e.target.value)} disabled={loading}>
               {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
+          </div>
+          <div>
+            <label className="label">Funções adicionais</label>
+            <div className="flex flex-col gap-2">
+              {SECONDARY_ROLES.map((r) => {
+                const checked = secondaryRoles.includes(r)
+                return (
+                  <label key={r} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 cursor-pointer transition-all ${checked ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/10' : 'border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}>
+                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-orange-500 border-orange-500' : 'border-slate-300 dark:border-slate-600'}`}>
+                      {checked && <svg viewBox="0 0 10 8" fill="none" className="w-2.5 h-2.5"><path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    </div>
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={checked}
+                      disabled={loading}
+                      onChange={(e) => setSecondaryRoles(prev => e.target.checked ? [...prev, r] : prev.filter(x => x !== r))}
+                    />
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{r}</span>
+                  </label>
+                )
+              })}
+            </div>
           </div>
           <div>
             <label className="label">
@@ -743,10 +773,17 @@ export default function UsersPage() {
                     {u.area && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Área: <span className="font-medium text-slate-600 dark:text-slate-300">{u.area}</span></p>}
                   </div>
 
-                  {/* Role badge */}
-                  <span className={`hidden sm:inline-flex text-xs font-medium px-2.5 py-1 rounded-full border ${ROLE_STYLE[u.role] ?? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-600'}`}>
-                    {u.role}
-                  </span>
+                  {/* Role badges */}
+                  <div className="hidden sm:flex flex-wrap gap-1.5">
+                    <span className={`inline-flex text-xs font-medium px-2.5 py-1 rounded-full border ${ROLE_STYLE[u.role] ?? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-600'}`}>
+                      {u.role}
+                    </span>
+                    {(u.roles ?? []).filter(r => SECONDARY_ROLES.includes(r)).map(r => (
+                      <span key={r} className={`inline-flex text-xs font-medium px-2.5 py-1 rounded-full border ${ROLE_STYLE[r] ?? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-600'}`}>
+                        {r}
+                      </span>
+                    ))}
+                  </div>
 
                   {/* Actions */}
                   {userIsAdmin && (

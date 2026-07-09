@@ -7,6 +7,7 @@ export interface User {
   name: string
   email: string
   role: string
+  roles?: string[]
   area?: string | null
   mustChangePassword?: boolean
   photo_url?: string | null
@@ -29,8 +30,8 @@ export function isGestor(role?: string) {
   return role === 'Gestor' || role === 'Administrador de RH / Gestor'
 }
 
-export function isInstrutor(role?: string) {
-  return role === 'Instrutor'
+export function isInstrutor(role?: string, roles?: string[]) {
+  return role === 'Instrutor' || (roles?.includes('Instrutor') ?? false)
 }
 
 interface AuthContextType {

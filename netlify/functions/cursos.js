@@ -170,7 +170,7 @@ exports.handler = async (event) => {
     const auth = requireAuth(event)
     const params = event.queryStringParameters || {}
     const cursoId = params.id ? parseInt(params.id) : null
-    const isInstrutor = auth.role === 'Instrutor'
+    const isInstrutor = (auth.roles || [auth.role]).includes('Instrutor')
 
     if (event.httpMethod === 'GET') {
       // Cursos onde o usuário logado é instrutor (inclui rascunhos)

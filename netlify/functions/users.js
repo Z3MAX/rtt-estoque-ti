@@ -69,16 +69,18 @@ exports.handler = async (event) => {
         return { statusCode: 200, headers, body: JSON.stringify({ propostas }) }
       }
 
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS roles TEXT[]`
+
       if (id) {
         const rows = await sql`
-          SELECT id, name, email, role, area, active, created_at, updated_at
+          SELECT id, name, email, role, roles, area, active, created_at, updated_at
           FROM users WHERE id = ${id}
         `
         if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Usuário não encontrado' }) }
         return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
       }
       const rows = await sql`
-        SELECT id, name, email, role, area, active, must_change_password, colaborador_id, created_at, updated_at
+        SELECT id, name, email, role, roles, area, active, must_change_password, colaborador_id, created_at, updated_at
         FROM users ORDER BY name ASC
       `
       return { statusCode: 200, headers, body: JSON.stringify(rows) }
@@ -87,7 +89,7 @@ exports.handler = async (event) => {
     // POST — somente administrador
     if (event.httpMethod === 'POST') {
       const adminPayload = requireAdmin(event)
-      const { name, email, role, area } = JSON.parse(event.body || '{}')
+      const { name, email, role, roles, area } = JSON.parse(event.body || '{}')
 
       if (!name || !name.trim())
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Nome é obrigatório' }) }
@@ -99,7 +101,9 @@ exports.handler = async (event) => {
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Nome muito longo (máx 200 caracteres)' }) }
       if (role && !VALID_ROLES.includes(role))
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Papel inválido' }) }
-      if (role === 'Administrador Master' && !isMasterRole(adminPayload.role))
+      if (roles !== undefined && (!Array.isArray(roles) || roles.some(r => !VALID_ROLES.includes(r))))
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Um ou mais perfis inválidos' }) }
+      if ((role === 'Administrador Master' || (roles && roles.includes('Administrador Master'))) && !isMasterRole(adminPayload.role))
         return { statusCode: 403, headers, body: JSON.stringify({ error: 'Apenas um Administrador Master pode conceder este perfil' }) }
 
       const existing = await sql`SELECT id FROM users WHERE email = ${email.toLowerCase()}`
@@ -109,10 +113,11 @@ exports.handler = async (event) => {
       // Senha temporária aleatória — usuário nunca verá, receberá link de convite
       const passwordHash = await hashPassword(crypto.randomBytes(32).toString('hex'))
 
+      const rolesArr = roles || [role || 'Gestor']
       const rows = await sql`
-        INSERT INTO users (name, email, password_hash, role, area, must_change_password)
-        VALUES (${name.trim()}, ${email.toLowerCase()}, ${passwordHash}, ${role || 'Gestor'}, ${area || null}, true)
-        RETURNING id, name, email, role, area, active, must_change_password, created_at, updated_at
+        INSERT INTO users (name, email, password_hash, role, roles, area, must_change_password)
+        VALUES (${name.trim()}, ${email.toLowerCase()}, ${passwordHash}, ${role || 'Gestor'}, ${rolesArr}, ${area || null}, true)
+        RETURNING id, name, email, role, roles, area, active, must_change_password, created_at, updated_at
       `
 
       // Envia link de convite por e-mail (sem senha em texto)
@@ -174,13 +179,17 @@ exports.handler = async (event) => {
         await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS colaborador_id INTEGER`
       } catch (e) { /* coluna já existe */ }
 
-      const { name, email, password, role, area, active, colaborador_id } = JSON.parse(event.body || '{}')
+      const { name, email, password, role, roles, area, active, colaborador_id } = JSON.parse(event.body || '{}')
 
       if (email !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'E-mail inválido' }) }
       if (role !== undefined && !VALID_ROLES.includes(role))
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Papel inválido' }) }
-      if (role === 'Administrador Master' && !isMasterRole(adminPayload.role))
+      if (roles !== undefined) {
+        if (!Array.isArray(roles) || roles.some(r => !VALID_ROLES.includes(r)))
+          return { statusCode: 400, headers, body: JSON.stringify({ error: 'Um ou mais perfis inválidos' }) }
+      }
+      if ((role === 'Administrador Master' || (roles && roles.includes('Administrador Master'))) && !isMasterRole(adminPayload.role))
         return { statusCode: 403, headers, body: JSON.stringify({ error: 'Apenas um Administrador Master pode conceder este perfil' }) }
       if (password && password.length < 8)
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'A senha deve ter no mínimo 8 caracteres' }) }
@@ -198,23 +207,27 @@ exports.handler = async (event) => {
       if (name !== undefined)            updates.name = name.trim()
       if (email !== undefined)           updates.email = email.toLowerCase()
       if (role !== undefined)            updates.role = role
+      if (roles !== undefined)           updates.roles = roles
       if (area !== undefined)            updates.area = area || null
       if (active !== undefined)          updates.active = active
       if (password)                      updates.password_hash = await hashPassword(password)
       if (colaborador_id !== undefined)  updates.colaborador_id = colaborador_id || null
+
+      const rolesVal = roles !== undefined ? roles : null
 
       const rows = await sql`
         UPDATE users SET
           name            = COALESCE(${updates.name ?? null}, name),
           email           = COALESCE(${updates.email ?? null}, email),
           role            = COALESCE(${updates.role ?? null}, role),
+          roles           = CASE WHEN ${roles !== undefined} THEN ${rolesVal} ELSE roles END,
           area            = CASE WHEN ${area !== undefined} THEN ${updates.area ?? null} ELSE area END,
           active          = COALESCE(${updates.active ?? null}, active),
           password_hash   = COALESCE(${updates.password_hash ?? null}, password_hash),
           colaborador_id  = CASE WHEN ${colaborador_id !== undefined} THEN ${updates.colaborador_id ?? null} ELSE colaborador_id END,
           updated_at      = NOW()
         WHERE id = ${id}
-        RETURNING id, name, email, role, area, active, colaborador_id, created_at, updated_at
+        RETURNING id, name, email, role, roles, area, active, colaborador_id, created_at, updated_at
       `
       if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Usuário não encontrado' }) }
 
