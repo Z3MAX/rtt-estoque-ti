@@ -521,17 +521,20 @@ function StarsInterativas({ cursoId, mediaInicial, totalInicial, minhaNota: minh
   const [media, setMedia] = useState(mediaInicial)
   const [total, setTotal] = useState(totalInicial)
   const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState(false)
 
   async function handleClick(nota: number) {
     if (salvando) return
     setSalvando(true)
+    setErro(false)
     try {
       const res = await api.cursoAvaliacoes.submit(cursoId, nota)
       setMinhaNota(res!.minha_nota)
       setMedia(res!.media)
       setTotal(res!.total)
     } catch {
-      // silently fail
+      setErro(true)
+      setTimeout(() => setErro(false), 3000)
     } finally {
       setSalvando(false)
     }
@@ -563,6 +566,7 @@ function StarsInterativas({ cursoId, mediaInicial, totalInicial, minhaNota: minh
       {media === null && !minhaNota && (
         <p className="text-[11px] text-slate-400 italic">Seja o primeiro a avaliar este curso</p>
       )}
+      {erro && <p className="text-[11px] text-red-500">Não foi possível salvar a avaliação.</p>}
     </div>
   )
 }
@@ -574,6 +578,18 @@ function ProgressBar({ pct, sm }: { pct: number; sm?: boolean }) {
         className={`h-full rounded-full transition-all duration-500 ${pct === 100 ? 'bg-emerald-500' : 'bg-primary-500'}`}
         style={{ width: `${pct}%` }}
       />
+    </div>
+  )
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+
+function Toast({ msg, type = 'success' }: { msg: string; type?: 'success' | 'error' }) {
+  if (!msg) return null
+  return (
+    <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] px-5 py-3 rounded-2xl shadow-xl text-sm font-semibold text-white flex items-center gap-2 pointer-events-none animate-fade-in transition-all ${type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}>
+      {type === 'error' ? <X size={15} /> : <CheckCircle2 size={15} />}
+      {msg}
     </div>
   )
 }
@@ -1416,6 +1432,7 @@ function CourseModal({ t, onClose, onToggle, moduloConfigs, onSaveConfig, canAdm
 }) {
   const [expanded, setExpanded] = useState(true)
   const [videoAberto, setVideoAberto] = useState<number | null>(null)
+  const modulosRef = useRef<HTMLDivElement>(null)
   const [editando, setEditando] = useState<number | null>(null)
   const [editUrl, setEditUrl] = useState('')
   const [savingUrl, setSavingUrl] = useState(false)
@@ -1440,9 +1457,12 @@ function CourseModal({ t, onClose, onToggle, moduloConfigs, onSaveConfig, canAdm
     if (!avaliacaoNota) return
     setSavingAvaliacao(true)
     const res = await api.cursoAvaliacao.save(t.id, avaliacaoNota, avaliacaoComentario || undefined).catch(() => null)
-    if (res) { setMediaReal(res.media); setTotalAvaliacoes(res.total) }
     setSavingAvaliacao(false)
-    setAvaliacaoEnviada(true)
+    if (res) {
+      setMediaReal(res.media)
+      setTotalAvaliacoes(res.total)
+      setAvaliacaoEnviada(true)
+    }
   }
 
   function getVideoUrl(moduloId: number) {
@@ -1511,7 +1531,7 @@ function CourseModal({ t, onClose, onToggle, moduloConfigs, onSaveConfig, canAdm
           </div>
 
           {/* Módulos */}
-          <div>
+          <div ref={modulosRef}>
             <button
               onClick={() => setExpanded(v => !v)}
               className="w-full flex items-center justify-between py-2"
@@ -1674,7 +1694,13 @@ function CourseModal({ t, onClose, onToggle, moduloConfigs, onSaveConfig, canAdm
               )}
             </div>
           ) : (
-            <button className="w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors bg-primary-600 hover:bg-primary-700 text-white shadow-md shadow-primary-500/30">
+            <button
+              onClick={() => {
+                setExpanded(true)
+                setTimeout(() => modulosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+              }}
+              className="w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors bg-primary-600 hover:bg-primary-700 text-white shadow-md shadow-primary-500/30"
+            >
               {pct > 0 ? <><Play size={15} />Continuar de onde parou</> : <><Play size={15} />Começar agora</>}
             </button>
           )}
@@ -1790,6 +1816,17 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
   const [apenasObrigatorios, setApenasObrigatorios] = useState(false)
   const [validandoId, setValidandoId] = useState<number | null>(null)
   const [removendoId, setRemovendoId] = useState<number | null>(null)
+  const [confirmarRemoverId, setConfirmarRemoverId] = useState<number | null>(null)
+
+  // Toast
+  const [toastMsg, setToastMsg] = useState('')
+  const [toastType, setToastType] = useState<'success' | 'error'>('success')
+
+  function showToast(msg: string, type: 'success' | 'error' = 'success') {
+    setToastMsg(msg)
+    setToastType(type)
+    setTimeout(() => setToastMsg(''), 3500)
+  }
 
   // Requisitos tab
   const [requisitos, setRequisitos] = useState<{ cargo?: string; area?: string; obrigatorio: boolean }[]>([])
@@ -1881,19 +1918,28 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
           ? { ...i, validado: true, data_validacao: new Date().toISOString().slice(0, 10) }
           : i
       ))
-    } catch { /* noop */ } finally {
+      showToast(`${inscrito.nome} validado com sucesso!`)
+    } catch {
+      showToast('Erro ao validar. Tente novamente.', 'error')
+    } finally {
       setValidandoId(null)
     }
   }
 
   async function handleRemover(inscrito: InscritoRow) {
-    if (!window.confirm(`Remover ${inscrito.nome} do curso?`)) return
+    if (confirmarRemoverId !== inscrito.colaborador_id) {
+      setConfirmarRemoverId(inscrito.colaborador_id)
+      return
+    }
+    setConfirmarRemoverId(null)
     setRemovendoId(inscrito.colaborador_id)
     try {
       const novosIds = inscritos.filter(i => i.colaborador_id !== inscrito.colaborador_id).map(i => i.colaborador_id)
       await api.cursoAtribuicao.setForCurso(cursoSelecionado, novosIds)
       setInscritos(prev => prev.filter(i => i.colaborador_id !== inscrito.colaborador_id))
-    } catch { /* noop */ } finally {
+    } catch {
+      showToast('Erro ao remover colaborador. Tente novamente.', 'error')
+    } finally {
       setRemovendoId(null)
     }
   }
@@ -1902,7 +1948,10 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
     setSavingReq(true)
     try {
       await api.cursoRequisitos.save(cursoSelecionado, requisitos)
-    } catch { /* noop */ } finally {
+      showToast('Requisitos salvos com sucesso!')
+    } catch {
+      showToast('Erro ao salvar requisitos. Tente novamente.', 'error')
+    } finally {
       setSavingReq(false)
     }
   }
@@ -2090,14 +2139,29 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
                                 <CertificadoBtn colaborador={f.nome} cargo={f.cargo} curso={curso?.titulo ?? ''} instrutor={curso?.instrutor ?? ''} dataValidacao={f.data_validacao} validadoPor={f.validado_por} />
                               )}
                               {pct < 100 && <span className="text-[10px] text-slate-300 dark:text-slate-500">—</span>}
-                              <button
-                                onClick={() => handleRemover(f)}
-                                disabled={removendoId === f.colaborador_id}
-                                title="Remover do curso"
-                                className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-40"
-                              >
-                                {removendoId === f.colaborador_id ? <RefreshCw size={11} className="animate-spin" /> : <Trash2 size={13} />}
-                              </button>
+                              {confirmarRemoverId === f.colaborador_id ? (
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => handleRemover(f)}
+                                    disabled={removendoId === f.colaborador_id}
+                                    className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors disabled:opacity-40"
+                                  >
+                                    {removendoId === f.colaborador_id ? <RefreshCw size={10} className="animate-spin inline" /> : 'Confirmar'}
+                                  </button>
+                                  <button onClick={() => setConfirmarRemoverId(null)} className="text-[10px] text-slate-400 hover:text-slate-600 px-1.5 py-1">
+                                    Cancelar
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => handleRemover(f)}
+                                  disabled={removendoId === f.colaborador_id}
+                                  title="Remover do curso"
+                                  className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-40"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -2389,6 +2453,7 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
           )}
         </div>
       )}
+      <Toast msg={toastMsg} type={toastType} />
     </div>
   )
 }
@@ -2826,6 +2891,8 @@ function InstrutorView({ user }: { user: any }) {
   const [usersDisponiveis, setUsersDisponiveis] = useState<any[]>([])
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [adicionandoInst, setAdicionandoInst] = useState(false)
+  const [removendoInstId, setRemovendoInstId] = useState<number | null>(null)
+  const [confirmarExcluir, setConfirmarExcluir] = useState(false)
 
   // Requisitos
   const [requisitos, setRequisitos] = useState<{ cargo?: string; area?: string; obrigatorio: boolean }[]>([])
@@ -2836,6 +2903,17 @@ function InstrutorView({ user }: { user: any }) {
   const [cargosDisponiveis, setCargosDisponiveis] = useState<string[]>([])
   const [areasDisponiveis, setAreasDisponiveis] = useState<string[]>([])
   const [loadingReq, setLoadingReq] = useState(false)
+
+  // Toast
+  const [toastMsg, setToastMsg] = useState('')
+  const [toastType, setToastType] = useState<'success' | 'error'>('success')
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function showToast(msg: string, type: 'success' | 'error' = 'success') {
+    setToastMsg(msg)
+    setToastType(type)
+    setTimeout(() => setToastMsg(''), 3500)
+  }
 
   useEffect(() => {
     api.cursos.getMeusCursosInstrutor()
@@ -2881,12 +2959,13 @@ function InstrutorView({ user }: { user: any }) {
   function voltar() { setEditando(null); setBuscarUser('') }
 
   async function salvar() {
-    if (!titulo.trim()) return
+    if (!titulo.trim()) { showToast('Informe o título do curso', 'error'); return }
     setSaving(true)
+    const isNew = editando === 'new'
     try {
       const payload = { titulo: titulo.trim(), descricao, categoria, nivel, duracao, icone, capa_from: capaFrom, capa_to: capaTo, modulos, instrutor: user?.name ?? '', ordem: 0, obrigatorio: false, avaliacao: 5.0, status: 'rascunho' }
       let cursoId: number
-      if (editando === 'new') {
+      if (isNew) {
         const novo = await api.cursos.create(payload) as any
         novo.instrutores = [{ user_id: user?.id, nome: user?.name }]
         setCursos(prev => [novo, ...prev])
@@ -2900,11 +2979,11 @@ function InstrutorView({ user }: { user: any }) {
         setEditando(atualizado)
         cursoId = atualizado.id
       }
-      // Salva requisitos junto com o curso
-      if (requisitos.length >= 0) {
-        await api.cursoRequisitos.save(cursoId, requisitos).catch(() => {})
-      }
-    } catch { /* noop */ } finally { setSaving(false) }
+      await api.cursoRequisitos.save(cursoId, requisitos).catch(() => {})
+      showToast(isNew ? 'Curso criado com sucesso!' : 'Curso salvo com sucesso!')
+    } catch {
+      showToast('Erro ao salvar o curso. Tente novamente.', 'error')
+    } finally { setSaving(false) }
   }
 
   async function publicar() {
@@ -2915,39 +2994,40 @@ function InstrutorView({ user }: { user: any }) {
       atualizado.instrutores = instrutores
       setCursos(prev => prev.map(c => c.id === atualizado.id ? atualizado : c))
       setEditando(atualizado)
-    } catch { /* noop */ } finally { setPublicando(false) }
+      showToast('Curso publicado com sucesso!')
+    } catch {
+      showToast('Erro ao publicar o curso. Tente novamente.', 'error')
+    } finally { setPublicando(false) }
   }
 
   async function excluir() {
     if (editando === 'new' || !editando) return
-    if (!window.confirm(`Excluir "${editando.titulo}"?`)) return
+    if (!confirmarExcluir) { setConfirmarExcluir(true); return }
+    setConfirmarExcluir(false)
     setDeletando(true)
     try {
       await api.cursos.delete(editando.id)
       setCursos(prev => prev.filter(c => c.id !== editando.id))
       voltar()
-    } catch { /* noop */ } finally { setDeletando(false) }
+    } catch {
+      showToast('Erro ao excluir o curso. Tente novamente.', 'error')
+    } finally { setDeletando(false) }
   }
 
   async function buscarUsuarios(q: string) {
     setBuscarUser(q)
     if (q.length < 2) { setUsersDisponiveis([]); return }
-    setLoadingUsers(true)
-    try {
-      const todos = await api.users.list() as any[]
-      const jaSao = new Set(instrutores.map((i: any) => i.user_id))
-      setUsersDisponiveis(
-        todos.filter((u: any) => !jaSao.has(u.id) && u.name?.toLowerCase().includes(q.toLowerCase())).slice(0, 8)
-      )
-    } catch { setUsersDisponiveis([]) } finally { setLoadingUsers(false) }
-  }
-
-  async function handleSaveRequisitos() {
-    if (editando === 'new' || !editando) return
-    setSavingReq(true)
-    try {
-      await api.cursoRequisitos.save(editando.id, requisitos)
-    } catch { /* noop */ } finally { setSavingReq(false) }
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(async () => {
+      setLoadingUsers(true)
+      try {
+        const todos = await api.users.list() as any[]
+        const jaSao = new Set(instrutores.map((i: any) => i.user_id))
+        setUsersDisponiveis(
+          todos.filter((u: any) => !jaSao.has(u.id) && u.name?.toLowerCase().includes(q.toLowerCase())).slice(0, 8)
+        )
+      } catch { setUsersDisponiveis([]) } finally { setLoadingUsers(false) }
+    }, 350)
   }
 
   function addRequisito() {
@@ -2965,16 +3045,22 @@ function InstrutorView({ user }: { user: any }) {
       setInstrutores(prev => [...prev, novoInst])
       setCursos(prev => prev.map(c => c.id === editando.id ? { ...c, instrutores: [...(c.instrutores ?? []), novoInst] } : c))
       setBuscarUser(''); setUsersDisponiveis([])
-    } catch { /* noop */ } finally { setAdicionandoInst(false) }
+      showToast(`${u.name} adicionado como co-instrutor!`)
+    } catch {
+      showToast('Erro ao adicionar instrutor. Tente novamente.', 'error')
+    } finally { setAdicionandoInst(false) }
   }
 
   async function removerInstrutor(userId: number) {
     if (editando === 'new' || !editando) return
-    if (userId === user?.id) { alert('Você não pode remover a si mesmo.'); return }
+    if (userId === user?.id) { showToast('Você não pode remover a si mesmo.', 'error'); return }
+    setRemovendoInstId(userId)
     try {
       await api.cursos.removeInstrutor(editando.id, userId)
       setInstrutores(prev => prev.filter((i: any) => i.user_id !== userId))
-    } catch { /* noop */ }
+    } catch {
+      showToast('Erro ao remover instrutor. Tente novamente.', 'error')
+    } finally { setRemovendoInstId(null) }
   }
 
   function addModulo() {
@@ -3183,8 +3269,8 @@ function InstrutorView({ user }: { user: any }) {
                     <span className="flex-1 text-sm font-medium text-slate-700 dark:text-slate-200">{inst.nome}</span>
                     {inst.user_id === user?.id && <span className="text-[10px] text-slate-400">você</span>}
                     {inst.user_id !== user?.id && (
-                      <button onClick={() => removerInstrutor(inst.user_id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                        <Trash2 size={13} />
+                      <button onClick={() => removerInstrutor(inst.user_id)} disabled={removendoInstId === inst.user_id} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-40">
+                        {removendoInstId === inst.user_id ? <RefreshCw size={13} className="animate-spin" /> : <Trash2 size={13} />}
                       </button>
                     )}
                   </div>
@@ -3223,9 +3309,20 @@ function InstrutorView({ user }: { user: any }) {
         {/* Botões de ação — final da página */}
         <div className="flex items-center justify-between pt-2 pb-6">
           {!isNew && !isPublicado ? (
-            <button onClick={excluir} disabled={deletando} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium text-red-500 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50">
-              <Trash2 size={14} />Excluir curso
-            </button>
+            confirmarExcluir ? (
+              <div className="flex items-center gap-2">
+                <button onClick={excluir} disabled={deletando} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-500 hover:bg-red-600 transition-colors disabled:opacity-50">
+                  {deletando ? <RefreshCw size={14} className="animate-spin" /> : <Trash2 size={14} />}Confirmar exclusão
+                </button>
+                <button onClick={() => setConfirmarExcluir(false)} className="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors">
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <button onClick={excluir} disabled={deletando} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium text-red-500 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50">
+                <Trash2 size={14} />Excluir curso
+              </button>
+            )
           ) : <div />}
           <div className="flex items-center gap-3">
             {podPublicar && (
@@ -3238,6 +3335,7 @@ function InstrutorView({ user }: { user: any }) {
             </button>
           </div>
         </div>
+      <Toast msg={toastMsg} type={toastType} />
       </div>
     )
   }
@@ -3393,15 +3491,19 @@ export default function TreinamentosPage() {
   }
 
   async function toggleModulo(cursoId: number, moduloId: number, done: boolean) {
-    await api.treinamentoProgresso.mark(cursoId, moduloId, done)
-    setCursos(prev => prev.map(t => t.id === cursoId ? {
-      ...t,
-      modulos: t.modulos.map(m => m.id === moduloId ? { ...m, concluido: done } : m),
-    } : t))
-    setModalCurso(prev => prev?.id === cursoId ? {
-      ...prev,
-      modulos: prev.modulos.map(m => m.id === moduloId ? { ...m, concluido: done } : m),
-    } : prev)
+    try {
+      await api.treinamentoProgresso.mark(cursoId, moduloId, done)
+      setCursos(prev => prev.map(t => t.id === cursoId ? {
+        ...t,
+        modulos: t.modulos.map(m => m.id === moduloId ? { ...m, concluido: done } : m),
+      } : t))
+      setModalCurso(prev => prev?.id === cursoId ? {
+        ...prev,
+        modulos: prev.modulos.map(m => m.id === moduloId ? { ...m, concluido: done } : m),
+      } : prev)
+    } catch {
+      // Estado não é atualizado — o módulo permanece no estado anterior, que é o correto
+    }
   }
 
   // Admins veem tudo; non-admins veem só os atribuídos/requisitos
