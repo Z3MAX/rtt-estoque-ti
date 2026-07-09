@@ -69,7 +69,26 @@ exports.handler = async (event) => {
           ON CONFLICT (curso_id, cargo, area) DO UPDATE SET obrigatorio = EXCLUDED.obrigatorio
         `
       }
-      return { statusCode: 200, headers, body: JSON.stringify({ success: true }) }
+
+      // Auto-inscreve colaboradores cujo cargo+área batem com os novos requisitos
+      let autoInscritos = 0
+      for (const r of (requisitos ?? [])) {
+        const colaboradores = await sql`
+          SELECT id FROM colaboradores
+          WHERE (${r.cargo ?? null} IS NULL OR cargo = ${r.cargo ?? null})
+            AND (${r.area  ?? null} IS NULL OR area  = ${r.area  ?? null})
+        `
+        for (const { id: colaborador_id } of colaboradores) {
+          await sql`
+            INSERT INTO curso_atribuicao (colaborador_id, curso_id)
+            VALUES (${colaborador_id}, ${curso_id})
+            ON CONFLICT DO NOTHING
+          `
+          autoInscritos++
+        }
+      }
+
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true, auto_inscritos: autoInscritos }) }
     }
 
     // POST ?auto_assign=1: auto-assign courses to a colaborador based on their cargo/area
