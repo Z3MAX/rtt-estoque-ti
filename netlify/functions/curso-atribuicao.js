@@ -68,7 +68,7 @@ exports.handler = async (event) => {
         if (!isAdminRole(auth.role)) {
           return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
         }
-        const rows = await sql`
+        const rawRows = await sql`
           SELECT
             ca.colaborador_id,
             col.nome,
@@ -89,6 +89,18 @@ exports.handler = async (event) => {
           GROUP BY ca.colaborador_id, col.nome, col.cargo, col.area, jsonb_array_length(cu.modulos)
           ORDER BY col.nome
         `
+
+        // Deduplica por nome+cargo+área — mantém o com mais progresso
+        const seen = new Map()
+        for (const r of rawRows) {
+          const key = `${r.nome}||${r.cargo}||${r.area}`
+          const prev = seen.get(key)
+          if (!prev || parseInt(r.modulos_concluidos) > parseInt(prev.modulos_concluidos)) {
+            seen.set(key, r)
+          }
+        }
+        const rows = [...seen.values()]
+
         return {
           statusCode: 200,
           headers,
