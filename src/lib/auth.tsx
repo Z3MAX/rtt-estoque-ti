@@ -29,6 +29,10 @@ export function isGestor(role?: string) {
   return role === 'Gestor' || role === 'Administrador de RH / Gestor'
 }
 
+export function isInstrutor(role?: string) {
+  return role === 'Instrutor'
+}
+
 interface AuthContextType {
   user: User | null
   token: string | null

@@ -153,13 +153,54 @@ exports.handler = async (event) => {
       UNIQUE(curso_id, colaborador_id)
     )
   `
+  await sql`ALTER TABLE cursos ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'publicado'`
+  await sql`ALTER TABLE cursos ADD COLUMN IF NOT EXISTS capa_url TEXT`
+  await sql`
+    CREATE TABLE IF NOT EXISTS curso_instrutores (
+      id         SERIAL PRIMARY KEY,
+      curso_id   INTEGER NOT NULL,
+      user_id    INTEGER NOT NULL,
+      nome       TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE (curso_id, user_id)
+    )
+  `
 
   try {
-    requireAuth(event)
+    const auth = requireAuth(event)
     const params = event.queryStringParameters || {}
     const cursoId = params.id ? parseInt(params.id) : null
+    const isInstrutor = auth.role === 'Instrutor'
 
     if (event.httpMethod === 'GET') {
+      // Cursos onde o usuário logado é instrutor (inclui rascunhos)
+      if (params.action === 'instrutor') {
+        const rows = await sql`
+          SELECT c.*,
+            COALESCE(
+              json_agg(json_build_object('user_id', ci.user_id, 'nome', ci.nome)
+                ORDER BY ci.created_at) FILTER (WHERE ci.user_id IS NOT NULL),
+              '[]'
+            ) AS instrutores
+          FROM cursos c
+          JOIN curso_instrutores ci_me ON ci_me.curso_id = c.id AND ci_me.user_id = ${auth.userId}
+          LEFT JOIN curso_instrutores ci ON ci.curso_id = c.id
+          WHERE c.ativo = true
+          GROUP BY c.id
+          ORDER BY c.updated_at DESC
+        `
+        return { statusCode: 200, headers, body: JSON.stringify(rows) }
+      }
+
+      // Lista de instrutores de um curso
+      if (params.action === 'instrutores') {
+        const cId = parseInt(params.curso_id || '0')
+        if (!cId) return { statusCode: 400, headers, body: JSON.stringify({ error: 'curso_id obrigatório' }) }
+        const rows = await sql`SELECT user_id, nome, created_at FROM curso_instrutores WHERE curso_id = ${cId} ORDER BY created_at`
+        return { statusCode: 200, headers, body: JSON.stringify(rows) }
+      }
+
+      // Lista pública de cursos (só publicados)
       const [{ count }] = await sql`SELECT COUNT(*) AS count FROM cursos WHERE ativo = true`
       if (parseInt(count) === 0) {
         for (const c of DEFAULT_CURSOS) {
@@ -180,32 +221,69 @@ exports.handler = async (event) => {
           FROM curso_atribuicao
           GROUP BY curso_id
         ) ca ON ca.curso_id = c.id
-        WHERE c.ativo = true
+        WHERE c.ativo = true AND (c.status = 'publicado' OR c.status IS NULL)
         ORDER BY c.ordem, c.id
       `
       return { statusCode: 200, headers, body: JSON.stringify(rows) }
     }
 
-    const auth = requireAuth(event)
-    if (!isAdminRole(auth.role)) {
-      return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
-    }
-
     if (event.httpMethod === 'POST') {
+      // Adicionar co-instrutor
+      if (params.action === 'add_instrutor') {
+        const { curso_id, user_id, nome } = JSON.parse(event.body || '{}')
+        if (!curso_id || !user_id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'curso_id e user_id obrigatórios' }) }
+        // Deve ser admin ou instrutor do curso
+        if (!isAdminRole(auth.role)) {
+          const check = await sql`SELECT id FROM curso_instrutores WHERE curso_id = ${curso_id} AND user_id = ${auth.userId}`
+          if (check.length === 0) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
+        }
+        await sql`INSERT INTO curso_instrutores (curso_id, user_id, nome) VALUES (${curso_id}, ${user_id}, ${nome}) ON CONFLICT DO NOTHING`
+        return { statusCode: 200, headers, body: JSON.stringify({ success: true }) }
+      }
+
+      if (!isAdminRole(auth.role) && !isInstrutor) {
+        return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
+      }
+
       const { titulo, descricao, categoria, duracao, nivel, obrigatorio, instrutor, avaliacao, total_alunos, capa_from, capa_to, capa_url, icone, trilha_id, modulos, ordem } = JSON.parse(event.body || '{}')
       if (!titulo) return { statusCode: 400, headers, body: JSON.stringify({ error: 'titulo obrigatório' }) }
+
+      const status = isAdminRole(auth.role) ? 'publicado' : 'rascunho'
+      const instrutorNome = isInstrutor ? auth.name : (instrutor ?? '')
+
       const rows = await sql`
-        INSERT INTO cursos (titulo, descricao, categoria, duracao, nivel, obrigatorio, instrutor, avaliacao, total_alunos, capa_from, capa_to, capa_url, icone, trilha_id, modulos, ordem)
-        VALUES (${titulo}, ${descricao ?? null}, ${categoria ?? 'Geral'}, ${duracao ?? ''}, ${nivel ?? 'Básico'}, ${obrigatorio ?? false}, ${instrutor ?? ''}, ${avaliacao ?? 5.0}, ${total_alunos ?? 0}, ${capa_from ?? 'from-slate-500'}, ${capa_to ?? 'to-slate-600'}, ${capa_url ?? null}, ${icone ?? '📚'}, ${trilha_id ?? null}, ${JSON.stringify(modulos ?? [])}, ${ordem ?? 0})
+        INSERT INTO cursos (titulo, descricao, categoria, duracao, nivel, obrigatorio, instrutor, avaliacao, total_alunos, capa_from, capa_to, capa_url, icone, trilha_id, modulos, ordem, status)
+        VALUES (${titulo}, ${descricao ?? null}, ${categoria ?? 'Geral'}, ${duracao ?? ''}, ${nivel ?? 'Básico'}, ${obrigatorio ?? false}, ${instrutorNome}, ${avaliacao ?? 5.0}, ${total_alunos ?? 0}, ${capa_from ?? 'from-slate-500'}, ${capa_to ?? 'to-slate-600'}, ${capa_url ?? null}, ${icone ?? '📚'}, ${trilha_id ?? null}, ${JSON.stringify(modulos ?? [])}, ${ordem ?? 0}, ${status})
         RETURNING *
+      `
+      // Adiciona o criador como instrutor do curso
+      await sql`
+        INSERT INTO curso_instrutores (curso_id, user_id, nome)
+        VALUES (${rows[0].id}, ${auth.userId}, ${auth.name})
+        ON CONFLICT DO NOTHING
       `
       return { statusCode: 201, headers, body: JSON.stringify(rows[0]) }
     }
 
     if (event.httpMethod === 'PUT') {
+      // Publicar rascunho (admin only)
+      if (params.action === 'publicar') {
+        if (!isAdminRole(auth.role)) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
+        if (!cursoId) return { statusCode: 400, headers, body: JSON.stringify({ error: 'id obrigatório' }) }
+        const rows = await sql`UPDATE cursos SET status = 'publicado', updated_at = NOW() WHERE id = ${cursoId} AND ativo = true RETURNING *`
+        if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Curso não encontrado' }) }
+        return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
+      }
+
       if (!cursoId) return { statusCode: 400, headers, body: JSON.stringify({ error: 'id obrigatório' }) }
+
+      // Verifica permissão: admin ou instrutor do curso
+      if (!isAdminRole(auth.role)) {
+        const check = await sql`SELECT id FROM curso_instrutores WHERE curso_id = ${cursoId} AND user_id = ${auth.userId}`
+        if (check.length === 0) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
+      }
+
       const { titulo, descricao, categoria, duracao, nivel, obrigatorio, instrutor, avaliacao, capa_from, capa_to, capa_url, icone, trilha_id, modulos, ordem } = JSON.parse(event.body || '{}')
-      await sql`ALTER TABLE cursos ADD COLUMN IF NOT EXISTS capa_url TEXT`
       const rows = await sql`
         UPDATE cursos SET
           titulo      = ${titulo},
@@ -232,7 +310,27 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'DELETE') {
+      // Remover co-instrutor
+      if (params.action === 'rem_instrutor') {
+        const { curso_id, user_id } = JSON.parse(event.body || '{}')
+        if (!isAdminRole(auth.role)) {
+          const check = await sql`SELECT id FROM curso_instrutores WHERE curso_id = ${curso_id} AND user_id = ${auth.userId}`
+          if (check.length === 0) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
+        }
+        await sql`DELETE FROM curso_instrutores WHERE curso_id = ${curso_id} AND user_id = ${user_id}`
+        return { statusCode: 200, headers, body: JSON.stringify({ success: true }) }
+      }
+
       if (!cursoId) return { statusCode: 400, headers, body: JSON.stringify({ error: 'id obrigatório' }) }
+
+      // Admin deleta qualquer; instrutor só deleta rascunho próprio
+      if (!isAdminRole(auth.role)) {
+        const check = await sql`SELECT id FROM curso_instrutores WHERE curso_id = ${cursoId} AND user_id = ${auth.userId}`
+        if (check.length === 0) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
+        const curso = await sql`SELECT status FROM cursos WHERE id = ${cursoId}`
+        if (curso[0]?.status === 'publicado') return { statusCode: 403, headers, body: JSON.stringify({ error: 'Não é possível excluir um curso publicado' }) }
+      }
+
       await sql`UPDATE cursos SET ativo = false, updated_at = NOW() WHERE id = ${cursoId}`
       return { statusCode: 200, headers, body: JSON.stringify({ success: true }) }
     }

@@ -343,6 +343,22 @@ export const api = {
       if (MOCK) { await delay(300); return { success: true } }
       return request(`${BASE}/cursos?id=${id}`, { method: 'DELETE' })
     },
+    getMeusCursosInstrutor: async () => {
+      if (MOCK) { await delay(300); return [] }
+      return request<any[]>(`${BASE}/cursos?action=instrutor`)
+    },
+    publicar: async (id: number) => {
+      return request(`${BASE}/cursos?action=publicar&id=${id}`, { method: 'PUT', body: JSON.stringify({}) })
+    },
+    getInstrutores: async (cursoId: number) => {
+      return request<any[]>(`${BASE}/cursos?action=instrutores&curso_id=${cursoId}`)
+    },
+    addInstrutor: async (cursoId: number, userId: number, nome: string) => {
+      return request(`${BASE}/cursos?action=add_instrutor`, { method: 'POST', body: JSON.stringify({ curso_id: cursoId, user_id: userId, nome }) })
+    },
+    removeInstrutor: async (cursoId: number, userId: number) => {
+      return request(`${BASE}/cursos?action=rem_instrutor`, { method: 'DELETE', body: JSON.stringify({ curso_id: cursoId, user_id: userId }) })
+    },
   },
 
   cursoAtribuicao: {

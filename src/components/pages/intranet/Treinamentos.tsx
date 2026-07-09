@@ -6,9 +6,10 @@ import {
   HelpCircle, Lock, ChevronDown, ChevronUp, Layers, BadgeCheck,
   AlertTriangle, Eye, Link, Edit2, Save, ExternalLink, RefreshCw,
   Plus, Trash2, Pencil, Send, Download, GraduationCap, Target,
-  FileSpreadsheet, UserCheck, Briefcase,
+  FileSpreadsheet, UserCheck, Briefcase, ArrowLeft, BookMarked, UserPlus,
+  Globe, FilePen,
 } from 'lucide-react'
-import { useAuth, isAdmin, isGestor } from '../../../lib/auth'
+import { useAuth, isAdmin, isGestor, isInstrutor } from '../../../lib/auth'
 import { api } from '../../../lib/api'
 
 // ─── Video helpers ────────────────────────────────────────────────────────────
@@ -2800,14 +2801,450 @@ function EnviarCursosModal({ todosCursos, onClose }: { todosCursos: Treinamento[
   )
 }
 
+// ─── Área do Instrutor ────────────────────────────────────────────────────────
+
+type EditorTab = 'info' | 'modulos' | 'instrutores'
+
+function InstrutorView({ user }: { user: any }) {
+  const [cursos, setCursos] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [editando, setEditando] = useState<any | null | 'new'>(null)
+  const [tab, setTab] = useState<EditorTab>('info')
+  const [saving, setSaving] = useState(false)
+  const [publicando, setPublicando] = useState(false)
+  const [deletando, setDeletando] = useState(false)
+
+  // Form state
+  const [titulo, setTitulo] = useState('')
+  const [descricao, setDescricao] = useState('')
+  const [categoria, setCategoria] = useState('Geral')
+  const [nivel, setNivel] = useState('Básico')
+  const [duracao, setDuracao] = useState('')
+  const [icone, setIcone] = useState('📚')
+  const [capaFrom, setCapaFrom] = useState('from-slate-500')
+  const [capaTo, setCapaTo] = useState('to-slate-600')
+  const [modulos, setModulos] = useState<ModuloEdit[]>([])
+  const [instrutores, setInstrutores] = useState<any[]>([])
+  const [buscarUser, setBuscarUser] = useState('')
+  const [usersDisponiveis, setUsersDisponiveis] = useState<any[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
+  const [adicionandoInst, setAdicionandoInst] = useState(false)
+
+  useEffect(() => {
+    api.cursos.getMeusCursosInstrutor()
+      .then(rows => setCursos(rows as any[]))
+      .catch(() => setCursos([]))
+      .finally(() => setLoading(false))
+  }, [])
+
+  function abrirCurso(curso: any) {
+    setEditando(curso)
+    setTitulo(curso.titulo ?? '')
+    setDescricao(curso.descricao ?? '')
+    setCategoria(curso.categoria ?? 'Geral')
+    setNivel(curso.nivel ?? 'Básico')
+    setDuracao(curso.duracao ?? '')
+    setIcone(curso.icone ?? '📚')
+    setCapaFrom(curso.capa_from ?? 'from-slate-500')
+    setCapaTo(curso.capa_to ?? 'to-slate-600')
+    setModulos((curso.modulos ?? []).map((m: any) => ({ ...m })))
+    setInstrutores(curso.instrutores ?? [])
+    setTab('info')
+  }
+
+  function novoCurso() {
+    setEditando('new')
+    setTitulo(''); setDescricao(''); setCategoria('Geral'); setNivel('Básico')
+    setDuracao(''); setIcone('📚'); setCapaFrom('from-slate-500'); setCapaTo('to-slate-600')
+    setModulos([]); setInstrutores([]); setTab('info')
+  }
+
+  function voltar() { setEditando(null); setBuscarUser('') }
+
+  async function salvar() {
+    if (!titulo.trim()) return
+    setSaving(true)
+    try {
+      const payload = { titulo: titulo.trim(), descricao, categoria, nivel, duracao, icone, capa_from: capaFrom, capa_to: capaTo, modulos, instrutor: user?.name ?? '', ordem: 0, obrigatorio: false, avaliacao: 5.0 }
+      if (editando === 'new') {
+        const novo = await api.cursos.create(payload) as any
+        novo.instrutores = [{ user_id: user?.id, nome: user?.name }]
+        setCursos(prev => [novo, ...prev])
+        setEditando(novo)
+        setInstrutores(novo.instrutores)
+      } else {
+        const atualizado = await api.cursos.update(editando.id, payload) as any
+        atualizado.instrutores = instrutores
+        setCursos(prev => prev.map(c => c.id === atualizado.id ? atualizado : c))
+        setEditando(atualizado)
+      }
+    } catch { /* noop */ } finally { setSaving(false) }
+  }
+
+  async function publicar() {
+    if (editando === 'new' || !editando) return
+    setPublicando(true)
+    try {
+      const atualizado = await api.cursos.publicar(editando.id) as any
+      atualizado.instrutores = instrutores
+      setCursos(prev => prev.map(c => c.id === atualizado.id ? atualizado : c))
+      setEditando(atualizado)
+    } catch { /* noop */ } finally { setPublicando(false) }
+  }
+
+  async function excluir() {
+    if (editando === 'new' || !editando) return
+    if (!window.confirm(`Excluir "${editando.titulo}"?`)) return
+    setDeletando(true)
+    try {
+      await api.cursos.delete(editando.id)
+      setCursos(prev => prev.filter(c => c.id !== editando.id))
+      voltar()
+    } catch { /* noop */ } finally { setDeletando(false) }
+  }
+
+  async function buscarUsuarios(q: string) {
+    setBuscarUser(q)
+    if (q.length < 2) { setUsersDisponiveis([]); return }
+    setLoadingUsers(true)
+    try {
+      const todos = await api.users.list() as any[]
+      const jaSao = new Set(instrutores.map((i: any) => i.user_id))
+      setUsersDisponiveis(
+        todos.filter((u: any) => !jaSao.has(u.id) && u.name?.toLowerCase().includes(q.toLowerCase())).slice(0, 8)
+      )
+    } catch { setUsersDisponiveis([]) } finally { setLoadingUsers(false) }
+  }
+
+  async function adicionarInstrutor(u: any) {
+    if (editando === 'new' || !editando) return
+    setAdicionandoInst(true)
+    try {
+      await api.cursos.addInstrutor(editando.id, u.id, u.name)
+      const novoInst = { user_id: u.id, nome: u.name }
+      setInstrutores(prev => [...prev, novoInst])
+      setCursos(prev => prev.map(c => c.id === editando.id ? { ...c, instrutores: [...(c.instrutores ?? []), novoInst] } : c))
+      setBuscarUser(''); setUsersDisponiveis([])
+    } catch { /* noop */ } finally { setAdicionandoInst(false) }
+  }
+
+  async function removerInstrutor(userId: number) {
+    if (editando === 'new' || !editando) return
+    if (userId === user?.id) { alert('Você não pode remover a si mesmo.'); return }
+    try {
+      await api.cursos.removeInstrutor(editando.id, userId)
+      setInstrutores(prev => prev.filter((i: any) => i.user_id !== userId))
+    } catch { /* noop */ }
+  }
+
+  function addModulo() {
+    const maxId = modulos.length > 0 ? Math.max(...modulos.map(m => m.id)) : 0
+    setModulos(prev => [...prev, { id: maxId + 1, titulo: '', tipo: 'video', duracao: '' }])
+  }
+
+  const CAPAS = [
+    { from: 'from-slate-500',   to: 'to-slate-600' },
+    { from: 'from-rose-500',    to: 'to-red-600' },
+    { from: 'from-amber-500',   to: 'to-orange-600' },
+    { from: 'from-emerald-500', to: 'to-teal-600' },
+    { from: 'from-blue-500',    to: 'to-indigo-600' },
+    { from: 'from-violet-500',  to: 'to-purple-600' },
+    { from: 'from-pink-500',    to: 'to-rose-600' },
+    { from: 'from-cyan-500',    to: 'to-blue-600' },
+  ]
+
+  const inputCls = 'w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500'
+
+  // ── EDITOR VIEW ──
+  if (editando !== null) {
+    const isNew = editando === 'new'
+    const isPublicado = !isNew && editando.status === 'publicado'
+    const podPublicar = isAdmin(user?.role) && !isNew && !isPublicado
+
+    return (
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <button onClick={voltar} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors">
+            <ArrowLeft size={15} />Meus cursos
+          </button>
+          <span className="text-slate-300 dark:text-slate-600">/</span>
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate max-w-xs">{isNew ? 'Novo curso' : (titulo || 'Sem título')}</span>
+          {!isNew && (
+            <span className={`ml-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${isPublicado ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
+              {isPublicado ? 'Publicado' : 'Rascunho'}
+            </span>
+          )}
+          <div className="flex-1" />
+          {!isNew && !isPublicado && (
+            <button onClick={excluir} disabled={deletando} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50">
+              <Trash2 size={12} />Excluir
+            </button>
+          )}
+          {podPublicar && (
+            <button onClick={publicar} disabled={publicando} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-60">
+              {publicando ? <RefreshCw size={11} className="animate-spin" /> : <Globe size={12} />}Publicar
+            </button>
+          )}
+          <button onClick={salvar} disabled={saving || !titulo.trim()} className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-semibold bg-primary-600 hover:bg-primary-700 text-white transition-colors disabled:opacity-60">
+            {saving ? <RefreshCw size={11} className="animate-spin" /> : <Save size={12} />}Salvar
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit">
+          {([['info', 'Informações'], ['modulos', 'Módulos'], ['instrutores', 'Instrutores']] as [EditorTab, string][]).map(([id, label]) => (
+            <button key={id} onClick={() => setTab(id)} disabled={isNew && id !== 'info'}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 ${tab === id ? 'bg-white dark:bg-slate-700 shadow text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>
+              {label}{id === 'modulos' && modulos.length > 0 && <span className="ml-1 text-[10px] bg-slate-200 dark:bg-slate-600 px-1.5 py-0.5 rounded-full">{modulos.length}</span>}
+              {id === 'instrutores' && instrutores.length > 0 && <span className="ml-1 text-[10px] bg-slate-200 dark:bg-slate-600 px-1.5 py-0.5 rounded-full">{instrutores.length}</span>}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab: Informações */}
+        {tab === 'info' && (
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Título *</label>
+                <input value={titulo} onChange={e => setTitulo(e.target.value)} placeholder="Ex: Introdução à Segurança do Trabalho" className={inputCls} />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Descrição</label>
+                <textarea value={descricao} onChange={e => setDescricao(e.target.value)} rows={3} placeholder="Descreva o objetivo e o conteúdo do curso..." className={inputCls + ' resize-none'} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Categoria</label>
+                <select value={categoria} onChange={e => setCategoria(e.target.value)} className={inputCls}>
+                  {['Compliance', 'Segurança', 'Soft Skills', 'Liderança', 'Técnico', 'Operacional', 'Geral'].map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Nível</label>
+                <select value={nivel} onChange={e => setNivel(e.target.value)} className={inputCls}>
+                  {['Básico', 'Intermediário', 'Avançado'].map(n => <option key={n}>{n}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Duração estimada</label>
+                <input value={duracao} onChange={e => setDuracao(e.target.value)} placeholder="Ex: 2h30" className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Ícone (emoji)</label>
+                <input value={icone} onChange={e => setIcone(e.target.value)} placeholder="📚" className={inputCls} />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Cor da capa</label>
+              <div className="flex gap-2 flex-wrap">
+                {CAPAS.map(c => (
+                  <button key={c.from} onClick={() => { setCapaFrom(c.from); setCapaTo(c.to) }}
+                    className={`w-8 h-8 rounded-full bg-gradient-to-br ${c.from} ${c.to} transition-transform hover:scale-110 ${capaFrom === c.from ? 'ring-2 ring-offset-2 ring-primary-500 scale-110' : ''}`} />
+                ))}
+              </div>
+            </div>
+
+            <div className={`rounded-xl bg-gradient-to-br ${capaFrom} ${capaTo} p-4 text-white flex items-center gap-3`}>
+              <span className="text-2xl">{icone || '📚'}</span>
+              <div>
+                <p className="font-semibold text-sm">{titulo || 'Título do curso'}</p>
+                <p className="text-xs opacity-70">{categoria} · {nivel}{duracao ? ` · ${duracao}` : ''}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab: Módulos */}
+        {tab === 'modulos' && (
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{modulos.length} módulo{modulos.length !== 1 ? 's' : ''}</p>
+              <button onClick={addModulo} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-primary-600 hover:bg-primary-700 text-white transition-colors">
+                <Plus size={12} />Adicionar módulo
+              </button>
+            </div>
+            {modulos.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12 gap-3 text-slate-300 dark:text-slate-600">
+                <BookOpen size={32} className="opacity-50" />
+                <p className="text-sm">Nenhum módulo ainda</p>
+                <button onClick={addModulo} className="text-xs text-primary-500 hover:text-primary-600 font-medium">+ Adicionar primeiro módulo</button>
+              </div>
+            )}
+            <div className="space-y-3">
+              {modulos.map((m, idx) => (
+                <div key={m.id} className="border border-slate-100 dark:border-slate-700 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-400 w-5">{idx + 1}</span>
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <input value={m.titulo} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, titulo: e.target.value } : x))}
+                        placeholder="Título do módulo" className={inputCls + ' sm:col-span-2'} />
+                      <select value={m.tipo} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, tipo: e.target.value as TipoModulo } : x))} className={inputCls}>
+                        <option value="video">Vídeo</option>
+                        <option value="pdf">PDF / Material</option>
+                        <option value="quiz">Quiz</option>
+                        <option value="texto">Texto</option>
+                      </select>
+                    </div>
+                    <div className="flex gap-1">
+                      <button onClick={() => setModulos(prev => { const a = [...prev]; if (idx > 0) { [a[idx-1], a[idx]] = [a[idx], a[idx-1]] } return a })} disabled={idx === 0} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 transition-colors"><ChevronUp size={13} /></button>
+                      <button onClick={() => setModulos(prev => { const a = [...prev]; if (idx < a.length-1) { [a[idx], a[idx+1]] = [a[idx+1], a[idx]] } return a })} disabled={idx === modulos.length-1} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 transition-colors"><ChevronDown size={13} /></button>
+                      <button onClick={() => setModulos(prev => prev.filter((_, i) => i !== idx))} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Trash2 size={13} /></button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-7">
+                    <input value={m.duracao ?? ''} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, duracao: e.target.value } : x))}
+                      placeholder="Duração (ex: 20min)" className={inputCls} />
+                    <input value={m.url ?? ''} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, url: e.target.value } : x))}
+                      placeholder="URL do vídeo ou arquivo" className={inputCls} />
+                    <textarea value={m.descricao ?? ''} onChange={e => setModulos(prev => prev.map((x, i) => i === idx ? { ...x, descricao: e.target.value } : x))}
+                      placeholder="Descrição (opcional)" rows={2} className={inputCls + ' resize-none sm:col-span-2'} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tab: Instrutores */}
+        {tab === 'instrutores' && (
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-5">
+            {isNew && (
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-xs">
+                <AlertTriangle size={14} />Salve o curso primeiro para poder adicionar co-instrutores.
+              </div>
+            )}
+            <div>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-3">Instrutores do curso</p>
+              <div className="space-y-2">
+                {instrutores.map((inst: any) => (
+                  <div key={inst.user_id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
+                    <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-primary-600 dark:text-primary-400 font-bold text-sm">
+                      {(inst.nome || '?')[0].toUpperCase()}
+                    </div>
+                    <span className="flex-1 text-sm font-medium text-slate-700 dark:text-slate-200">{inst.nome}</span>
+                    {inst.user_id === user?.id && <span className="text-[10px] text-slate-400">você</span>}
+                    {inst.user_id !== user?.id && !isNew && (
+                      <button onClick={() => removerInstrutor(inst.user_id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+            {!isNew && (
+              <div>
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Adicionar co-instrutor</p>
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input value={buscarUser} onChange={e => buscarUsuarios(e.target.value)}
+                    placeholder="Buscar por nome..." className={inputCls + ' pl-8'} />
+                </div>
+                {loadingUsers && <p className="text-xs text-slate-400 mt-2">Buscando...</p>}
+                {usersDisponiveis.length > 0 && (
+                  <div className="mt-2 border border-slate-100 dark:border-slate-700 rounded-xl overflow-hidden">
+                    {usersDisponiveis.map((u: any) => (
+                      <button key={u.id} onClick={() => adicionarInstrutor(u)} disabled={adicionandoInst}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left border-b border-slate-100 dark:border-slate-700 last:border-0 disabled:opacity-50">
+                        <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 text-xs font-bold">
+                          {(u.name || '?')[0]}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{u.name}</p>
+                          <p className="text-[10px] text-slate-400 truncate">{u.role}</p>
+                        </div>
+                        <UserPlus size={13} className="text-primary-500 shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── LISTA DE CURSOS ──
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Área do Instrutor</h3>
+          <p className="text-xs text-slate-400 mt-0.5">Crie e gerencie os cursos que você ministra</p>
+        </div>
+        <button onClick={novoCurso} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-primary-600 hover:bg-primary-700 text-white transition-colors">
+          <Plus size={13} />Novo curso
+        </button>
+      </div>
+
+      {loading && (
+        <div className="flex items-center justify-center py-20 text-slate-300 dark:text-slate-600">
+          <RefreshCw size={24} className="animate-spin" />
+        </div>
+      )}
+
+      {!loading && cursos.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-20 gap-4 text-slate-300 dark:text-slate-600">
+          <BookMarked size={40} className="opacity-50" />
+          <div className="text-center">
+            <p className="text-sm font-medium text-slate-500">Nenhum curso ainda</p>
+            <p className="text-xs mt-1">Clique em "Novo curso" para começar a criar</p>
+          </div>
+          <button onClick={novoCurso} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold bg-primary-600 hover:bg-primary-700 text-white transition-colors">
+            <Plus size={14} />Criar primeiro curso
+          </button>
+        </div>
+      )}
+
+      {!loading && cursos.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {cursos.map(curso => {
+            const modCount = (curso.modulos ?? []).length
+            const instCount = (curso.instrutores ?? []).length
+            const isPublicado = curso.status === 'publicado'
+            return (
+              <button key={curso.id} onClick={() => abrirCurso(curso)}
+                className="text-left bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-md transition-all group">
+                <div className={`h-2 bg-gradient-to-r ${curso.capa_from ?? 'from-slate-500'} ${curso.capa_to ?? 'to-slate-600'}`} />
+                <div className="p-4 space-y-3">
+                  <div className="flex items-start gap-2 justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xl shrink-0">{curso.icone ?? '📚'}</span>
+                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 leading-tight line-clamp-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">{curso.titulo}</p>
+                    </div>
+                    <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${isPublicado ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
+                      {isPublicado ? 'Publicado' : 'Rascunho'}
+                    </span>
+                  </div>
+                  {curso.descricao && <p className="text-[11px] text-slate-400 dark:text-slate-500 line-clamp-2">{curso.descricao}</p>}
+                  <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                    <span className="flex items-center gap-1"><BookOpen size={10} />{modCount} módulo{modCount !== 1 ? 's' : ''}</span>
+                    <span className="flex items-center gap-1"><Users size={10} />{instCount} instrutor{instCount !== 1 ? 'es' : ''}</span>
+                    {curso.categoria && <span>{curso.categoria}</span>}
+                  </div>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function TreinamentosPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const podeGerenciar = isAdmin(user?.role) || isGestor(user?.role)
+  const podeInstrutor = isAdmin(user?.role) || isInstrutor(user?.role)
 
-  const [view, setView] = useState<'meus' | 'gestao'>('meus')
+  const [view, setView] = useState<'meus' | 'gestao' | 'instrutor'>('meus')
   const [search, setSearch] = useState('')
   const [categoria, setCategoria] = useState('Todos')
   const [filtroStatus, setFiltroStatus] = useState<'todos' | 'em-andamento' | 'concluidos' | 'nao-iniciados'>('todos')
@@ -2953,14 +3390,22 @@ export default function TreinamentosPage() {
               </button>
             </>
           )}
-          {podeGerenciar && (
-            <div className="flex gap-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-xl text-sm">
+          <div className="flex gap-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-xl text-sm">
+            <button
+              onClick={() => setView('meus')}
+              className={`px-4 py-1.5 rounded-lg font-medium transition-colors ${view === 'meus' ? 'bg-white dark:bg-slate-800 shadow text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+            >
+              Meus cursos
+            </button>
+            {podeInstrutor && (
               <button
-                onClick={() => setView('meus')}
-                className={`px-4 py-1.5 rounded-lg font-medium transition-colors ${view === 'meus' ? 'bg-white dark:bg-slate-800 shadow text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                onClick={() => setView('instrutor')}
+                className={`px-4 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${view === 'instrutor' ? 'bg-white dark:bg-slate-800 shadow text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
               >
-                Meus cursos
+                <FilePen size={13} />Instrutor
               </button>
+            )}
+            {podeGerenciar && (
               <button
                 onClick={() => setView('gestao')}
                 className={`px-4 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${view === 'gestao' ? 'bg-white dark:bg-slate-800 shadow text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
@@ -2970,12 +3415,12 @@ export default function TreinamentosPage() {
                   <span className="w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{obrigPend}</span>
                 )}
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
-      {view === 'gestao' ? <RHView todosCursos={cursos} /> : (
+      {view === 'instrutor' ? <InstrutorView user={user} /> : view === 'gestao' ? <RHView todosCursos={cursos} /> : (
         <>
           {/* Resumo de progresso */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 px-6 py-5 flex flex-col sm:flex-row items-stretch gap-5">
