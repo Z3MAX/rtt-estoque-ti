@@ -189,6 +189,27 @@ exports.handler = async (event) => {
       return { statusCode: 201, headers, body: JSON.stringify({ ...rows[0], emailSent, emailError }) }
     }
 
+    // PUT ?action=limpar_duplicata — remove colaborador duplicado e migra inscrições para o ID correto
+    if (event.httpMethod === 'PUT' && event.queryStringParameters?.action === 'limpar_duplicata') {
+      requireAdmin(event)
+      const { manter_id, remover_id } = JSON.parse(event.body || '{}')
+      if (!manter_id || !remover_id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'manter_id e remover_id são obrigatórios' }) }
+      if (manter_id === remover_id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'IDs devem ser diferentes' }) }
+
+      // Migra inscrições de curso do duplicado para o original (ignorando conflitos)
+      await sql`
+        INSERT INTO curso_atribuicao (colaborador_id, curso_id, auto_inscrito)
+        SELECT ${manter_id}, curso_id, auto_inscrito FROM curso_atribuicao WHERE colaborador_id = ${remover_id}
+        ON CONFLICT (colaborador_id, curso_id) DO NOTHING
+      `
+      // Remove inscrições do duplicado
+      await sql`DELETE FROM curso_atribuicao WHERE colaborador_id = ${remover_id}`
+      // Desativa o colaborador duplicado (soft-delete)
+      await sql`UPDATE colaboradores SET ativo = false WHERE id = ${remover_id}`
+
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true, migrado: remover_id, mantido: manter_id }) }
+    }
+
     // PUT — somente administrador
     if (event.httpMethod === 'PUT' && id) {
       const adminPayload = requireAdmin(event)
