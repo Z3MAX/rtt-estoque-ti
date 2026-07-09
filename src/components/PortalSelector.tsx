@@ -14,7 +14,7 @@ export default function PortalSelector({ onSelect }: Props) {
   }
 
   const firstName = user?.name?.split(' ')[0] ?? 'Colaborador'
-  const canAccessIntranet = user?.role === 'Administrador Master'
+  const canAccessIntranet = user?.role === 'Administrador Master' || user?.role === 'Beta Teste'
 
   return (
     <div className="min-h-screen w-full flex">
