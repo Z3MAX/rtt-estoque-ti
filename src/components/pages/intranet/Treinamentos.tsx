@@ -1818,6 +1818,8 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
   const [novoReqObrig, setNovoReqObrig] = useState(true)
   const [savingReq, setSavingReq] = useState(false)
   const [loadingReq, setLoadingReq] = useState(false)
+  const [cargosDisponiveis, setCargosDisponiveis] = useState<string[]>([])
+  const [areasDisponiveis, setAreasDisponiveis] = useState<string[]>([])
 
   // Relatório tab
   const [relatorioRows, setRelatorioRows] = useState<any[]>([])
@@ -1829,6 +1831,16 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
   const [instDetalhe, setInstDetalhe] = useState<any[]>([])
   const [loadingInst, setLoadingInst] = useState(false)
   const [instSelecionado, setInstSelecionado] = useState<string | null>(null)
+
+  // Carrega cargos e áreas únicos dos colaboradores uma vez
+  useEffect(() => {
+    api.colaboradores.list().then((cols: any) => {
+      const cargos = [...new Set((cols as any[]).filter(c => c.cargo).map((c: any) => c.cargo as string))].sort()
+      const areas  = [...new Set((cols as any[]).filter(c => c.area).map((c: any) => c.area  as string))].sort()
+      setCargosDisponiveis(cargos)
+      setAreasDisponiveis(areas)
+    }).catch(() => {})
+  }, [])
 
   const cursos = apenasObrigatorios ? todosCursos.filter(t => t.obrigatorio) : todosCursos
   const curso = todosCursos.find(t => t.id === cursoSelecionado) ?? todosCursos[0]
@@ -2142,13 +2154,19 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
 
                 {/* Form adicionar requisito */}
                 <div className="flex gap-2 flex-wrap items-end pt-2 border-t border-slate-100 dark:border-slate-700">
-                  <div className="flex-1 min-w-32">
+                  <div className="flex-1 min-w-40">
                     <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1 block">Cargo</label>
-                    <input value={novoReqCargo} onChange={e => setNovoReqCargo(e.target.value)} placeholder="ex: Analista de TI" className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-400" />
+                    <select value={novoReqCargo} onChange={e => setNovoReqCargo(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-400">
+                      <option value="">— Qualquer cargo —</option>
+                      {cargosDisponiveis.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
                   </div>
-                  <div className="flex-1 min-w-32">
+                  <div className="flex-1 min-w-40">
                     <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1 block">Área</label>
-                    <input value={novoReqArea} onChange={e => setNovoReqArea(e.target.value)} placeholder="ex: Tecnologia" className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-400" />
+                    <select value={novoReqArea} onChange={e => setNovoReqArea(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-400">
+                      <option value="">— Qualquer área —</option>
+                      {areasDisponiveis.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
                   </div>
                   <div className="shrink-0">
                     <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1 block">Tipo</label>
