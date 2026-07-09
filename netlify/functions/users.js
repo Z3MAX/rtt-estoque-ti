@@ -22,6 +22,30 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'GET') {
       requireAdmin(event)
 
+      // GET ?action=verificar_vinculos — diagnóstico de duplicatas e vínculos ativos
+      if (event.queryStringParameters?.action === 'verificar_vinculos') {
+        // Usuários com vínculo
+        const vinculados = await sql`
+          SELECT u.id AS user_id, u.name AS user_name, u.email, u.role,
+                 u.colaborador_id, c.nome AS colab_nome, c.cargo, c.area
+          FROM users u
+          JOIN colaboradores c ON c.id = u.colaborador_id
+          WHERE u.active = true AND u.colaborador_id IS NOT NULL
+          ORDER BY u.name
+        `
+        // Colaboradores com nome duplicado (case-insensitive)
+        const duplicatas = await sql`
+          SELECT LOWER(TRIM(nome)) AS nome_norm, cargo, area, COUNT(*) AS qtd,
+                 array_agg(id ORDER BY id) AS ids, array_agg(nome ORDER BY id) AS nomes
+          FROM colaboradores
+          WHERE ativo = true
+          GROUP BY LOWER(TRIM(nome)), cargo, area
+          HAVING COUNT(*) > 1
+          ORDER BY nome_norm
+        `
+        return { statusCode: 200, headers, body: JSON.stringify({ vinculados, duplicatas }) }
+      }
+
       // GET ?action=propor_vinculos — sugestões de user→colaborador por similaridade de nome
       if (event.queryStringParameters?.action === 'propor_vinculos') {
         const usuarios = await sql`
