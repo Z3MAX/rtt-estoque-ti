@@ -248,7 +248,8 @@ exports.handler = async (event) => {
       const { titulo, descricao, categoria, duracao, nivel, obrigatorio, instrutor, avaliacao, total_alunos, capa_from, capa_to, capa_url, icone, trilha_id, modulos, ordem } = JSON.parse(event.body || '{}')
       if (!titulo) return { statusCode: 400, headers, body: JSON.stringify({ error: 'titulo obrigatório' }) }
 
-      const status = isAdminRole(auth.role) ? 'publicado' : 'rascunho'
+      // Área do Instrutor sempre cria como rascunho (força via body)
+      const status = body.status === 'rascunho' ? 'rascunho' : (isAdminRole(auth.role) ? 'publicado' : 'rascunho')
       const instrutorNome = isInstrutor ? auth.name : (instrutor ?? '')
 
       const rows = await sql`
@@ -266,9 +267,12 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'PUT') {
-      // Publicar rascunho (admin only)
+      // Publicar rascunho (admin ou instrutor do curso)
       if (params.action === 'publicar') {
-        if (!isAdminRole(auth.role)) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
+        if (!isAdminRole(auth.role)) {
+          const check = await sql`SELECT id FROM curso_instrutores WHERE curso_id = ${cursoId} AND user_id = ${auth.userId}`
+          if (check.length === 0) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
+        }
         if (!cursoId) return { statusCode: 400, headers, body: JSON.stringify({ error: 'id obrigatório' }) }
         const rows = await sql`UPDATE cursos SET status = 'publicado', updated_at = NOW() WHERE id = ${cursoId} AND ativo = true RETURNING *`
         if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Curso não encontrado' }) }

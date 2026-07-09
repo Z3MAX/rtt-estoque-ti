@@ -2803,7 +2803,7 @@ function EnviarCursosModal({ todosCursos, onClose }: { todosCursos: Treinamento[
 
 // ─── Área do Instrutor ────────────────────────────────────────────────────────
 
-type EditorTab = 'info' | 'modulos' | 'instrutores'
+type EditorTab = 'info' | 'modulos' | 'requisitos' | 'instrutores'
 
 function InstrutorView({ user }: { user: any }) {
   const [cursos, setCursos] = useState<any[]>([])
@@ -2830,6 +2830,16 @@ function InstrutorView({ user }: { user: any }) {
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [adicionandoInst, setAdicionandoInst] = useState(false)
 
+  // Requisitos
+  const [requisitos, setRequisitos] = useState<{ cargo?: string; area?: string; obrigatorio: boolean }[]>([])
+  const [novoReqCargo, setNovoReqCargo] = useState('')
+  const [novoReqArea, setNovoReqArea] = useState('')
+  const [novoReqObrig, setNovoReqObrig] = useState(true)
+  const [savingReq, setSavingReq] = useState(false)
+  const [cargosDisponiveis, setCargosDisponiveis] = useState<string[]>([])
+  const [areasDisponiveis, setAreasDisponiveis] = useState<string[]>([])
+  const [loadingReq, setLoadingReq] = useState(false)
+
   useEffect(() => {
     api.cursos.getMeusCursosInstrutor()
       .then(rows => setCursos(rows as any[]))
@@ -2849,7 +2859,21 @@ function InstrutorView({ user }: { user: any }) {
     setCapaTo(curso.capa_to ?? 'to-slate-600')
     setModulos((curso.modulos ?? []).map((m: any) => ({ ...m })))
     setInstrutores(curso.instrutores ?? [])
+    setRequisitos([])
     setTab('info')
+
+    // Carrega cargos/áreas disponíveis e requisitos existentes
+    if (!cargosDisponiveis.length) {
+      api.colaboradores.list().then((cols: any[]) => {
+        setCargosDisponiveis([...new Set(cols.map((c: any) => c.cargo).filter(Boolean))].sort())
+        setAreasDisponiveis([...new Set(cols.map((c: any) => c.area).filter(Boolean))].sort())
+      }).catch(() => {})
+    }
+    setLoadingReq(true)
+    api.cursoRequisitos.list(curso.id)
+      .then((rows: any[]) => setRequisitos(rows.map((r: any) => ({ cargo: r.cargo ?? undefined, area: r.area ?? undefined, obrigatorio: r.obrigatorio ?? true }))))
+      .catch(() => setRequisitos([]))
+      .finally(() => setLoadingReq(false))
   }
 
   function novoCurso() {
@@ -2865,7 +2889,7 @@ function InstrutorView({ user }: { user: any }) {
     if (!titulo.trim()) return
     setSaving(true)
     try {
-      const payload = { titulo: titulo.trim(), descricao, categoria, nivel, duracao, icone, capa_from: capaFrom, capa_to: capaTo, modulos, instrutor: user?.name ?? '', ordem: 0, obrigatorio: false, avaliacao: 5.0 }
+      const payload = { titulo: titulo.trim(), descricao, categoria, nivel, duracao, icone, capa_from: capaFrom, capa_to: capaTo, modulos, instrutor: user?.name ?? '', ordem: 0, obrigatorio: false, avaliacao: 5.0, status: 'rascunho' }
       if (editando === 'new') {
         const novo = await api.cursos.create(payload) as any
         novo.instrutores = [{ user_id: user?.id, nome: user?.name }]
@@ -2916,6 +2940,20 @@ function InstrutorView({ user }: { user: any }) {
     } catch { setUsersDisponiveis([]) } finally { setLoadingUsers(false) }
   }
 
+  async function handleSaveRequisitos() {
+    if (editando === 'new' || !editando) return
+    setSavingReq(true)
+    try {
+      await api.cursoRequisitos.save(editando.id, requisitos)
+    } catch { /* noop */ } finally { setSavingReq(false) }
+  }
+
+  function addRequisito() {
+    if (!novoReqCargo && !novoReqArea) return
+    setRequisitos(prev => [...prev, { cargo: novoReqCargo || undefined, area: novoReqArea || undefined, obrigatorio: novoReqObrig }])
+    setNovoReqCargo(''); setNovoReqArea('')
+  }
+
   async function adicionarInstrutor(u: any) {
     if (editando === 'new' || !editando) return
     setAdicionandoInst(true)
@@ -2959,7 +2997,7 @@ function InstrutorView({ user }: { user: any }) {
   if (editando !== null) {
     const isNew = editando === 'new'
     const isPublicado = !isNew && editando.status === 'publicado'
-    const podPublicar = isAdmin(user?.role) && !isNew && !isPublicado
+    const podPublicar = !isNew && !isPublicado
 
     return (
       <div className="space-y-4">
@@ -2993,11 +3031,15 @@ function InstrutorView({ user }: { user: any }) {
 
         {/* Tabs */}
         <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit">
-          {([['info', 'Informações'], ['modulos', 'Módulos'], ['instrutores', 'Instrutores']] as [EditorTab, string][]).map(([id, label]) => (
+          {([
+            ['info', 'Informações', null],
+            ['modulos', 'Módulos', modulos.length > 0 ? modulos.length : null],
+            ['requisitos', 'Requisitos', requisitos.length > 0 ? requisitos.length : null],
+            ['instrutores', 'Instrutores', instrutores.length > 0 ? instrutores.length : null],
+          ] as [EditorTab, string, number | null][]).map(([id, label, badge]) => (
             <button key={id} onClick={() => setTab(id)} disabled={isNew && id !== 'info'}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 ${tab === id ? 'bg-white dark:bg-slate-700 shadow text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>
-              {label}{id === 'modulos' && modulos.length > 0 && <span className="ml-1 text-[10px] bg-slate-200 dark:bg-slate-600 px-1.5 py-0.5 rounded-full">{modulos.length}</span>}
-              {id === 'instrutores' && instrutores.length > 0 && <span className="ml-1 text-[10px] bg-slate-200 dark:bg-slate-600 px-1.5 py-0.5 rounded-full">{instrutores.length}</span>}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 flex items-center gap-1 ${tab === id ? 'bg-white dark:bg-slate-700 shadow text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>
+              {label}{badge !== null && <span className="text-[10px] bg-slate-200 dark:bg-slate-600 px-1.5 py-0.5 rounded-full">{badge}</span>}
             </button>
           ))}
         </div>
@@ -3104,6 +3146,72 @@ function InstrutorView({ user }: { user: any }) {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Tab: Requisitos */}
+        {tab === 'requisitos' && (
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-5">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2"><Briefcase size={14} className="text-primary-500" />Requisitos por cargo / área</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Defina quais cargos e áreas receberão este curso automaticamente.</p>
+            </div>
+            {loadingReq ? (
+              <div className="flex items-center gap-2 text-slate-400 text-sm py-4"><RefreshCw size={14} className="animate-spin" />Carregando…</div>
+            ) : (
+              <>
+                {requisitos.length === 0 ? (
+                  <div className="text-xs text-slate-400 py-6 text-center border border-dashed border-slate-200 dark:border-slate-700 rounded-xl">Nenhum requisito definido — o curso não será atribuído automaticamente</div>
+                ) : (
+                  <div className="space-y-2">
+                    {requisitos.map((r, i) => (
+                      <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-700/50">
+                        <div className="flex-1 min-w-0 flex flex-wrap gap-1.5">
+                          {r.cargo && <span className="inline-flex items-center gap-1 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-md"><Briefcase size={10} />{r.cargo}</span>}
+                          {r.area  && <span className="inline-flex items-center gap-1 text-xs font-medium bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-2 py-0.5 rounded-md"><Target size={10} />{r.area}</span>}
+                          {!r.cargo && !r.area && <span className="text-xs text-slate-400 italic">Todos os colaboradores</span>}
+                        </div>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${r.obrigatorio ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'}`}>{r.obrigatorio ? 'Obrigatório' : 'Opcional'}</span>
+                        <button onClick={() => setRequisitos(prev => prev.filter((_, idx) => idx !== i))} className="text-slate-300 hover:text-red-400 transition-colors shrink-0"><X size={14} /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex gap-2 flex-wrap items-end pt-2 border-t border-slate-100 dark:border-slate-700">
+                  <div className="flex-1 min-w-40">
+                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Cargo</label>
+                    <select value={novoReqCargo} onChange={e => setNovoReqCargo(e.target.value)} className={inputCls}>
+                      <option value="">— Qualquer cargo —</option>
+                      {cargosDisponiveis.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex-1 min-w-40">
+                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Área</label>
+                    <select value={novoReqArea} onChange={e => setNovoReqArea(e.target.value)} className={inputCls}>
+                      <option value="">— Qualquer área —</option>
+                      {areasDisponiveis.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                  </div>
+                  <div className="shrink-0">
+                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Tipo</label>
+                    <select value={novoReqObrig ? 'obrig' : 'opt'} onChange={e => setNovoReqObrig(e.target.value === 'obrig')} className={inputCls}>
+                      <option value="obrig">Obrigatório</option>
+                      <option value="opt">Opcional</option>
+                    </select>
+                  </div>
+                  <button onClick={addRequisito} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold transition-colors shrink-0">
+                    <Plus size={13} />Adicionar
+                  </button>
+                </div>
+
+                <div className="flex justify-end">
+                  <button onClick={handleSaveRequisitos} disabled={savingReq} className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors disabled:opacity-60">
+                    {savingReq ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />}Salvar requisitos
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
