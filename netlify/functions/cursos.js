@@ -175,7 +175,7 @@ exports.handler = async (event) => {
     const isInstrutor = (auth.roles || [auth.role]).includes('Instrutor')
 
     if (event.httpMethod === 'GET') {
-      // Cursos onde o usuário logado é instrutor (inclui rascunhos)
+      // Cursos onde o usuário logado é instrutor (inclui rascunhos, exclui inativos)
       if (params.action === 'instrutor') {
         const rows = await sql`
           SELECT c.*,
@@ -187,7 +187,26 @@ exports.handler = async (event) => {
           FROM cursos c
           JOIN curso_instrutores ci_me ON ci_me.curso_id = c.id AND ci_me.user_id = ${auth.userId}
           LEFT JOIN curso_instrutores ci ON ci.curso_id = c.id
-          WHERE c.ativo = true
+          WHERE c.ativo = true AND COALESCE(c.status, 'rascunho') != 'inativo'
+          GROUP BY c.id
+          ORDER BY c.updated_at DESC
+        `
+        return { statusCode: 200, headers, body: JSON.stringify(rows) }
+      }
+
+      // Cursos inativos onde o usuário é instrutor
+      if (params.action === 'instrutor_inativos') {
+        const rows = await sql`
+          SELECT c.*,
+            COALESCE(
+              json_agg(json_build_object('user_id', ci.user_id, 'nome', ci.nome)
+                ORDER BY ci.created_at) FILTER (WHERE ci.user_id IS NOT NULL),
+              '[]'
+            ) AS instrutores
+          FROM cursos c
+          JOIN curso_instrutores ci_me ON ci_me.curso_id = c.id AND ci_me.user_id = ${auth.userId}
+          LEFT JOIN curso_instrutores ci ON ci.curso_id = c.id
+          WHERE c.ativo = true AND c.status = 'inativo'
           GROUP BY c.id
           ORDER BY c.updated_at DESC
         `
@@ -385,7 +404,12 @@ exports.handler = async (event) => {
         if (curso[0]?.status === 'publicado') return { statusCode: 403, headers, body: JSON.stringify({ error: 'Não é possível excluir um curso publicado' }) }
       }
 
-      await sql`UPDATE cursos SET ativo = false, updated_at = NOW() WHERE id = ${cursoId}`
+      const permanent = params.permanent === 'true'
+      if (permanent) {
+        await sql`UPDATE cursos SET ativo = false, updated_at = NOW() WHERE id = ${cursoId}`
+      } else {
+        await sql`UPDATE cursos SET status = 'inativo', updated_at = NOW() WHERE id = ${cursoId}`
+      }
       return { statusCode: 200, headers, body: JSON.stringify({ success: true }) }
     }
 

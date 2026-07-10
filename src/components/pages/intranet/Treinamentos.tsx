@@ -2888,6 +2888,11 @@ function InstrutorView({ user }: { user: any }) {
   const [adicionandoInst, setAdicionandoInst] = useState(false)
   const [removendoInstId, setRemovendoInstId] = useState<number | null>(null)
   const [confirmarExcluir, setConfirmarExcluir] = useState(false)
+  const [instSubTab, setInstSubTab] = useState<'ativos' | 'inativos'>('ativos')
+  const [cursosInativos, setCursosInativos] = useState<any[]>([])
+  const [loadingInativos, setLoadingInativos] = useState(false)
+  const [inativosLoaded, setInativosLoaded] = useState(false)
+  const [deletandoPerm, setDeletandoPerm] = useState<number | null>(null)
 
   // Requisitos
   const [requisitos, setRequisitos] = useState<{ cargo?: string; area?: string; obrigatorio: boolean }[]>([])
@@ -3016,11 +3021,36 @@ function InstrutorView({ user }: { user: any }) {
     setDeletando(true)
     try {
       await api.cursos.delete(editando.id)
+      const inativo = { ...editando, status: 'inativo' }
       setCursos(prev => prev.filter(c => c.id !== editando.id))
+      setCursosInativos(prev => [inativo, ...prev])
+      setInativosLoaded(true)
       voltar()
     } catch {
       showToast('Erro ao excluir o curso. Tente novamente.', 'error')
     } finally { setDeletando(false) }
+  }
+
+  async function loadInativosInstrutor() {
+    if (inativosLoaded) return
+    setLoadingInativos(true)
+    try {
+      const rows = await api.cursos.getInativosInstrutor() as any[]
+      setCursosInativos(rows)
+      setInativosLoaded(true)
+    } catch {
+      setCursosInativos([])
+    } finally { setLoadingInativos(false) }
+  }
+
+  async function excluirPermanente(cursoId: number) {
+    setDeletandoPerm(cursoId)
+    try {
+      await api.cursos.delete(cursoId, { permanent: true })
+      setCursosInativos(prev => prev.filter(c => c.id !== cursoId))
+    } catch {
+      showToast('Erro ao excluir permanentemente. Tente novamente.', 'error')
+    } finally { setDeletandoPerm(null) }
   }
 
   async function buscarUsuarios(q: string) {
@@ -3402,19 +3432,80 @@ function InstrutorView({ user }: { user: any }) {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3">
-        <div></div>
-        <button onClick={novoCurso} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-primary-600 hover:bg-primary-700 text-white transition-colors">
-          <Plus size={13} />Novo curso
-        </button>
+        <div className="flex gap-1.5">
+          <button
+            onClick={() => setInstSubTab('ativos')}
+            className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors ${instSubTab === 'ativos' ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+          >
+            Meus cursos
+          </button>
+          <button
+            onClick={() => { setInstSubTab('inativos'); loadInativosInstrutor() }}
+            className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 ${instSubTab === 'inativos' ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+          >
+            <Archive size={12} />Inativos
+          </button>
+        </div>
+        {instSubTab === 'ativos' && (
+          <button onClick={novoCurso} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-primary-600 hover:bg-primary-700 text-white transition-colors">
+            <Plus size={13} />Novo curso
+          </button>
+        )}
       </div>
 
-      {loading && (
+      {/* Inativos tab */}
+      {instSubTab === 'inativos' && (
+        <div className="space-y-3">
+          {loadingInativos ? (
+            <div className="flex items-center justify-center py-20 text-slate-300 dark:text-slate-600">
+              <RefreshCw size={24} className="animate-spin" />
+            </div>
+          ) : cursosInativos.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
+              <Archive size={32} className="opacity-40" />
+              <p className="text-sm font-medium text-slate-500">Nenhum curso inativo</p>
+              <p className="text-xs text-slate-400">Cursos excluídos ou substituídos por novas versões aparecerão aqui.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {cursosInativos.map(curso => (
+                <div key={curso.id} className="text-left bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden opacity-70">
+                  <div className={`h-2 bg-gradient-to-r ${curso.capa_from ?? 'from-slate-400'} ${curso.capa_to ?? 'to-slate-500'}`} />
+                  <div className="p-4 space-y-3">
+                    <div className="flex items-start gap-2 justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xl shrink-0">{curso.icone ?? '📚'}</span>
+                        <p className="text-sm font-semibold text-slate-600 dark:text-slate-300 leading-tight line-clamp-2">{curso.titulo}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {curso.versao && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">v{curso.versao}</span>}
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">Inativo</span>
+                      </div>
+                    </div>
+                    {curso.descricao && <p className="text-[11px] text-slate-400 line-clamp-2">{curso.descricao}</p>}
+                    <button
+                      onClick={() => excluirPermanente(curso.id)}
+                      disabled={deletandoPerm === curso.id}
+                      className="flex items-center gap-1.5 text-[11px] text-red-500 hover:text-red-600 font-medium transition-colors disabled:opacity-50"
+                    >
+                      {deletandoPerm === curso.id ? <RefreshCw size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                      Excluir permanentemente
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {instSubTab === 'ativos' && loading && (
         <div className="flex items-center justify-center py-20 text-slate-300 dark:text-slate-600">
           <RefreshCw size={24} className="animate-spin" />
         </div>
       )}
 
-      {!loading && cursos.length === 0 && (
+      {instSubTab === 'ativos' && !loading && cursos.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 gap-4 text-slate-300 dark:text-slate-600">
           <BookMarked size={40} className="opacity-50" />
           <div className="text-center">
@@ -3427,7 +3518,7 @@ function InstrutorView({ user }: { user: any }) {
         </div>
       )}
 
-      {!loading && cursos.length > 0 && (
+      {instSubTab === 'ativos' && !loading && cursos.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {cursos.map(curso => {
             const modCount = (curso.modulos ?? []).length

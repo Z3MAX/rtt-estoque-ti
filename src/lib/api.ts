@@ -339,9 +339,10 @@ export const api = {
       if (MOCK) { await delay(400); return { id, ...data } }
       return request(`${BASE}/cursos?id=${id}`, { method: 'PUT', body: JSON.stringify(data) })
     },
-    delete: async (id: number) => {
+    delete: async (id: number, options?: { permanent?: boolean }) => {
       if (MOCK) { await delay(300); return { success: true } }
-      return request(`${BASE}/cursos?id=${id}`, { method: 'DELETE' })
+      const qs = options?.permanent ? '&permanent=true' : ''
+      return request(`${BASE}/cursos?id=${id}${qs}`, { method: 'DELETE' })
     },
     getMeusCursosInstrutor: async () => {
       if (MOCK) { await delay(300); return [] }
@@ -364,6 +365,9 @@ export const api = {
     },
     getInativos: async () => {
       return request<any[]>(`${BASE}/cursos?action=inativos`)
+    },
+    getInativosInstrutor: async () => {
+      return request<any[]>(`${BASE}/cursos?action=instrutor_inativos`)
     },
   },
 
