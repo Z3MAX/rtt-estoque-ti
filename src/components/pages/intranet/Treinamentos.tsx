@@ -331,109 +331,6 @@ const TRILHAS: Trilha[] = [
   { id: 3, titulo: 'Trilha de Produtividade', descricao: 'Ferramentas e métodos de eficiência', cursoIds: [5, 8],   cor: 'from-sky-500 to-blue-600' },
 ]
 
-const TREINAMENTOS: Treinamento[] = [
-  {
-    id: 1, titulo: 'LGPD e Proteção de Dados', descricao: 'Entenda os princípios da Lei Geral de Proteção de Dados e como aplicá-los no dia a dia da empresa, garantindo conformidade e segurança.',
-    categoria: 'Compliance', duracao: '2h', nivel: 'Básico', obrigatorio: true, instrutor: 'Ana Beatriz Costa',
-    avaliacao: 4.7, totalAlunos: 142, capa: { from: 'from-rose-500', to: 'to-red-600' }, icone: '🔒',
-    trilhaId: 1,
-    modulos: [
-      { id: 11, titulo: 'Introdução à LGPD', duracao: '18min', tipo: 'video', concluido: true },
-      { id: 12, titulo: 'Princípios e bases legais', duracao: '22min', tipo: 'video', concluido: true },
-      { id: 13, titulo: 'Direitos dos titulares', duracao: '15min', tipo: 'video', concluido: true },
-      { id: 14, titulo: 'Material de apoio', duracao: '—', tipo: 'pdf', concluido: false },
-      { id: 15, titulo: 'Avaliação final', duracao: '20min', tipo: 'quiz', concluido: false },
-    ],
-  },
-  {
-    id: 2, titulo: 'Cultura de Segurança no Trabalho', descricao: 'Aprenda sobre prevenção de acidentes, uso de EPIs e procedimentos de emergência para manter um ambiente de trabalho seguro.',
-    categoria: 'Segurança', duracao: '3h', nivel: 'Básico', obrigatorio: true, instrutor: 'Carlos Eduardo Lima',
-    avaliacao: 4.5, totalAlunos: 138, capa: { from: 'from-amber-500', to: 'to-orange-600' }, icone: '⛑️',
-    trilhaId: 1,
-    modulos: [
-      { id: 21, titulo: 'Introdução à segurança', duracao: '20min', tipo: 'video', concluido: true },
-      { id: 22, titulo: 'EPIs obrigatórios', duracao: '25min', tipo: 'video', concluido: false },
-      { id: 23, titulo: 'Procedimentos de emergência', duracao: '30min', tipo: 'video', concluido: false },
-      { id: 24, titulo: 'Quiz de fixação', duracao: '15min', tipo: 'quiz', concluido: false },
-    ],
-  },
-  {
-    id: 3, titulo: 'Excelência no Atendimento', descricao: 'Técnicas e práticas para oferecer um atendimento de qualidade, fidelizar clientes e resolver conflitos com empatia.',
-    categoria: 'Soft Skills', duracao: '1h30', nivel: 'Intermediário', obrigatorio: false, instrutor: 'Mariana Oliveira',
-    avaliacao: 4.9, totalAlunos: 87, capa: { from: 'from-emerald-500', to: 'to-teal-600' }, icone: '🤝',
-    trilhaId: 2,
-    modulos: [
-      { id: 31, titulo: 'Fundamentos do atendimento', duracao: '20min', tipo: 'video', concluido: true },
-      { id: 32, titulo: 'Comunicação assertiva', duracao: '18min', tipo: 'video', concluido: true },
-      { id: 33, titulo: 'Gestão de conflitos', duracao: '22min', tipo: 'video', concluido: true },
-      { id: 34, titulo: 'Casos práticos', duracao: '15min', tipo: 'video', concluido: true },
-      { id: 35, titulo: 'Avaliação', duracao: '15min', tipo: 'quiz', concluido: false },
-    ],
-  },
-  {
-    id: 4, titulo: 'Liderança Situacional', descricao: 'Aprenda a adaptar seu estilo de liderança conforme a maturidade e o contexto de cada colaborador para obter melhores resultados.',
-    categoria: 'Liderança', duracao: '4h', nivel: 'Avançado', obrigatorio: false, instrutor: 'Ricardo Mendes',
-    avaliacao: 4.8, totalAlunos: 63, capa: { from: 'from-violet-500', to: 'to-purple-600' }, icone: '🧭',
-    trilhaId: 2,
-    modulos: [
-      { id: 41, titulo: 'Modelos de liderança', duracao: '30min', tipo: 'video', concluido: false },
-      { id: 42, titulo: 'Liderança situacional — teoria', duracao: '35min', tipo: 'video', concluido: false },
-      { id: 43, titulo: 'Diagnóstico de equipe', duracao: '25min', tipo: 'video', concluido: false },
-      { id: 44, titulo: 'Aplicação prática', duracao: '40min', tipo: 'video', concluido: false },
-      { id: 45, titulo: 'Material complementar', duracao: '—', tipo: 'pdf', concluido: false },
-      { id: 46, titulo: 'Avaliação final', duracao: '20min', tipo: 'quiz', concluido: false },
-    ],
-  },
-  {
-    id: 5, titulo: 'Excel Avançado para Gestores', descricao: 'Domine tabelas dinâmicas, fórmulas avançadas, dashboards e automações com VBA para tomar decisões baseadas em dados.',
-    categoria: 'Técnico', duracao: '5h', nivel: 'Avançado', obrigatorio: false, instrutor: 'Felipe Andrade',
-    avaliacao: 4.6, totalAlunos: 55, capa: { from: 'from-sky-500', to: 'to-blue-600' }, icone: '📊',
-    trilhaId: 3,
-    modulos: [
-      { id: 51, titulo: 'Revisão de fundamentos', duracao: '25min', tipo: 'video', concluido: false },
-      { id: 52, titulo: 'Fórmulas avançadas', duracao: '40min', tipo: 'video', concluido: false },
-      { id: 53, titulo: 'Tabelas dinâmicas', duracao: '35min', tipo: 'video', concluido: false },
-      { id: 54, titulo: 'Dashboards interativos', duracao: '45min', tipo: 'video', concluido: false },
-      { id: 55, titulo: 'Introdução ao VBA', duracao: '30min', tipo: 'video', concluido: false },
-    ],
-  },
-  {
-    id: 6, titulo: 'Comunicação Não-Violenta', descricao: 'Aprenda a CNV para melhorar seus relacionamentos profissionais e pessoais com empatia, escuta ativa e observação sem julgamento.',
-    categoria: 'Soft Skills', duracao: '2h', nivel: 'Intermediário', obrigatorio: false, instrutor: 'Juliana Ferreira',
-    avaliacao: 4.9, totalAlunos: 94, capa: { from: 'from-pink-500', to: 'to-rose-600' }, icone: '💬',
-    modulos: [
-      { id: 61, titulo: 'O que é CNV', duracao: '20min', tipo: 'video', concluido: true },
-      { id: 62, titulo: 'Os 4 componentes', duracao: '25min', tipo: 'video', concluido: true },
-      { id: 63, titulo: 'Escuta empática', duracao: '20min', tipo: 'video', concluido: true },
-      { id: 64, titulo: 'Exercícios práticos', duracao: '15min', tipo: 'pdf', concluido: true },
-      { id: 65, titulo: 'Avaliação final', duracao: '20min', tipo: 'quiz', concluido: true },
-    ],
-  },
-  {
-    id: 7, titulo: 'Normas de Segurança NR-12', descricao: 'Conheça os requisitos da NR-12 sobre segurança em máquinas e equipamentos, obrigatória para todas as áreas operacionais.',
-    categoria: 'Segurança', duracao: '1h', nivel: 'Básico', obrigatorio: true, instrutor: 'Roberto Souza',
-    avaliacao: 4.3, totalAlunos: 131, capa: { from: 'from-orange-500', to: 'to-red-500' }, icone: '⚙️',
-    trilhaId: 1,
-    modulos: [
-      { id: 71, titulo: 'Introdução à NR-12', duracao: '15min', tipo: 'video', concluido: true },
-      { id: 72, titulo: 'Requisitos de segurança', duracao: '20min', tipo: 'video', concluido: true },
-      { id: 73, titulo: 'Avaliação', duracao: '10min', tipo: 'quiz', concluido: true },
-    ],
-  },
-  {
-    id: 8, titulo: 'Gestão de Tempo e Produtividade', descricao: 'Técnicas como GTD, Pomodoro, matriz de Eisenhower e planejamento semanal para maximizar seu rendimento e reduzir o estresse.',
-    categoria: 'Soft Skills', duracao: '2h30', nivel: 'Básico', obrigatorio: false, instrutor: 'Camila Nunes',
-    avaliacao: 4.7, totalAlunos: 109, capa: { from: 'from-indigo-500', to: 'to-blue-600' }, icone: '⏱️',
-    trilhaId: 3,
-    modulos: [
-      { id: 81, titulo: 'Diagnóstico de tempo', duracao: '20min', tipo: 'video', concluido: false },
-      { id: 82, titulo: 'Método GTD', duracao: '25min', tipo: 'video', concluido: false },
-      { id: 83, titulo: 'Técnica Pomodoro', duracao: '15min', tipo: 'video', concluido: false },
-      { id: 84, titulo: 'Planejamento semanal', duracao: '20min', tipo: 'video', concluido: false },
-      { id: 85, titulo: 'Avaliação', duracao: '15min', tipo: 'quiz', concluido: false },
-    ],
-  },
-]
 
 const CAPA_PRESETS = [
   { from: 'from-rose-500',   to: 'to-red-600',     label: 'Rosa' },
@@ -513,63 +410,6 @@ function Stars({ value, total }: { value: number | null; total?: number }) {
   )
 }
 
-function StarsInterativas({ cursoId, mediaInicial, totalInicial, minhaNota: minhaNtInicial }: {
-  cursoId: number; mediaInicial: number | null; totalInicial: number; minhaNota: number | null
-}) {
-  const [hover, setHover] = useState(0)
-  const [minhaNota, setMinhaNota] = useState(minhaNtInicial)
-  const [media, setMedia] = useState(mediaInicial)
-  const [total, setTotal] = useState(totalInicial)
-  const [salvando, setSalvando] = useState(false)
-  const [erro, setErro] = useState(false)
-
-  async function handleClick(nota: number) {
-    if (salvando) return
-    setSalvando(true)
-    setErro(false)
-    try {
-      const res = await api.cursoAvaliacoes.submit(cursoId, nota)
-      setMinhaNota(res!.minha_nota)
-      setMedia(res!.media)
-      setTotal(res!.total)
-    } catch {
-      setErro(true)
-      setTimeout(() => setErro(false), 3000)
-    } finally {
-      setSalvando(false)
-    }
-  }
-
-  const exibir = hover || minhaNota || 0
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center gap-0.5">
-        {[1, 2, 3, 4, 5].map(n => (
-          <button key={n} type="button" disabled={salvando}
-            onMouseEnter={() => setHover(n)} onMouseLeave={() => setHover(0)}
-            onClick={() => handleClick(n)}
-            className="transition-transform hover:scale-125 disabled:opacity-50 p-0.5">
-            <Star size={18}
-              className={`transition-colors ${n <= exibir ? 'text-amber-400 fill-amber-400' : 'text-slate-300 dark:text-slate-600 fill-transparent'}`} />
-          </button>
-        ))}
-        {minhaNota && (
-          <span className="ml-1.5 text-xs text-slate-400">Sua nota: {minhaNota}/5</span>
-        )}
-      </div>
-      {media !== null && (
-        <p className="text-[11px] text-slate-400">
-          Média: <span className="font-semibold text-amber-500">{media.toFixed(1)}</span>
-          {total > 0 && ` · ${total} avaliação${total !== 1 ? 'ões' : ''}`}
-        </p>
-      )}
-      {media === null && !minhaNota && (
-        <p className="text-[11px] text-slate-400 italic">Seja o primeiro a avaliar este curso</p>
-      )}
-      {erro && <p className="text-[11px] text-red-500">Não foi possível salvar a avaliação.</p>}
-    </div>
-  )
-}
 
 function ProgressBar({ pct, sm }: { pct: number; sm?: boolean }) {
   return (
@@ -1035,6 +875,7 @@ function EditCursoModal({ curso, onClose, onSave, onDelete }: {
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [showEmojiPickerModal, setShowEmojiPickerModal] = useState(false)
 
   function addModulo() {
     const baseId = (curso?.id ?? 0) * 100
@@ -1158,10 +999,15 @@ function EditCursoModal({ curso, onClose, onSave, onDelete }: {
             ))}
             <div className="space-y-1">
               <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Duração</label>
-              <input
+              <select
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                value={duracao} onChange={e => setDuracao(e.target.value)} placeholder="ex: 2h"
-              />
+                value={duracao} onChange={e => setDuracao(e.target.value)}
+              >
+                <option value="">Selecione...</option>
+                {['15min','30min','45min','1h','1h30','2h','2h30','3h','3h30','4h','5h','6h','8h','10h','12h','16h','20h','24h','30h','40h'].map(d => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Avaliação</label>
@@ -1183,10 +1029,32 @@ function EditCursoModal({ curso, onClose, onSave, onDelete }: {
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Ícone (emoji)</label>
-              <input
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                value={icone} onChange={e => setIcone(e.target.value)} placeholder="🎓" maxLength={4}
-              />
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowEmojiPickerModal(v => !v)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500 flex items-center gap-2 text-left"
+                >
+                  <span className="text-xl">{icone || '📚'}</span>
+                  <span className="text-slate-400 text-xs">{icone ? 'Clique para trocar' : 'Selecionar emoji'}</span>
+                </button>
+                {showEmojiPickerModal && (
+                  <div className="absolute z-50 mt-1 p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl w-72">
+                    <div className="grid grid-cols-8 gap-1 max-h-56 overflow-y-auto">
+                      {['📚','🎓','💡','🏆','⭐','🎯','🔑','🛡️','⚙️','🔧','💻','📱','📊','📈','📋','📝','🗂️','📌','🔍','🔬','🧪','🧠','💪','🤝','👥','🌟','🚀','✅','⚠️','🔒','🔐','🏅','🎖️','🥇','🎨','🎭','🎬','🎤','🎵','🎸','🏋️','⚽','🏀','🎾','🌍','🌱','♻️','💧','🌿','🍀','🐾','🦺','🦾','🧰','🪛','🔩','🪝','📡','🔋','⚡','🌡️','🩺','💊','🏥','🚑','🧯','🪜','🪣','🛒','🏭','🏗️','🏢','🏠','🚗','🚛','✈️','🚢','🌐','🗺️','📍','🏔️','🌊','🌈','☀️','🌙','❄️','🌪️'].map(e => (
+                        <button
+                          key={e}
+                          type="button"
+                          onClick={() => { setIcone(e); setShowEmojiPickerModal(false) }}
+                          className={`text-xl p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors ${icone === e ? 'bg-primary-100 dark:bg-primary-900/30 ring-1 ring-primary-400' : ''}`}
+                        >
+                          {e}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -2577,6 +2445,13 @@ function EnviarCursosModal({ todosCursos, onClose }: { todosCursos: Treinamento[
   const [adicionando, setAdicionando] = useState<number[]>([])
   const [searchAdd, setSearchAdd] = useState('')
   const [saving, setSaving] = useState(false)
+  const [toastMsg, setToastMsg] = useState('')
+  const [toastType, setToastType] = useState<'success' | 'error'>('error')
+
+  function showToast(msg: string, type: 'success' | 'error' = 'error') {
+    setToastMsg(msg); setToastType(type)
+    setTimeout(() => setToastMsg(''), 3500)
+  }
 
   async function selecionarCurso(curso: Treinamento) {
     setCursoSelecionado(curso)
@@ -2610,9 +2485,8 @@ function EnviarCursosModal({ todosCursos, onClose }: { todosCursos: Treinamento[
       const res = await api.cursoAtribuicao.getForCurso(cursoSelecionado.id) as any
       setInscritos(res?.inscritos ?? [])
       setShowAdd(false)
-    } catch (err) {
-      console.error('Erro ao adicionar colaborador:', err)
-      alert('Erro ao adicionar colaborador. Tente novamente.')
+    } catch {
+      showToast('Erro ao adicionar colaborador. Tente novamente.')
     } finally {
       setSaving(false)
     }
@@ -2856,6 +2730,7 @@ function EnviarCursosModal({ todosCursos, onClose }: { todosCursos: Treinamento[
           </div>
         </div>
       </div>
+      <Toast msg={toastMsg} type={toastType} />
     </div>
   )
 }
@@ -2958,7 +2833,7 @@ function InstrutorView({ user }: { user: any }) {
     setModulos([]); setInstrutores([])
   }
 
-  function voltar() { setEditando(null); setBuscarUser('') }
+  function voltar() { setEditando(null); setBuscarUser(''); setConfirmarExcluir(false) }
 
   async function salvar() {
     if (!titulo.trim()) { showToast('Informe o título do curso', 'error'); return }
@@ -3006,9 +2881,12 @@ function InstrutorView({ user }: { user: any }) {
     if (editando === 'new' || !editando) return
     setPublicando(true)
     try {
+      const antigo = { ...editando, status: 'inativo' }
       const novo = await api.cursos.novaVersao(editando.id) as any
       novo.instrutores = instrutores
       setCursos(prev => [novo, ...prev.filter(c => c.id !== editando.id)])
+      setCursosInativos(prev => [antigo, ...prev.filter(c => c.id !== antigo.id)])
+      setInativosLoaded(true)
       setEditando(novo)
       showToast('Nova versão criada! O curso anterior foi marcado como inativo.')
     } catch {
@@ -3452,7 +3330,7 @@ function InstrutorView({ user }: { user: any }) {
       <div className="flex items-center justify-between gap-3">
         <div className="flex gap-1.5">
           <button
-            onClick={() => setInstSubTab('ativos')}
+            onClick={() => { setInstSubTab('ativos'); setConfirmarExcluirCard(null) }}
             className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors ${instSubTab === 'ativos' ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
           >
             Meus cursos
@@ -3791,7 +3669,7 @@ export default function TreinamentosPage() {
                 className={`px-4 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${view === 'gestao' ? 'bg-white dark:bg-slate-800 shadow text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
               >
                 <BarChart2 size={14} />Gestão
-                {obrigPend > 0 && view === 'meus' && (
+                {obrigPend > 0 && (
                   <span className="w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{obrigPend}</span>
                 )}
               </button>
@@ -4052,6 +3930,7 @@ export default function TreinamentosPage() {
           onClose={() => setEnviarCursos(false)}
         />
       )}
+
     </div>
   )
 }
