@@ -2893,6 +2893,8 @@ function InstrutorView({ user }: { user: any }) {
   const [loadingInativos, setLoadingInativos] = useState(false)
   const [inativosLoaded, setInativosLoaded] = useState(false)
   const [deletandoPerm, setDeletandoPerm] = useState<number | null>(null)
+  const [confirmarExcluirCard, setConfirmarExcluirCard] = useState<number | null>(null)
+  const [deletandoCard, setDeletandoCard] = useState<number | null>(null)
 
   // Requisitos
   const [requisitos, setRequisitos] = useState<{ cargo?: string; area?: string; obrigatorio: boolean }[]>([])
@@ -3041,6 +3043,22 @@ function InstrutorView({ user }: { user: any }) {
     } catch {
       setCursosInativos([])
     } finally { setLoadingInativos(false) }
+  }
+
+  async function excluirCard(cursoId: number) {
+    setDeletandoCard(cursoId)
+    try {
+      await api.cursos.delete(cursoId)
+      const inativo = cursos.find(c => c.id === cursoId)
+      setCursos(prev => prev.filter(c => c.id !== cursoId))
+      if (inativo) setCursosInativos(prev => [{ ...inativo, status: 'inativo' }, ...prev])
+      setInativosLoaded(true)
+    } catch {
+      showToast('Erro ao excluir o curso. Tente novamente.', 'error')
+    } finally {
+      setDeletandoCard(null)
+      setConfirmarExcluirCard(null)
+    }
   }
 
   async function excluirPermanente(cursoId: number) {
@@ -3525,34 +3543,63 @@ function InstrutorView({ user }: { user: any }) {
             const instCount = (curso.instrutores ?? []).length
             const isPublicado = curso.status === 'publicado'
             return (
-              <button key={curso.id} onClick={() => abrirCurso(curso)}
-                className="text-left bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-md transition-all group">
-                <div className={`h-2 bg-gradient-to-r ${curso.capa_from ?? 'from-slate-500'} ${curso.capa_to ?? 'to-slate-600'}`} />
-                <div className="p-4 space-y-3">
-                  <div className="flex items-start gap-2 justify-between">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-xl shrink-0">{curso.icone ?? '📚'}</span>
-                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 leading-tight line-clamp-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">{curso.titulo}</p>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {(curso.versao ?? 1) > 1 && (
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                          v{curso.versao}
+              <div key={curso.id} className="relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-md transition-all group">
+                <button onClick={() => abrirCurso(curso)} className="text-left w-full">
+                  <div className={`h-2 bg-gradient-to-r ${curso.capa_from ?? 'from-slate-500'} ${curso.capa_to ?? 'to-slate-600'}`} />
+                  <div className="p-4 space-y-3">
+                    <div className="flex items-start gap-2 justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xl shrink-0">{curso.icone ?? '📚'}</span>
+                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 leading-tight line-clamp-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">{curso.titulo}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {(curso.versao ?? 1) > 1 && (
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                            v{curso.versao}
+                          </span>
+                        )}
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isPublicado ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
+                          {isPublicado ? 'Publicado' : 'Rascunho'}
                         </span>
-                      )}
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isPublicado ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
-                        {isPublicado ? 'Publicado' : 'Rascunho'}
-                      </span>
+                      </div>
+                    </div>
+                    {curso.descricao && <p className="text-[11px] text-slate-400 dark:text-slate-500 line-clamp-2">{curso.descricao}</p>}
+                    <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                      <span className="flex items-center gap-1"><BookOpen size={10} />{modCount} módulo{modCount !== 1 ? 's' : ''}</span>
+                      <span className="flex items-center gap-1"><Users size={10} />{instCount} instrutor{instCount !== 1 ? 'es' : ''}</span>
+                      {curso.categoria && <span>{curso.categoria}</span>}
                     </div>
                   </div>
-                  {curso.descricao && <p className="text-[11px] text-slate-400 dark:text-slate-500 line-clamp-2">{curso.descricao}</p>}
-                  <div className="flex items-center gap-3 text-[11px] text-slate-400">
-                    <span className="flex items-center gap-1"><BookOpen size={10} />{modCount} módulo{modCount !== 1 ? 's' : ''}</span>
-                    <span className="flex items-center gap-1"><Users size={10} />{instCount} instrutor{instCount !== 1 ? 'es' : ''}</span>
-                    {curso.categoria && <span>{curso.categoria}</span>}
+                </button>
+                {!isPublicado && (
+                  <div className="px-4 pb-3 flex items-center gap-2">
+                    {confirmarExcluirCard === curso.id ? (
+                      <>
+                        <button
+                          onClick={e => { e.stopPropagation(); excluirCard(curso.id) }}
+                          disabled={deletandoCard === curso.id}
+                          className="flex items-center gap-1 text-[11px] font-semibold text-white bg-red-500 hover:bg-red-600 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          {deletandoCard === curso.id ? <RefreshCw size={10} className="animate-spin" /> : <Trash2 size={10} />}Confirmar
+                        </button>
+                        <button
+                          onClick={e => { e.stopPropagation(); setConfirmarExcluirCard(null) }}
+                          className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={e => { e.stopPropagation(); setConfirmarExcluirCard(curso.id) }}
+                        className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-600 font-medium transition-colors"
+                      >
+                        <Trash2 size={10} />Excluir
+                      </button>
+                    )}
                   </div>
-                </div>
-              </button>
+                )}
+              </div>
             )
           })}
         </div>
