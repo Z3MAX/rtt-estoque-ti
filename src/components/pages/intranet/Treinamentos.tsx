@@ -1205,7 +1205,7 @@ function CourseCard({ t, onClick, onEdit, canAdmin }: { t: Treinamento; onClick:
           <span className="text-[38px] leading-none drop-shadow select-none">{t.icone}</span>
         </div>
         {/* Obrigatório / Opcional */}
-        <span className="absolute top-3 left-3 text-[10px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm text-white tracking-wide bg-black/20">
+        <span className={`absolute top-3 left-3 text-[10px] font-bold px-2.5 py-1 rounded-full tracking-wide shadow-sm ${t.obrigatorio ? 'bg-red-500 text-white' : 'bg-white/20 backdrop-blur-sm border border-white/40 text-white'}`}>
           {t.obrigatorio ? 'Obrigatório' : 'Opcional'}
         </span>
         {/* Completion badge */}
@@ -1361,7 +1361,7 @@ function CourseModal({ t, onClose, onToggle, moduloConfigs, onSaveConfig, canAdm
               <span className="text-[48px] leading-none drop-shadow">{t.icone}</span>
               <div>
                 <div className="flex gap-1.5 mb-2 flex-wrap">
-                  <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-black/20 backdrop-blur-sm text-white">{t.obrigatorio ? 'Obrigatório' : 'Opcional'}</span>
+                  <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-sm ${t.obrigatorio ? 'bg-red-500 text-white' : 'bg-white/20 backdrop-blur-sm border border-white/40 text-white'}`}>{t.obrigatorio ? 'Obrigatório' : 'Opcional'}</span>
                   <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-black/20 backdrop-blur-sm text-white">{t.nivel}</span>
                 </div>
                 <h2 className="text-lg font-bold text-white leading-tight">{t.titulo}</h2>
