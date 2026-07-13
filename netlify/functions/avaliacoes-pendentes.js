@@ -14,7 +14,14 @@ exports.handler = async (event) => {
     const isGestor   = authPayload.role === 'Gestor'
     const gestorName = authPayload.name || null
 
-    // Colaboradores que nunca foram avaliados
+    // Descobre o ciclo aberto para filtrar pendentes do ciclo atual
+    const activeCycle = await sql`SELECT periodo_inicial FROM ciclos WHERE status = 'aberto' LIMIT 1`
+    if (activeCycle.length === 0) {
+      return { statusCode: 200, headers, body: JSON.stringify([]) }
+    }
+    const periodoAtual = activeCycle[0].periodo_inicial
+
+    // Colaboradores ainda sem avaliação no ciclo atual (qualquer status conta)
     // Gestores só veem colaboradores onde gestor_nome = seu próprio nome
     const rows = await sql`
       SELECT
@@ -37,7 +44,8 @@ exports.handler = async (event) => {
         AND (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
         AND NOT EXISTS (
           SELECT 1 FROM ciclos_avaliacao ca
-          WHERE ca.colaborador_id = c.id AND ca.status = 'concluido'
+          WHERE ca.colaborador_id = c.id
+            AND ca.periodo_inicial = ${periodoAtual}
         )
       ORDER BY c.area ASC, c.gestor_nome ASC, c.nome ASC
     `
