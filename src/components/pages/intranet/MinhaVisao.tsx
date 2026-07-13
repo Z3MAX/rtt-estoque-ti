@@ -87,7 +87,7 @@ function PortaisHub() {
   }
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 min-w-0">
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-700">
         <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Portais</h2>
         <div className="flex items-center gap-1">
@@ -109,7 +109,7 @@ function PortaisHub() {
       <div
         ref={ref}
         onScroll={updateArrows}
-        className="flex gap-3 p-4 overflow-x-auto"
+        className="flex gap-3 p-4 overflow-x-auto rounded-b-2xl"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {PORTAIS.map(p => (
