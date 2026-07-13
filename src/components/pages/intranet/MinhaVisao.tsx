@@ -1,6 +1,6 @@
 import { useAuth } from '../../../lib/auth'
-import { BookOpen, MessageSquare, Target, TrendingUp, CheckCircle2, AlertCircle, Star, Camera, ClipboardList, Users, Cake, Building2, Gift } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { BookOpen, MessageSquare, Target, TrendingUp, CheckCircle2, AlertCircle, Star, Camera, ClipboardList, Users, Cake, Building2, Gift, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Avatar from '../../ui/Avatar'
 import PhotoUploadModal from '../../ui/PhotoUploadModal'
@@ -59,6 +59,83 @@ interface Aniversariante {
   data_nascimento?: string
   data_admissao?: string
   anos_empresa?: number
+}
+
+const PORTAIS = [
+  { nome: 'Estoque',           desc: 'Sistema de gestão de estoque',    emoji: '📦', from: 'from-blue-500',    to: 'to-blue-700',    url: 'https://sistema1.rttshop.com.br' },
+  { nome: 'E-mail',            desc: 'E-mail corporativo',              emoji: '📧', from: 'from-red-500',     to: 'to-rose-700',    url: 'https://mail.google.com' },
+  { nome: 'Ponto Eletrônico',  desc: 'Registro de ponto e jornada',     emoji: '🕐', from: 'from-emerald-500', to: 'to-teal-700',    url: '#' },
+  { nome: 'Drive',             desc: 'Documentos e arquivos',           emoji: '📁', from: 'from-amber-500',   to: 'to-orange-600',  url: 'https://drive.google.com' },
+  { nome: 'WhatsApp',          desc: 'Atendimento ao cliente',          emoji: '💬', from: 'from-green-500',   to: 'to-green-700',   url: 'https://web.whatsapp.com' },
+  { nome: 'Meet',              desc: 'Reuniões e videoconferências',    emoji: '🎥', from: 'from-sky-500',     to: 'to-blue-600',    url: 'https://meet.google.com' },
+]
+
+function PortaisHub() {
+  const ref = useRef<HTMLDivElement>(null)
+  const [canLeft,  setCanLeft]  = useState(false)
+  const [canRight, setCanRight] = useState(true)
+
+  function updateArrows() {
+    const el = ref.current
+    if (!el) return
+    setCanLeft(el.scrollLeft > 4)
+    setCanRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4)
+  }
+
+  function scroll(dir: 'left' | 'right') {
+    ref.current?.scrollBy({ left: dir === 'right' ? 192 : -192, behavior: 'smooth' })
+  }
+
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+        <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Portais</h2>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => scroll('left')}
+            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${canLeft ? 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-300' : 'text-slate-200 dark:text-slate-600 cursor-default'}`}
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button
+            onClick={() => scroll('right')}
+            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${canRight ? 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-300' : 'text-slate-200 dark:text-slate-600 cursor-default'}`}
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div
+        ref={ref}
+        onScroll={updateArrows}
+        className="flex gap-3 p-4 overflow-x-auto"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
+        {PORTAIS.map(p => (
+          <a
+            key={p.nome}
+            href={p.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-none w-40 rounded-xl overflow-hidden group hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
+          >
+            <div className={`bg-gradient-to-br ${p.from} ${p.to} p-4 flex flex-col gap-2.5`}>
+              <span className="text-[32px] leading-none drop-shadow">{p.emoji}</span>
+              <div>
+                <p className="text-sm font-bold text-white leading-tight">{p.nome}</p>
+                <p className="text-[11px] text-white/70 leading-snug mt-0.5">{p.desc}</p>
+              </div>
+            </div>
+            <div className="px-3 py-2.5 bg-slate-50 dark:bg-slate-700/60 flex items-center justify-between group-hover:bg-slate-100 dark:group-hover:bg-slate-700 transition-colors">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Acessar</span>
+              <ExternalLink size={11} className="text-slate-400 group-hover:text-slate-500 dark:group-hover:text-slate-300 transition-colors" />
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 function isGestor(role?: string) {
@@ -445,6 +522,9 @@ export default function MinhaVisao() {
             })}
           </div>
         </SectionCard>
+
+        {/* Hub de portais */}
+        <PortaisHub />
       </div>
 
       {/* ── Coluna direita ── */}
