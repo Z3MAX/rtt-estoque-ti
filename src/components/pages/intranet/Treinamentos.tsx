@@ -2863,6 +2863,10 @@ function InstrutorView({ user }: { user: any }) {
 
   async function publicar() {
     if (editando === 'new' || !editando) return
+    if (requisitos.length === 0) {
+      showToast('Defina ao menos um requisito por cargo/área antes de publicar.', 'error')
+      return
+    }
     setPublicando(true)
     try {
       const atualizado = await api.cursos.publicar(editando.id) as any
@@ -3306,9 +3310,16 @@ function InstrutorView({ user }: { user: any }) {
             ) : (
               <>
                 {podPublicar && (
-                  <button onClick={publicar} disabled={publicando} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-60">
-                    {publicando ? <RefreshCw size={14} className="animate-spin" /> : <Globe size={14} />}Publicar curso
-                  </button>
+                  <div className="flex items-center gap-3">
+                    {requisitos.length === 0 && (
+                      <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                        Defina ao menos um requisito por cargo/área para publicar
+                      </span>
+                    )}
+                    <button onClick={publicar} disabled={publicando} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-60">
+                      {publicando ? <RefreshCw size={14} className="animate-spin" /> : <Globe size={14} />}Publicar curso
+                    </button>
+                  </div>
                 )}
                 <button onClick={salvar} disabled={saving || !titulo.trim()} className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-primary-600 hover:bg-primary-700 text-white transition-colors disabled:opacity-60">
                   {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}Salvar
