@@ -62,12 +62,12 @@ interface Aniversariante {
 }
 
 const PORTAIS = [
-  { nome: 'Estoque',           desc: 'Sistema de gestão de estoque',    emoji: '📦', from: 'from-blue-500',    to: 'to-blue-700',    url: 'https://sistema1.rttshop.com.br' },
-  { nome: 'E-mail',            desc: 'E-mail corporativo',              emoji: '📧', from: 'from-red-500',     to: 'to-rose-700',    url: 'https://mail.google.com' },
-  { nome: 'Ponto Eletrônico',  desc: 'Registro de ponto e jornada',     emoji: '🕐', from: 'from-emerald-500', to: 'to-teal-700',    url: '#' },
-  { nome: 'Drive',             desc: 'Documentos e arquivos',           emoji: '📁', from: 'from-amber-500',   to: 'to-orange-600',  url: 'https://drive.google.com' },
-  { nome: 'WhatsApp',          desc: 'Atendimento ao cliente',          emoji: '💬', from: 'from-green-500',   to: 'to-green-700',   url: 'https://web.whatsapp.com' },
-  { nome: 'Meet',              desc: 'Reuniões e videoconferências',    emoji: '🎥', from: 'from-sky-500',     to: 'to-blue-600',    url: 'https://meet.google.com' },
+  { nome: 'Zeev',              desc: 'Chamados e fluxos das áreas',     logo: '/portais/zeev.png',      from: 'from-purple-600', to: 'to-purple-800', url: 'https://rttshop.zeev.it/' },
+  { nome: 'E-mail',            desc: 'E-mail corporativo',              logo: '/portais/gmail.png',     from: 'from-red-500',    to: 'to-rose-700',   url: 'https://mail.google.com' },
+  { nome: 'Ponto Eletrônico',  desc: 'Registro de ponto e jornada',     logo: '/portais/ponto.svg',     from: 'from-emerald-500',to: 'to-teal-700',   url: '#' },
+  { nome: 'Drive',             desc: 'Documentos e arquivos',           logo: '/portais/drive.png',     from: 'from-amber-500',  to: 'to-orange-600', url: 'https://drive.google.com' },
+  { nome: 'WhatsApp',          desc: 'Atendimento ao cliente',          logo: '/portais/whatsapp.png',  from: 'from-green-500',  to: 'to-green-700',  url: 'https://web.whatsapp.com' },
+  { nome: 'Meet',              desc: 'Reuniões e videoconferências',    logo: '/portais/meet.png',      from: 'from-sky-500',    to: 'to-blue-600',   url: 'https://meet.google.com' },
 ]
 
 function PortaisHub() {
@@ -118,15 +118,18 @@ function PortaisHub() {
             href={p.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-none w-40 rounded-xl overflow-hidden group hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
+            className="flex-none w-44 rounded-xl overflow-hidden group hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 flex flex-col"
           >
-            <div className={`bg-gradient-to-br ${p.from} ${p.to} p-4 flex flex-col gap-2.5`}>
-              <span className="text-[32px] leading-none drop-shadow">{p.emoji}</span>
-              <div>
-                <p className="text-sm font-bold text-white leading-tight">{p.nome}</p>
-                <p className="text-[11px] text-white/70 leading-snug mt-0.5">{p.desc}</p>
-              </div>
+            {/* Logo em área branca */}
+            <div className="bg-white dark:bg-slate-100 flex items-center justify-center px-5 py-4 h-20">
+              <img src={p.logo} alt={p.nome} className="max-h-9 w-auto max-w-full object-contain" />
             </div>
+            {/* Gradiente da marca */}
+            <div className={`bg-gradient-to-br ${p.from} ${p.to} px-4 py-3 flex-1`}>
+              <p className="text-sm font-bold text-white leading-tight">{p.nome}</p>
+              <p className="text-[11px] text-white/70 leading-snug mt-0.5">{p.desc}</p>
+            </div>
+            {/* Rodapé */}
             <div className="px-3 py-2.5 bg-slate-50 dark:bg-slate-700/60 flex items-center justify-between group-hover:bg-slate-100 dark:group-hover:bg-slate-700 transition-colors">
               <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Acessar</span>
               <ExternalLink size={11} className="text-slate-400 group-hover:text-slate-500 dark:group-hover:text-slate-300 transition-colors" />
