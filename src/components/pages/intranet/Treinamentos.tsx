@@ -382,7 +382,7 @@ function getProgresso(t: Treinamento) {
   return total === 0 ? 0 : Math.round((feitos / total) * 100)
 }
 
-const CATEGORIAS = ['Todos', 'Compliance', 'Liderança', 'Técnico', 'Soft Skills', 'Segurança']
+const CATEGORIAS = ['Todos', 'Compliance', 'Liderança', 'Técnico', 'Soft Skills', 'Segurança', 'Operacional', 'Geral']
 
 const NIVEL_COLORS: Record<string, string> = {
   'Básico':        'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
@@ -2498,6 +2498,8 @@ function EnviarCursosModal({ todosCursos, onClose }: { todosCursos: Treinamento[
       const novosIds = inscritos.filter((i: any) => i.colaborador_id !== colaboradorId).map((i: any) => i.colaborador_id)
       await api.cursoAtribuicao.setForCurso(cursoSelecionado.id, novosIds)
       setInscritos(prev => prev.filter((i: any) => i.colaborador_id !== colaboradorId))
+    } catch {
+      showToast('Erro ao remover colaborador. Tente novamente.', 'error')
     } finally {
       setSaving(false)
     }
@@ -2829,7 +2831,7 @@ function InstrutorView({ user }: { user: any }) {
     setEditando('new')
     setTitulo(''); setDescricao(''); setCategoria('Geral'); setNivel('Básico')
     setDuracao(''); setIcone('📚'); setCapaFrom('from-slate-500'); setCapaTo('to-slate-600')
-    setModulos([]); setInstrutores([])
+    setModulos([]); setInstrutores([]); setRequisitos([])
   }
 
   function voltar() { setEditando(null); setBuscarUser(''); setConfirmarExcluir(false) }
@@ -3492,6 +3494,7 @@ function InstrutorView({ user }: { user: any }) {
           })}
         </div>
       )}
+      <Toast msg={toastMsg} type={toastType} />
     </div>
   )
 }
