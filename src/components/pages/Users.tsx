@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react'
-import { Users, Plus, Pencil, ShieldCheck, Wrench, ToggleLeft, ToggleRight, X, Eye, EyeOff, Search, Mail, AlertTriangle, CheckCircle2, Send, Trash2, UserPlus, RefreshCw, CheckSquare, Square, MailCheck, Link2 } from 'lucide-react'
+import { Users, Plus, Pencil, ShieldCheck, Wrench, ToggleLeft, ToggleRight, X, Eye, EyeOff, Search, Mail, AlertTriangle, CheckCircle2, Send, Trash2, UserPlus, RefreshCw, CheckSquare, Square, MailCheck, Link2, PenLine } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import ConfirmDialog from '../ui/ConfirmDialog'
@@ -14,6 +14,7 @@ interface AppUser {
   active: boolean
   must_change_password?: boolean
   colaborador_id?: number | null
+  has_assinatura?: boolean
   created_at: string
 }
 
@@ -457,6 +458,90 @@ function VincularModal({ onClose, onDone }: { onClose: () => void; onDone: () =>
   )
 }
 
+/* ─── AssinaturaModal ───────────────────────────────────────────────────── */
+function AssinaturaModal({
+  user,
+  onClose,
+  onSolicitar,
+  solicitando,
+}: {
+  user: AppUser
+  onClose: () => void
+  onSolicitar: () => void
+  solicitando: boolean
+}) {
+  const [assinatura, setAssinatura] = useState<string | null>(null)
+  const [carregando, setCarregando] = useState(true)
+
+  useEffect(() => {
+    fetch(`/.netlify/functions/assinatura?nome=${encodeURIComponent(user.name)}`)
+      .then(r => r.json())
+      .then(d => setAssinatura(d.assinatura ?? null))
+      .catch(() => setAssinatura(null))
+      .finally(() => setCarregando(false))
+  }, [user.name])
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm border border-slate-100 dark:border-slate-700">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-700">
+          <div>
+            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Assinatura digital</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{user.name}</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-5">
+          {carregando ? (
+            <div className="flex items-center justify-center py-8">
+              <svg className="animate-spin h-6 w-6 text-slate-400" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+            </div>
+          ) : assinatura ? (
+            <div className="rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/30 p-4 flex items-center justify-center">
+              <img
+                src={assinatura}
+                alt="Assinatura"
+                className="max-w-full max-h-32 object-contain"
+                style={{ imageRendering: 'crisp-edges' }}
+              />
+            </div>
+          ) : (
+            <div className="rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/30 p-8 text-center">
+              <PenLine size={24} className="mx-auto text-slate-300 dark:text-slate-600 mb-2" />
+              <p className="text-sm text-slate-400 dark:text-slate-500">Nenhuma assinatura cadastrada</p>
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            >
+              Fechar
+            </button>
+            <button
+              onClick={onSolicitar}
+              disabled={solicitando}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+            >
+              {solicitando
+                ? <><svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>Enviando…</>
+                : <><PenLine size={14} />{assinatura ? 'Solicitar nova' : 'Solicitar assinatura'}</>
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ─── Page ───────────────────────────────────────────────────────────────── */
 export default function UsersPage() {
   const { user: currentUser } = useAuth()
@@ -468,6 +553,7 @@ export default function UsersPage() {
   const [resendStatus, setResendStatus] = useState<{ id: number; ok: boolean; msg: string } | null>(null)
   const [solicitandoAssId, setSolicitandoAssId] = useState<number | null>(null)
   const [assStatus, setAssStatus] = useState<{ id: number; ok: boolean; msg: string } | null>(null)
+  const [assinaturaModalUser, setAssinaturaModalUser] = useState<AppUser | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<AppUser | null>(null)
   const [deleting, setDeleting]         = useState(false)
   const [importingGestores, setImportingGestores] = useState(false)
@@ -497,6 +583,7 @@ export default function UsersPage() {
     setAssStatus(null)
     try {
       await api.users.solicitarAssinatura(u.id)
+      setAssinaturaModalUser(null)
       setAssStatus({ id: u.id, ok: true, msg: `Link de assinatura enviado para ${u.email}` })
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao enviar'
@@ -795,6 +882,16 @@ export default function UsersPage() {
                           <Mail size={10} /> Convite pendente
                         </span>
                       )}
+                      {(u.roles ?? []).includes('Instrutor') && u.active && (
+                        <span className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md font-medium ${
+                          u.has_assinatura
+                            ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                            : 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500'
+                        }`}>
+                          <PenLine size={10} />
+                          {u.has_assinatura ? 'Assinatura ok' : 'Sem assinatura'}
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">{u.email}</p>
                     {u.area && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Área: <span className="font-medium text-slate-600 dark:text-slate-300">{u.area}</span></p>}
@@ -828,17 +925,18 @@ export default function UsersPage() {
                             : <Send size={14} />}
                         </button>
                       )}
-                      {/* Solicitar assinatura digital — só para instrutores */}
+                      {/* Assinatura digital — só para instrutores */}
                       {(u.roles ?? []).includes('Instrutor') && u.active && (
                         <button
-                          onClick={() => solicitarAssinatura(u)}
-                          disabled={solicitandoAssId === u.id}
-                          title="Solicitar assinatura digital"
-                          className="w-8 h-8 flex items-center justify-center rounded-lg text-violet-500 hover:bg-violet-50 dark:hover:bg-violet-900/20 hover:text-violet-600 transition-colors disabled:opacity-50"
+                          onClick={() => setAssinaturaModalUser(u)}
+                          title={u.has_assinatura ? 'Ver / solicitar nova assinatura' : 'Solicitar assinatura digital'}
+                          className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                            u.has_assinatura
+                              ? 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-600'
+                              : 'text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 hover:text-violet-600'
+                          }`}
                         >
-                          {solicitandoAssId === u.id
-                            ? <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
-                            : <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>}
+                          <PenLine size={14} />
                         </button>
                       )}
                       <button
@@ -887,6 +985,16 @@ export default function UsersPage() {
           <p className="text-slate-600 dark:text-slate-300 font-medium">Nenhum usuário encontrado</p>
           <p className="text-slate-400 dark:text-slate-500 text-sm">Tente ajustar o filtro de busca</p>
         </div>
+      )}
+
+      {/* Modal de assinatura */}
+      {assinaturaModalUser && (
+        <AssinaturaModal
+          user={assinaturaModalUser}
+          onClose={() => setAssinaturaModalUser(null)}
+          onSolicitar={() => solicitarAssinatura(assinaturaModalUser)}
+          solicitando={solicitandoAssId === assinaturaModalUser.id}
+        />
       )}
 
       {/* Modal */}

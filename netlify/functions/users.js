@@ -80,7 +80,8 @@ exports.handler = async (event) => {
         return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
       }
       const rows = await sql`
-        SELECT id, name, email, role, roles, area, active, must_change_password, colaborador_id, created_at, updated_at
+        SELECT id, name, email, role, roles, area, active, must_change_password, colaborador_id, created_at, updated_at,
+               (assinatura IS NOT NULL) AS has_assinatura
         FROM users ORDER BY name ASC
       `
       return { statusCode: 200, headers, body: JSON.stringify(rows) }
