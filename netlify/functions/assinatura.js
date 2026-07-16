@@ -10,6 +10,10 @@ exports.handler = async (event) => {
   const params = event.queryStringParameters || {}
 
   try {
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS assinatura TEXT`
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS assinatura_token TEXT`
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS assinatura_token_expires TIMESTAMP`
+
     // GET ?token=xxx — página de assinatura valida o token
     if (event.httpMethod === 'GET' && params.token) {
       const [user] = await sql`

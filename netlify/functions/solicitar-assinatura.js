@@ -11,6 +11,10 @@ exports.handler = async (event) => {
   const sql = neon(process.env.DATABASE_URL)
 
   try {
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS assinatura TEXT`
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS assinatura_token TEXT`
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS assinatura_token_expires TIMESTAMP`
+
     const auth = requireAuth(event)
     if (!isAdminRole(auth.role)) {
       return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado' }) }
