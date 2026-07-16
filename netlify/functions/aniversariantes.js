@@ -12,82 +12,56 @@ exports.handler = async (event) => {
   try {
     requireAuth(event)
 
-    // Dias para considerar como "próximos" (janela de 30 dias, exceto hoje = -1 para inclusão)
     const diasAFrente = 30
 
-    // Aniversários de nascimento nos próximos diasAFrente dias (usando EXTRACT para ignorar o ano)
+    // Usa offset de dia-do-ano para evitar MAKE_DATE com 29/fev em anos não-bissextos.
+    // Ex: nascido 29/fev/1980 → data_este_ano = 1/mar/2025 em ano comum.
     const aniversariosNasc = await sql`
+      WITH base AS (
+        SELECT
+          id, nome, cargo, area, photo_url, data_nascimento,
+          (DATE_TRUNC('year', CURRENT_DATE)::date
+            + (data_nascimento - DATE_TRUNC('year', data_nascimento)::date)) AS data_este_ano
+        FROM colaboradores
+        WHERE data_nascimento IS NOT NULL AND ativo = true
+      )
       SELECT
-        id, nome, cargo, area, photo_url,
-        data_nascimento,
-        -- Próxima ocorrência do aniversário neste ou próximo ano
-        CASE
-          WHEN (
-            MAKE_DATE(EXTRACT(YEAR FROM CURRENT_DATE)::int,
-                      EXTRACT(MONTH FROM data_nascimento)::int,
-                      EXTRACT(DAY FROM data_nascimento)::int)
-          ) >= CURRENT_DATE
-          THEN MAKE_DATE(EXTRACT(YEAR FROM CURRENT_DATE)::int,
-                         EXTRACT(MONTH FROM data_nascimento)::int,
-                         EXTRACT(DAY FROM data_nascimento)::int)
-          ELSE MAKE_DATE(EXTRACT(YEAR FROM CURRENT_DATE)::int + 1,
-                         EXTRACT(MONTH FROM data_nascimento)::int,
-                         EXTRACT(DAY FROM data_nascimento)::int)
+        id, nome, cargo, area, photo_url, data_nascimento,
+        CASE WHEN data_este_ano >= CURRENT_DATE
+             THEN data_este_ano
+             ELSE (data_este_ano + INTERVAL '1 year')::date
         END AS proxima_data
-      FROM colaboradores
-      WHERE data_nascimento IS NOT NULL AND ativo = true
-      HAVING
-        CASE
-          WHEN (
-            MAKE_DATE(EXTRACT(YEAR FROM CURRENT_DATE)::int,
-                      EXTRACT(MONTH FROM data_nascimento)::int,
-                      EXTRACT(DAY FROM data_nascimento)::int)
-          ) >= CURRENT_DATE
-          THEN MAKE_DATE(EXTRACT(YEAR FROM CURRENT_DATE)::int,
-                         EXTRACT(MONTH FROM data_nascimento)::int,
-                         EXTRACT(DAY FROM data_nascimento)::int)
-          ELSE MAKE_DATE(EXTRACT(YEAR FROM CURRENT_DATE)::int + 1,
-                         EXTRACT(MONTH FROM data_nascimento)::int,
-                         EXTRACT(DAY FROM data_nascimento)::int)
+      FROM base
+      WHERE
+        CASE WHEN data_este_ano >= CURRENT_DATE
+             THEN data_este_ano
+             ELSE (data_este_ano + INTERVAL '1 year')::date
         END <= CURRENT_DATE + ${diasAFrente}
       ORDER BY proxima_data
     `
 
-    // Aniversários de empresa nos próximos diasAFrente dias
     const aniversariosEmpresa = await sql`
+      WITH base AS (
+        SELECT
+          id, nome, cargo, area, photo_url, data_admissao,
+          EXTRACT(YEAR FROM AGE(CURRENT_DATE, data_admissao))::int AS anos_empresa,
+          (DATE_TRUNC('year', CURRENT_DATE)::date
+            + (data_admissao - DATE_TRUNC('year', data_admissao)::date)) AS data_este_ano
+        FROM colaboradores
+        WHERE data_admissao IS NOT NULL AND ativo = true
+          AND EXTRACT(YEAR FROM AGE(CURRENT_DATE, data_admissao)) >= 1
+      )
       SELECT
-        id, nome, cargo, area, photo_url,
-        data_admissao,
-        EXTRACT(YEAR FROM AGE(CURRENT_DATE, data_admissao))::int AS anos_empresa,
-        CASE
-          WHEN (
-            MAKE_DATE(EXTRACT(YEAR FROM CURRENT_DATE)::int,
-                      EXTRACT(MONTH FROM data_admissao)::int,
-                      EXTRACT(DAY FROM data_admissao)::int)
-          ) >= CURRENT_DATE
-          THEN MAKE_DATE(EXTRACT(YEAR FROM CURRENT_DATE)::int,
-                         EXTRACT(MONTH FROM data_admissao)::int,
-                         EXTRACT(DAY FROM data_admissao)::int)
-          ELSE MAKE_DATE(EXTRACT(YEAR FROM CURRENT_DATE)::int + 1,
-                         EXTRACT(MONTH FROM data_admissao)::int,
-                         EXTRACT(DAY FROM data_admissao)::int)
+        id, nome, cargo, area, photo_url, data_admissao, anos_empresa,
+        CASE WHEN data_este_ano >= CURRENT_DATE
+             THEN data_este_ano
+             ELSE (data_este_ano + INTERVAL '1 year')::date
         END AS proxima_data
-      FROM colaboradores
-      WHERE data_admissao IS NOT NULL AND ativo = true
-        AND EXTRACT(YEAR FROM AGE(CURRENT_DATE, data_admissao)) >= 1
-      HAVING
-        CASE
-          WHEN (
-            MAKE_DATE(EXTRACT(YEAR FROM CURRENT_DATE)::int,
-                      EXTRACT(MONTH FROM data_admissao)::int,
-                      EXTRACT(DAY FROM data_admissao)::int)
-          ) >= CURRENT_DATE
-          THEN MAKE_DATE(EXTRACT(YEAR FROM CURRENT_DATE)::int,
-                         EXTRACT(MONTH FROM data_admissao)::int,
-                         EXTRACT(DAY FROM data_admissao)::int)
-          ELSE MAKE_DATE(EXTRACT(YEAR FROM CURRENT_DATE)::int + 1,
-                         EXTRACT(MONTH FROM data_admissao)::int,
-                         EXTRACT(DAY FROM data_admissao)::int)
+      FROM base
+      WHERE
+        CASE WHEN data_este_ano >= CURRENT_DATE
+             THEN data_este_ano
+             ELSE (data_este_ano + INTERVAL '1 year')::date
         END <= CURRENT_DATE + ${diasAFrente}
       ORDER BY proxima_data
     `
