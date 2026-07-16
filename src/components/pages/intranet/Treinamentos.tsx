@@ -1823,7 +1823,7 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
   }
 
   function addRequisito() {
-    if (!novoReqCargo && !novoReqArea) return
+    if (!novoReqCargo && !novoReqArea && requisitos.some(r => !r.cargo && !r.area)) return
     setRequisitos(prev => [...prev, { cargo: novoReqCargo || undefined, area: novoReqArea || undefined, obrigatorio: novoReqObrig }])
     setNovoReqCargo(''); setNovoReqArea('')
   }
@@ -2065,9 +2065,10 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
                   <div className="space-y-2">
                     {requisitos.map((r, i) => (
                       <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-700/50">
-                        <div className="flex-1 min-w-0">
-                          {r.cargo && <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-700 dark:text-slate-200 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-md mr-2"><Briefcase size={10} />{r.cargo}</span>}
+                        <div className="flex-1 min-w-0 flex flex-wrap gap-1.5">
+                          {r.cargo && <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-700 dark:text-slate-200 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-md"><Briefcase size={10} />{r.cargo}</span>}
                           {r.area  && <span className="inline-flex items-center gap-1 text-xs font-medium text-violet-700 dark:text-violet-300 bg-violet-100 dark:bg-violet-900/30 px-2 py-0.5 rounded-md"><Target size={10} />{r.area}</span>}
+                          {!r.cargo && !r.area && <span className="text-xs text-slate-400 italic">Todos os colaboradores</span>}
                         </div>
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${r.obrigatorio ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'}`}>{r.obrigatorio ? 'Obrigatório' : 'Opcional'}</span>
                         <button onClick={() => setRequisitos(prev => prev.filter((_, idx) => idx !== i))} className="text-slate-300 hover:text-red-400 transition-colors"><X size={14} /></button>
@@ -2968,7 +2969,7 @@ function InstrutorView({ user }: { user: any }) {
   }
 
   function addRequisito() {
-    if (!novoReqCargo && !novoReqArea) return
+    if (!novoReqCargo && !novoReqArea && requisitos.some(r => !r.cargo && !r.area)) return
     setRequisitos(prev => [...prev, { cargo: novoReqCargo || undefined, area: novoReqArea || undefined, obrigatorio: novoReqObrig }])
     setNovoReqCargo(''); setNovoReqArea('')
   }
