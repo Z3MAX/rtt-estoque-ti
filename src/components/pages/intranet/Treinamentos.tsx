@@ -2338,9 +2338,7 @@ function CertificadoBtn({
   }
 
   function imprimir() {
-    const w = window.open('', '_blank', 'width=900,height=650')
-    if (!w) return
-    w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Certificado</title>
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Certificado</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Georgia, serif; background: #fff; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
@@ -2392,8 +2390,17 @@ function CertificadoBtn({
   </div>
 </div>
 <script>window.onload=()=>{window.print()}<\/script>
-</body></html>`)
-    w.document.close()
+</body></html>`
+    const blob = new Blob([html], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.target = '_blank'
+    a.rel = 'noopener'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 10000)
   }
 
   return (
