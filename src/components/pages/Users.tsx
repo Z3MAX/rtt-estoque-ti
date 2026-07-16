@@ -466,6 +466,8 @@ export default function UsersPage() {
   const [modalUser, setModalUser] = useState<AppUser | null | undefined>(undefined)
   const [resendingId, setResendingId]   = useState<number | null>(null)
   const [resendStatus, setResendStatus] = useState<{ id: number; ok: boolean; msg: string } | null>(null)
+  const [solicitandoAssId, setSolicitandoAssId] = useState<number | null>(null)
+  const [assStatus, setAssStatus] = useState<{ id: number; ok: boolean; msg: string } | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<AppUser | null>(null)
   const [deleting, setDeleting]         = useState(false)
   const [importingGestores, setImportingGestores] = useState(false)
@@ -489,6 +491,21 @@ export default function UsersPage() {
   }
 
   useEffect(() => { load() }, [])
+
+  async function solicitarAssinatura(u: AppUser) {
+    setSolicitandoAssId(u.id)
+    setAssStatus(null)
+    try {
+      await api.users.solicitarAssinatura(u.id)
+      setAssStatus({ id: u.id, ok: true, msg: `Link de assinatura enviado para ${u.email}` })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao enviar'
+      setAssStatus({ id: u.id, ok: false, msg })
+    } finally {
+      setSolicitandoAssId(null)
+      setTimeout(() => setAssStatus(null), 6000)
+    }
+  }
 
   async function resendInvite(u: AppUser) {
     setResendingId(u.id)
@@ -663,10 +680,20 @@ export default function UsersPage() {
             ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400'
             : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
         }`}>
-          {resendStatus.ok
-            ? <CheckCircle2 size={16} className="shrink-0" />
-            : <AlertTriangle size={16} className="shrink-0" />}
+          {resendStatus.ok ? <CheckCircle2 size={16} className="shrink-0" /> : <AlertTriangle size={16} className="shrink-0" />}
           {resendStatus.msg}
+        </div>
+      )}
+
+      {/* Signature request toast */}
+      {assStatus && (
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium ${
+          assStatus.ok
+            ? 'bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-400'
+            : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
+        }`}>
+          {assStatus.ok ? <CheckCircle2 size={16} className="shrink-0" /> : <AlertTriangle size={16} className="shrink-0" />}
+          {assStatus.msg}
         </div>
       )}
 
@@ -799,6 +826,19 @@ export default function UsersPage() {
                           {resendingId === u.id
                             ? <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
                             : <Send size={14} />}
+                        </button>
+                      )}
+                      {/* Solicitar assinatura digital — só para instrutores */}
+                      {(u.roles ?? []).includes('Instrutor') && u.active && (
+                        <button
+                          onClick={() => solicitarAssinatura(u)}
+                          disabled={solicitandoAssId === u.id}
+                          title="Solicitar assinatura digital"
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-violet-500 hover:bg-violet-50 dark:hover:bg-violet-900/20 hover:text-violet-600 transition-colors disabled:opacity-50"
+                        >
+                          {solicitandoAssId === u.id
+                            ? <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+                            : <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>}
                         </button>
                       )}
                       <button

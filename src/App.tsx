@@ -5,6 +5,7 @@ import { ThemeProvider, ForceLightMode } from './lib/theme'
 import LoginPage from './components/LoginPage'
 import ForgotPasswordPage from './components/ForgotPasswordPage'
 import ResetPasswordPage from './components/ResetPasswordPage'
+import AssinarPage from './components/pages/AssinarPage'
 import ChangePasswordPage from './components/ChangePasswordPage'
 import Layout from './components/Layout'
 import PortalSelector from './components/PortalSelector'
@@ -134,6 +135,7 @@ export default function App() {
         <Routes>
           <Route path="/forgot-password" element={<ForceLightMode><ForgotPasswordPage /></ForceLightMode>} />
           <Route path="/reset-password"  element={<ForceLightMode><ResetPasswordPage /></ForceLightMode>} />
+          <Route path="/assinar/:token"  element={<ForceLightMode><AssinarPage /></ForceLightMode>} />
           <Route path="*" element={<ProtectedRoutes />} />
         </Routes>
       </AuthProvider>

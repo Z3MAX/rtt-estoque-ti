@@ -243,14 +243,25 @@ export default function CicloAvaliacaoPage() {
   const userIsMaster = user?.role === 'Administrador Master'
   const [ciclos, setCiclos] = useState<Ciclo[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [showModal, setShowModal] = useState(false)
 
   async function load() {
     setLoading(true)
+    setLoadError('')
     try {
-      const data = await api.ciclos.list() as Ciclo[]
-      setCiclos(data)
-    } catch { /* silencioso */ } finally {
+      const data = await api.ciclos.list()
+      // O backend retorna array para admins e objeto/null para gestores
+      if (Array.isArray(data)) {
+        setCiclos(data as Ciclo[])
+      } else if (data && typeof data === 'object') {
+        setCiclos([data as Ciclo])
+      } else {
+        setCiclos([])
+      }
+    } catch (err) {
+      setLoadError((err as Error).message || 'Erro ao carregar ciclos')
+    } finally {
       setLoading(false)
     }
   }

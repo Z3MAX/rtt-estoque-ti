@@ -1714,6 +1714,7 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
   const [instDetalhe, setInstDetalhe] = useState<any[]>([])
   const [loadingInst, setLoadingInst] = useState(false)
   const [instSelecionado, setInstSelecionado] = useState<string | null>(null)
+  const [solicitandoAssId, setSolicitandoAssId] = useState<number | null>(null)
 
   // Carrega cargos e áreas únicos dos colaboradores uma vez
   useEffect(() => {
@@ -2263,20 +2264,46 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
                           <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{instSelecionado}</p>
                           <p className="text-[10px] text-slate-400">{inst?.total_cursos} cursos · {inst?.total_alunos} alunos no total</p>
                         </div>
-                        {cursosDaInst.length > 0 && (
-                          <button
-                            onClick={() => downloadCSV(cursosDaInst.map((d: any) => ({
-                              Instrutor: d.instrutor, Curso: d.titulo, Categoria: d.categoria,
-                              Obrigatório: d.obrigatorio ? 'Sim' : 'Não',
-                              'Total alunos': d.total_alunos, Concluídos: d.concluidos,
-                              'Em andamento': d.em_andamento, 'Não iniciados': d.nao_iniciados,
-                              '% Conclusão': d.pct_conclusao,
-                            })), `instrutor_${instSelecionado.replace(/\s/g,'_')}.csv`)}
-                            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-                          >
-                            <Download size={12} />CSV
-                          </button>
-                        )}
+                        <div className="ml-auto flex items-center gap-2">
+                          {inst?.user_id && (
+                            <button
+                              disabled={solicitandoAssId === inst.user_id}
+                              onClick={async () => {
+                                setSolicitandoAssId(inst.user_id)
+                                try {
+                                  await api.users.solicitarAssinatura(inst.user_id)
+                                  showToast(`Link de assinatura enviado para ${instSelecionado}`)
+                                } catch {
+                                  showToast('Erro ao enviar link de assinatura', 'error')
+                                } finally {
+                                  setSolicitandoAssId(null)
+                                }
+                              }}
+                              title="Solicitar assinatura digital"
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-violet-200 dark:border-violet-700 text-xs font-medium text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors disabled:opacity-50"
+                            >
+                              {solicitandoAssId === inst.user_id
+                                ? <RefreshCw size={11} className="animate-spin" />
+                                : <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                              }
+                              Solicitar assinatura
+                            </button>
+                          )}
+                          {cursosDaInst.length > 0 && (
+                            <button
+                              onClick={() => downloadCSV(cursosDaInst.map((d: any) => ({
+                                Instrutor: d.instrutor, Curso: d.titulo, Categoria: d.categoria,
+                                Obrigatório: d.obrigatorio ? 'Sim' : 'Não',
+                                'Total alunos': d.total_alunos, Concluídos: d.concluidos,
+                                'Em andamento': d.em_andamento, 'Não iniciados': d.nao_iniciados,
+                                '% Conclusão': d.pct_conclusao,
+                              })), `instrutor_${instSelecionado.replace(/\s/g,'_')}.csv`)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                            >
+                              <Download size={12} />CSV
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <div className="divide-y divide-slate-100 dark:divide-slate-700">
                         {cursosDaInst.map((d: any) => (
@@ -2328,6 +2355,17 @@ function CertificadoBtn({
   dataValidacao: string | null; validadoPor: string | null
 }) {
   const [open, setOpen] = useState(false)
+  const [assinaturaInstrutor, setAssinaturaInstrutor] = useState<string | null>(null)
+
+  function abrirModal() {
+    setOpen(true)
+    if (instrutor && assinaturaInstrutor === null) {
+      fetch(`/.netlify/functions/assinatura?nome=${encodeURIComponent(instrutor)}`)
+        .then(r => r.json())
+        .then(d => setAssinaturaInstrutor(d.assinatura ?? ''))
+        .catch(() => setAssinaturaInstrutor(''))
+    }
+  }
 
   const dataFmt = dataValidacao
     ? new Date(dataValidacao).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -2374,7 +2412,7 @@ function CertificadoBtn({
   <div class="divider"></div>
   <div class="footer">
     <div class="sig">
-      <div class="sig-line"></div>
+      ${assinaturaInstrutor ? `<img src="${assinaturaInstrutor}" style="width:200px;height:60px;object-fit:contain;display:block;margin-bottom:2px;" />` : '<div class="sig-line"></div>'}
       <p class="sig-name">${esc(instrutor || 'Instrutor')}</p>
       <p class="sig-role">Instrutor</p>
     </div>
@@ -2406,7 +2444,7 @@ function CertificadoBtn({
   return (
     <>
       <button
-        onClick={() => setOpen(true)}
+        onClick={abrirModal}
         className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors"
       >
         <Award size={11} />Certificado

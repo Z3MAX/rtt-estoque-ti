@@ -119,6 +119,9 @@ exports.handler = async (event) => {
     // Migrations
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS area VARCHAR(200)`
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS assinatura TEXT`
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS assinatura_token TEXT`
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS assinatura_token_expires TIMESTAMP`
 
     // Seed admin user if none exists
     const existingUsers = await sql`SELECT COUNT(*) AS count FROM users`

@@ -274,4 +274,76 @@ async function sendLocationReport({ locationName, managerEmail, equipment, sende
   })
 }
 
-module.exports = { sendInviteEmail, sendResetEmail, sendLocationReport }
+/**
+ * E-mail de solicitação de assinatura digital para instrutor.
+ */
+async function sendSignatureRequestEmail({ name, email, signUrl }) {
+  const siteUrl = process.env.SITE_URL || ''
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cadastre sua assinatura digital</title>
+</head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+        <!-- Header -->
+        <tr><td style="background:linear-gradient(135deg,#1e3a5f 0%,#2d5a8e 100%);padding:36px 40px;text-align:center;">
+          <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#93c5fd;letter-spacing:3px;text-transform:uppercase;">RTT Shop · Treinamentos</p>
+          <h1 style="margin:0;font-size:26px;font-weight:700;color:#ffffff;line-height:1.2;">Assinatura Digital</h1>
+          <p style="margin:10px 0 0;font-size:14px;color:#bfdbfe;">Necessária para certificados de conclusão</p>
+        </td></tr>
+
+        <!-- Body -->
+        <tr><td style="padding:36px 40px;">
+          <p style="margin:0 0 8px;font-size:15px;color:#334155;">Olá, <strong>${esc(name)}</strong>,</p>
+          <p style="margin:0 0 24px;font-size:14px;color:#64748b;line-height:1.6;">
+            O RH solicitou que você cadastre sua <strong>assinatura digital</strong> no sistema.
+            Ela será utilizada nos certificados de conclusão emitidos para os colaboradores que
+            concluírem seus cursos.
+          </p>
+
+          <!-- Info box -->
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;margin-bottom:28px;">
+            <p style="margin:0 0 10px;font-size:12px;font-weight:700;color:#94a3b8;letter-spacing:2px;text-transform:uppercase;">Como funciona</p>
+            <ul style="margin:0;padding-left:20px;font-size:13px;color:#475569;line-height:2;">
+              <li>Clique no botão abaixo</li>
+              <li>Desenhe sua assinatura com o mouse ou dedo</li>
+              <li>Clique em <strong>"Salvar assinatura"</strong></li>
+            </ul>
+          </div>
+
+          <!-- CTA Button -->
+          <div style="text-align:center;margin-bottom:28px;">
+            <a href="${signUrl}" style="display:inline-block;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:16px 40px;border-radius:12px;letter-spacing:0.3px;">
+              ✍️ &nbsp;Cadastrar minha assinatura
+            </a>
+          </div>
+
+          <!-- Expiry warning -->
+          <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:14px 18px;text-align:center;">
+            <p style="margin:0;font-size:12px;color:#92400e;">
+              ⏳ &nbsp;Este link expira em <strong>24 horas</strong>. Caso expire, peça ao RH que envie um novo link.
+            </p>
+          </div>
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 40px;text-align:center;">
+          <p style="margin:0;color:#94a3b8;font-size:12px;">© 2025 Rema Tip Top · Gestão de Talentos</p>
+          <p style="margin:4px 0 0;color:#cbd5e1;font-size:11px;">Se você não reconhece este e-mail, ignore-o com segurança.</p>
+          ${siteUrl ? `<p style="margin:8px 0 0;"><a href="${siteUrl}" style="color:#93c5fd;font-size:11px;text-decoration:none;">${siteUrl.replace(/^https?:\/\//, '')}</a></p>` : ''}
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+
+  return sendMail({ to: email, subject: '✍️ Cadastre sua assinatura digital — RTT Shop', html })
+}
+
+module.exports = { sendInviteEmail, sendResetEmail, sendLocationReport, sendSignatureRequestEmail }

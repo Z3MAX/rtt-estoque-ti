@@ -23,11 +23,13 @@ exports.handler = async (event) => {
       const resumo = await sql`
         SELECT
           c.instrutor,
+          MIN(ci.user_id)                             AS user_id,
           COUNT(DISTINCT c.id)                        AS total_cursos,
           SUM(COALESCE(ca_count.total, 0))            AS total_alunos,
           ROUND(AVG(COALESCE(prog.pct_medio, 0)), 1)  AS pct_conclusao_medio,
           COUNT(DISTINCT c.id) FILTER (WHERE c.obrigatorio) AS cursos_obrigatorios
         FROM cursos c
+        LEFT JOIN curso_instrutores ci ON ci.curso_id = c.id
         LEFT JOIN (
           SELECT curso_id, COUNT(DISTINCT colaborador_id) AS total
           FROM curso_atribuicao GROUP BY curso_id
