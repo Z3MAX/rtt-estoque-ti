@@ -705,8 +705,14 @@ export default function ColaboradorPerfil() {
     <div className="p-6 space-y-6 animate-fade-in">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2">
-        <button onClick={() => navigate('/colaboradores')} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">
-          <ArrowLeft size={15} /> Colaboradores
+        <button
+          onClick={() => colab.area
+            ? navigate(`/departamentos/${encodeURIComponent(colab.area)}`)
+            : navigate('/colaboradores')
+          }
+          className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+        >
+          <ArrowLeft size={15} /> {colab.area || 'Colaboradores'}
         </button>
         <span className="text-slate-300 dark:text-slate-600">/</span>
         <span className="text-sm text-slate-700 dark:text-slate-300 font-medium">{colab.nome}</span>
