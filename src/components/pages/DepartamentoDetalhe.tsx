@@ -70,12 +70,15 @@ function MatrizNineBox({
   onClose: () => void
   onNavigate: (id: number) => void
 }) {
-  // Agrupa colaboradores por quadrante
+  // Agrupa colaboradores por quadrante, ordenados por desempenho decrescente
   const byQuadrante = new Map<string, Colaborador[]>()
   for (const c of colabs) {
     if (!c.ultimo_quadrante) continue
     if (!byQuadrante.has(c.ultimo_quadrante)) byQuadrante.set(c.ultimo_quadrante, [])
     byQuadrante.get(c.ultimo_quadrante)!.push(c)
+  }
+  for (const [key, list] of byQuadrante) {
+    byQuadrante.set(key, [...list].sort((a, b) => (b.score_desempenho ?? 0) - (a.score_desempenho ?? 0)))
   }
   const semAvaliacao = colabs.filter(c => !c.ultimo_quadrante)
   const totalAvaliados = colabs.length - semAvaliacao.length
@@ -165,6 +168,11 @@ function MatrizNineBox({
                             {c.nome.split(' ')[0]}
                             {c.nome.split(' ').length > 1 ? ` ${c.nome.split(' ').slice(-1)[0]}` : ''}
                           </span>
+                          {c.score_desempenho != null && (
+                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 shrink-0 tabular-nums">
+                              {c.score_desempenho.toFixed(1)}
+                            </span>
+                          )}
                         </button>
                       ))}
                     </div>
