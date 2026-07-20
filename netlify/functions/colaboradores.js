@@ -42,7 +42,13 @@ exports.handler = async (event) => {
              ORDER BY ca2.created_at DESC LIMIT 1) AS ultimo_quadrante,
             (SELECT ca3.created_at FROM ciclos_avaliacao ca3
              WHERE ca3.colaborador_id = c.id AND ca3.status = 'concluido'
-             ORDER BY ca3.created_at DESC LIMIT 1) AS ultima_avaliacao
+             ORDER BY ca3.created_at DESC LIMIT 1) AS ultima_avaliacao,
+            (SELECT ca4.score_desempenho FROM ciclos_avaliacao ca4
+             WHERE ca4.colaborador_id = c.id AND ca4.status = 'concluido'
+             ORDER BY ca4.created_at DESC LIMIT 1) AS score_desempenho,
+            (SELECT ca5.score_potencial FROM ciclos_avaliacao ca5
+             WHERE ca5.colaborador_id = c.id AND ca5.status = 'concluido'
+             ORDER BY ca5.created_at DESC LIMIT 1) AS score_potencial
           FROM colaboradores c
           WHERE c.id = ${id}
             AND (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
@@ -63,7 +69,13 @@ exports.handler = async (event) => {
              ORDER BY ca2.created_at DESC LIMIT 1) AS ultimo_quadrante,
             (SELECT ca3.created_at FROM ciclos_avaliacao ca3
              WHERE ca3.colaborador_id = c.id AND ca3.status = 'concluido'
-             ORDER BY ca3.created_at DESC LIMIT 1) AS ultima_avaliacao
+             ORDER BY ca3.created_at DESC LIMIT 1) AS ultima_avaliacao,
+            (SELECT ca4.score_desempenho FROM ciclos_avaliacao ca4
+             WHERE ca4.colaborador_id = c.id AND ca4.status = 'concluido'
+             ORDER BY ca4.created_at DESC LIMIT 1) AS score_desempenho,
+            (SELECT ca5.score_potencial FROM ciclos_avaliacao ca5
+             WHERE ca5.colaborador_id = c.id AND ca5.status = 'concluido'
+             ORDER BY ca5.created_at DESC LIMIT 1) AS score_potencial
           FROM colaboradores c
           WHERE c.ativo = true
             AND (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
@@ -85,7 +97,13 @@ exports.handler = async (event) => {
              ORDER BY ca2.created_at DESC LIMIT 1) AS ultimo_quadrante,
             (SELECT ca3.created_at FROM ciclos_avaliacao ca3
              WHERE ca3.colaborador_id = c.id AND ca3.status = 'concluido'
-             ORDER BY ca3.created_at DESC LIMIT 1) AS ultima_avaliacao
+             ORDER BY ca3.created_at DESC LIMIT 1) AS ultima_avaliacao,
+            (SELECT ca4.score_desempenho FROM ciclos_avaliacao ca4
+             WHERE ca4.colaborador_id = c.id AND ca4.status = 'concluido'
+             ORDER BY ca4.created_at DESC LIMIT 1) AS score_desempenho,
+            (SELECT ca5.score_potencial FROM ciclos_avaliacao ca5
+             WHERE ca5.colaborador_id = c.id AND ca5.status = 'concluido'
+             ORDER BY ca5.created_at DESC LIMIT 1) AS score_potencial
           FROM colaboradores c
           WHERE c.ativo = true
             AND (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))

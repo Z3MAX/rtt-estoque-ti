@@ -40,6 +40,8 @@ export interface Colaborador {
   total_avaliacoes?: number
   ultimo_quadrante?: string
   ultima_avaliacao?: string
+  score_desempenho?: number
+  score_potencial?: number
 }
 
 export type TipoAvaliacao = 'autoavaliacao' | 'lideranca'
