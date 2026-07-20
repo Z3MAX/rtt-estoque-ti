@@ -78,7 +78,7 @@ function MatrizNineBox({
     byQuadrante.get(c.ultimo_quadrante)!.push(c)
   }
   for (const [key, list] of byQuadrante) {
-    byQuadrante.set(key, [...list].sort((a, b) => (b.score_desempenho ?? 0) - (a.score_desempenho ?? 0)))
+    byQuadrante.set(key, [...list].sort((a, b) => (Number(b.score_desempenho) || 0) - (Number(a.score_desempenho) || 0)))
   }
   const semAvaliacao = colabs.filter(c => !c.ultimo_quadrante)
   const totalAvaliados = colabs.length - semAvaliacao.length
@@ -170,7 +170,7 @@ function MatrizNineBox({
                           </span>
                           {c.score_desempenho != null && (
                             <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 shrink-0 tabular-nums">
-                              {c.score_desempenho.toFixed(1)}
+                              {Number(c.score_desempenho).toFixed(1)}
                             </span>
                           )}
                         </button>
