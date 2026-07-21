@@ -612,7 +612,7 @@ export default function NovaAvaliacao() {
 
   const nivel = (nivelSelecionado || colab.nivel) as NivelCargo | undefined
   const temLideranca = nivel ? NIVEIS_LIDERANCA.includes(nivel) : false
-  const compDesempenho = temLideranca ? COMP_DESEMPENHO.slice(0, 4) : COMP_DESEMPENHO
+  const compDesempenho = COMP_DESEMPENHO
   const compLideranca  = temLideranca ? COMP_LIDERANCA : []
   const todasComps     = [...compDesempenho, ...COMP_POTENCIAL, ...compLideranca]
   const totalPerguntas = todasComps.length

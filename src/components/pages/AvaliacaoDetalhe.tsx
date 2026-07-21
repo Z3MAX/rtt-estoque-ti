@@ -214,8 +214,7 @@ function CalibracaoModal({ avaliacao, onClose, onConcluido }: {
   const respostasOriginais = (avaliacao.respostas as unknown as Record<string, { nota?: number; rating?: number; observacao?: string; observation?: string }>) || {}
   const getOrigRating = (id: string) => respostasOriginais[id]?.nota ?? respostasOriginais[id]?.rating ?? 0
   const temLideranca = COMP_LIDERANCA.some(c => getOrigRating(c.id) > 0)
-  // Se tem liderança, desempenho foi avaliado com 4 comps (sem "Evolução no período")
-  const compDesempenho = temLideranca ? COMP_DESEMPENHO.slice(0, 4) : COMP_DESEMPENHO
+  const compDesempenho = COMP_DESEMPENHO
   const compLideranca = temLideranca ? COMP_LIDERANCA : []
   const todasComps = [...compDesempenho, ...COMP_POTENCIAL, ...compLideranca]
 
