@@ -695,34 +695,24 @@ function ModuloEditorCard({ m, idx, total, onChange, onDelete, onMove }: {
           {/* Tipo-specific */}
           {(m.tipo === 'video') && (
             <div className="space-y-2">
-              <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">URL do vídeo</label>
-              <div className="flex gap-2">
-                <input
-                  value={m.url ?? ''}
-                  onChange={e => set('url', e.target.value)}
-                  placeholder="Cole URL do YouTube, Vimeo ou Panda Video"
-                  className={inputCls + ' flex-1'}
-                  disabled={uploading}
-                />
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="video/mp4,video/webm,video/*"
-                  className="hidden"
-                  onChange={handlePandaUpload}
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  title="Fazer upload de vídeo MP4 para o Panda Video"
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-violet-600 hover:bg-violet-700 text-white transition-colors disabled:opacity-60 shrink-0 whitespace-nowrap"
-                >
-                  {uploading
-                    ? <><RefreshCw size={11} className="animate-spin" />{uploadProgress}%</>
-                    : <><Upload size={11} />Upload MP4</>}
-                </button>
-              </div>
+              <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Vídeo</label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="video/mp4,video/webm,video/*"
+                className="hidden"
+                onChange={handlePandaUpload}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-violet-600 hover:bg-violet-700 text-white transition-colors disabled:opacity-60"
+              >
+                {uploading
+                  ? <><RefreshCw size={12} className="animate-spin" />Enviando… {uploadProgress}%</>
+                  : <><Upload size={12} />Upload do Vídeo</>}
+              </button>
               {uploading && (
                 <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
                   <div
@@ -731,12 +721,16 @@ function ModuloEditorCard({ m, idx, total, onChange, onDelete, onMove }: {
                   />
                 </div>
               )}
+              {!uploading && m.url && (
+                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 size={10} />Vídeo carregado
+                </p>
+              )}
               {uploadError && (
                 <p className="text-[10px] text-red-500 flex items-center gap-1">
                   <AlertTriangle size={10} />{uploadError}
                 </p>
               )}
-              <p className="text-[10px] text-slate-400">Cole uma URL ou envie um MP4 diretamente para o Panda Video</p>
             </div>
           )}
 
