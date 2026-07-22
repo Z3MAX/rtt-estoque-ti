@@ -35,7 +35,7 @@ exports.handler = async (event) => {
     const pandaRes = await fetch('https://api.pandavideo.com.br/videos', {
       method: 'POST',
       headers: {
-        'Authorization': process.env.PANDAVIDEO_API_KEY,
+        'Authorization': `Bearer ${process.env.PANDAVIDEO_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(pandaBody),
