@@ -1,8 +1,9 @@
 const { requireAuth, isAdminRole, makeHeaders } = require('./_auth')
+const crypto = require('crypto')
 
 // Env vars needed in Netlify dashboard:
 //   PANDAVIDEO_API_KEY       — chave de API do Panda Video
-//   PANDAVIDEO_FOLDER_ID     — ID da pasta "Treinamentos" (opcional)
+//   PANDAVIDEO_FOLDER_ID     — ID da pasta (opcional)
 //   PANDAVIDEO_PLAYER_DOMAIN — domínio do player (ex: player-vz-XXXX.tv.pandavideo.com.br)
 
 exports.handler = async (event) => {
@@ -16,44 +17,52 @@ exports.handler = async (event) => {
   try {
     const auth = requireAuth(event)
 
-    // Apenas instrutores e admins podem fazer upload
     const adminRoles = ['Administrador de RH', 'Administrador de TI', 'Administrador Master', 'Administrador de RH / Gestor']
     const isInst = Array.isArray(auth.roles) && auth.roles.includes('instrutor')
     if (!adminRoles.includes(auth.role) && !isInst) {
       return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão para fazer upload' }) }
     }
 
-    const { title } = JSON.parse(event.body || '{}')
+    const { title, fileSize } = JSON.parse(event.body || '{}')
     if (!title || !title.trim()) return { statusCode: 400, headers, body: JSON.stringify({ error: 'title é obrigatório' }) }
+    if (!fileSize || typeof fileSize !== 'number') return { statusCode: 400, headers, body: JSON.stringify({ error: 'fileSize é obrigatório' }) }
 
-    // Cria o vídeo no Panda Video e obtém a URL de upload
-    const pandaBody = {
-      title: title.trim(),
-      ...(process.env.PANDAVIDEO_FOLDER_ID ? { folder_id: process.env.PANDAVIDEO_FOLDER_ID } : {}),
+    // O video_id é gerado pelo cliente no protocolo Tus do Panda Video
+    const videoId = crypto.randomUUID()
+
+    // Upload-Metadata: pares chave/valor com todos os valores em Base64
+    const b64 = (str) => Buffer.from(String(str)).toString('base64')
+    const metaParts = [
+      `authorization ${b64(process.env.PANDAVIDEO_API_KEY)}`,
+      `filename ${b64(title.trim())}`,
+      `video_id ${b64(videoId)}`,
+      `filetype ${b64('video')}`,
+    ]
+    if (process.env.PANDAVIDEO_FOLDER_ID) {
+      metaParts.push(`folder_id ${b64(process.env.PANDAVIDEO_FOLDER_ID)}`)
     }
 
-    const pandaRes = await fetch('https://api.pandavideo.com.br/videos', {
+    // POST Tus: cria o recurso de upload e obtém a URL de destino (Location header)
+    const uploaderRes = await fetch('https://uploader-us01.pandavideo.com.br/files/', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.PANDAVIDEO_API_KEY}`,
-        'Content-Type': 'application/json',
+        'Tus-Resumable': '1.0.0',
+        'Upload-Length': String(fileSize),
+        'Upload-Metadata': metaParts.join(','),
+        'Content-Length': '0',
       },
-      body: JSON.stringify(pandaBody),
     })
 
-    if (!pandaRes.ok) {
-      const errText = await pandaRes.text()
-      console.error('Panda Video API error:', pandaRes.status, errText)
-      return { statusCode: 502, headers, body: JSON.stringify({ error: `Panda Video HTTP ${pandaRes.status}`, detail: errText || '(sem corpo)' }) }
+    if (!uploaderRes.ok) {
+      const errText = await uploaderRes.text()
+      console.error('Panda Video uploader error:', uploaderRes.status, errText)
+      return { statusCode: 502, headers, body: JSON.stringify({ error: `Panda Video HTTP ${uploaderRes.status}`, detail: errText || '(sem corpo)' }) }
     }
 
-    const data = await pandaRes.json()
-    const videoId = data.id
-    const uploadUrl = data.upload_url
-
-    if (!videoId || !uploadUrl) {
-      console.error('Resposta inesperada da API Panda Video:', data)
-      return { statusCode: 502, headers, body: JSON.stringify({ error: 'Resposta inesperada da API Panda Video' }) }
+    const uploadUrl = uploaderRes.headers.get('location')
+    if (!uploadUrl) {
+      console.error('Panda Video: sem Location header. Status:', uploaderRes.status, 'Headers:', Object.fromEntries(uploaderRes.headers))
+      return { statusCode: 502, headers, body: JSON.stringify({ error: 'Panda Video não retornou URL de upload' }) }
     }
 
     const playerDomain = process.env.PANDAVIDEO_PLAYER_DOMAIN
