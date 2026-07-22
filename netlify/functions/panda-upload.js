@@ -44,7 +44,7 @@ exports.handler = async (event) => {
     if (!pandaRes.ok) {
       const errText = await pandaRes.text()
       console.error('Panda Video API error:', pandaRes.status, errText)
-      return { statusCode: 502, headers, body: JSON.stringify({ error: 'Erro ao criar vídeo no Panda Video', detail: errText }) }
+      return { statusCode: 502, headers, body: JSON.stringify({ error: `Panda Video HTTP ${pandaRes.status}`, detail: errText || '(sem corpo)' }) }
     }
 
     const data = await pandaRes.json()
