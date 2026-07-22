@@ -69,27 +69,9 @@ exports.handler = async (event) => {
 
       const novosRequisitos = requisitos ?? []
 
-      // 1. Remove inscrições automáticas de colaboradores que não batem mais com NENHUM dos novos requisitos
-      const autoInscritos = await sql`
-        SELECT ca.colaborador_id, col.cargo, col.area
-        FROM curso_atribuicao ca
-        JOIN colaboradores col ON col.id = ca.colaborador_id
-        WHERE ca.curso_id = ${curso_id} AND ca.auto_inscrito = true
-      `
-
-      for (const { colaborador_id, cargo, area } of autoInscritos) {
-        const aindaBate = novosRequisitos.some(r => {
-          const cargoBate = !r.cargo || r.cargo === cargo
-          const areaBate  = !r.area  || r.area  === area
-          return cargoBate && areaBate
-        })
-        if (!aindaBate) {
-          await sql`
-            DELETE FROM curso_atribuicao
-            WHERE colaborador_id = ${colaborador_id} AND curso_id = ${curso_id} AND auto_inscrito = true
-          `
-        }
-      }
+      // 1. Remove todas as inscrições automáticas — serão recriadas abaixo
+      //    Inscrições manuais (auto_inscrito = false) são preservadas
+      await sql`DELETE FROM curso_atribuicao WHERE curso_id = ${curso_id} AND auto_inscrito = true`
 
       // 2. Substitui os requisitos
       await sql`DELETE FROM curso_requisitos WHERE curso_id = ${curso_id}`
@@ -101,31 +83,22 @@ exports.handler = async (event) => {
         `
       }
 
-      // 3. Auto-inscreve colaboradores que batem com os novos requisitos
+      // 3. Auto-inscreve via bulk INSERT...SELECT (uma query por requisito, sem loop por colaborador)
       let inscritos = 0
       for (const r of novosRequisitos) {
         const cargo = r.cargo || null
         const area  = r.area  || null
-
-        let colaboradores
-        if (cargo && area) {
-          colaboradores = await sql`SELECT id FROM colaboradores WHERE cargo = ${cargo} AND area = ${area}`
-        } else if (cargo) {
-          colaboradores = await sql`SELECT id FROM colaboradores WHERE cargo = ${cargo}`
-        } else if (area) {
-          colaboradores = await sql`SELECT id FROM colaboradores WHERE area = ${area}`
-        } else {
-          colaboradores = await sql`SELECT id FROM colaboradores`
-        }
-
-        for (const { id: colaborador_id } of colaboradores) {
-          await sql`
-            INSERT INTO curso_atribuicao (colaborador_id, curso_id, auto_inscrito)
-            VALUES (${colaborador_id}, ${curso_id}, true)
-            ON CONFLICT (colaborador_id, curso_id) DO NOTHING
-          `
-          inscritos++
-        }
+        const rows = await sql`
+          INSERT INTO curso_atribuicao (colaborador_id, curso_id, auto_inscrito)
+          SELECT id, ${curso_id}, true
+          FROM colaboradores
+          WHERE ativo = true
+            AND (${cargo}::text IS NULL OR cargo = ${cargo})
+            AND (${area}::text IS NULL OR area = ${area})
+          ON CONFLICT (colaborador_id, curso_id) DO NOTHING
+          RETURNING colaborador_id
+        `
+        inscritos += rows.length
       }
 
       return { statusCode: 200, headers, body: JSON.stringify({ success: true, auto_inscritos: inscritos }) }
