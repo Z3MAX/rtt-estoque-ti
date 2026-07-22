@@ -1,5 +1,4 @@
 const { requireAuth, isAdminRole, makeHeaders } = require('./_auth')
-const crypto = require('crypto')
 
 // Env vars needed in Netlify dashboard:
 //   PANDAVIDEO_API_KEY       — chave de API do Panda Video
@@ -25,45 +24,36 @@ exports.handler = async (event) => {
 
     const { title, fileSize } = JSON.parse(event.body || '{}')
     if (!title || !title.trim()) return { statusCode: 400, headers, body: JSON.stringify({ error: 'title é obrigatório' }) }
-    if (!fileSize || typeof fileSize !== 'number') return { statusCode: 400, headers, body: JSON.stringify({ error: 'fileSize é obrigatório' }) }
 
-    // video_id é gerado pelo cliente (UUID v4) conforme protocolo Tus do Panda Video
-    // O "atc-XXXXX" do Location header é apenas o ID da sessão de upload, não o video ID
-    const videoId = crypto.randomUUID()
+    // Passo 1: criar o vídeo via REST API — retorna o ID real e a URL de upload
+    const pandaBody = { title: title.trim() }
+    if (process.env.PANDAVIDEO_FOLDER_ID) pandaBody.folder_id = process.env.PANDAVIDEO_FOLDER_ID
 
-    // Upload-Metadata: pares chave/valor com todos os valores em Base64
-    const b64 = (str) => Buffer.from(String(str)).toString('base64')
-    const metaParts = [
-      `authorization ${b64(process.env.PANDAVIDEO_API_KEY)}`,
-      `filename ${b64(title.trim())}`,
-      `video_id ${b64(videoId)}`,
-      `filetype ${b64('video')}`,
-    ]
-    if (process.env.PANDAVIDEO_FOLDER_ID) {
-      metaParts.push(`folder_id ${b64(process.env.PANDAVIDEO_FOLDER_ID)}`)
-    }
-
-    // POST Tus: cria o recurso de upload e obtém a URL de destino (Location header)
-    const uploaderRes = await fetch('https://uploader-us01.pandavideo.com.br/files/', {
+    const pandaRes = await fetch('https://api.pandavideo.com.br/videos', {
       method: 'POST',
       headers: {
-        'Tus-Resumable': '1.0.0',
-        'Upload-Length': String(fileSize),
-        'Upload-Metadata': metaParts.join(','),
-        'Content-Length': '0',
+        'Authorization': process.env.PANDAVIDEO_API_KEY,
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify(pandaBody),
     })
 
-    if (!uploaderRes.ok) {
-      const errText = await uploaderRes.text()
-      console.error('Panda Video uploader error:', uploaderRes.status, errText)
-      return { statusCode: 502, headers, body: JSON.stringify({ error: `Panda Video HTTP ${uploaderRes.status}`, detail: errText || '(sem corpo)' }) }
+    if (!pandaRes.ok) {
+      const errText = await pandaRes.text()
+      console.error('Panda Video REST API error:', pandaRes.status, errText)
+      return { statusCode: 502, headers, body: JSON.stringify({ error: `Panda Video HTTP ${pandaRes.status}`, detail: errText || '(sem corpo)' }) }
     }
 
-    const uploadUrl = uploaderRes.headers.get('location')
-    if (!uploadUrl) {
-      console.error('Panda Video: sem Location header. Status:', uploaderRes.status)
-      return { statusCode: 502, headers, body: JSON.stringify({ error: 'Panda Video não retornou URL de upload' }) }
+    const data = await pandaRes.json()
+    console.log('Panda Video create response:', JSON.stringify(data))
+
+    // A API retorna o ID real do vídeo e a upload_url
+    const videoId = data.id || data.video_id
+    const uploadUrl = data.upload_url
+
+    if (!videoId || !uploadUrl) {
+      console.error('Resposta inesperada da API Panda Video:', JSON.stringify(data))
+      return { statusCode: 502, headers, body: JSON.stringify({ error: 'Resposta inesperada da API', detail: JSON.stringify(data) }) }
     }
 
     const playerDomain = process.env.PANDAVIDEO_PLAYER_DOMAIN

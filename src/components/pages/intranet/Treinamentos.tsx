@@ -548,7 +548,7 @@ function ModuloEditorCard({ m, idx, total, onChange, onDelete, onMove }: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ title: m.titulo || file.name.replace(/\.[^.]+$/, ''), fileSize: file.size }),
+        body: JSON.stringify({ title: m.titulo || file.name.replace(/\.[^.]+$/, '') }),
       })
       if (!initRes.ok) {
         const err = await initRes.json().catch(() => ({ error: 'Erro ao iniciar upload' }))
@@ -557,13 +557,11 @@ function ModuloEditorCard({ m, idx, total, onChange, onDelete, onMove }: {
       }
       const { upload_url, embed_url } = await initRes.json()
 
-      // Upload via protocolo Tus (PATCH) direto para o Panda Video
+      // Upload direto para a URL retornada pelo Panda Video
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest()
-        xhr.open('PATCH', upload_url)
-        xhr.setRequestHeader('Tus-Resumable', '1.0.0')
-        xhr.setRequestHeader('Upload-Offset', '0')
-        xhr.setRequestHeader('Content-Type', 'application/offset+octet-stream')
+        xhr.open('PUT', upload_url)
+        xhr.setRequestHeader('Content-Type', file.type || 'video/mp4')
         xhr.upload.onprogress = (ev) => {
           if (ev.lengthComputable) setUploadProgress(Math.round((ev.loaded / ev.total) * 100))
         }
