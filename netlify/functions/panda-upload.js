@@ -1,5 +1,4 @@
 const { requireAuth, isAdminRole, makeHeaders } = require('./_auth')
-const crypto = require('crypto')
 
 // Env vars needed in Netlify dashboard:
 //   PANDAVIDEO_API_KEY       — chave de API do Panda Video
@@ -27,15 +26,11 @@ exports.handler = async (event) => {
     if (!title || !title.trim()) return { statusCode: 400, headers, body: JSON.stringify({ error: 'title é obrigatório' }) }
     if (!fileSize || typeof fileSize !== 'number') return { statusCode: 400, headers, body: JSON.stringify({ error: 'fileSize é obrigatório' }) }
 
-    // O video_id é gerado pelo cliente no protocolo Tus do Panda Video
-    const videoId = crypto.randomUUID()
-
     // Upload-Metadata: pares chave/valor com todos os valores em Base64
     const b64 = (str) => Buffer.from(String(str)).toString('base64')
     const metaParts = [
       `authorization ${b64(process.env.PANDAVIDEO_API_KEY)}`,
       `filename ${b64(title.trim())}`,
-      `video_id ${b64(videoId)}`,
       `filetype ${b64('video')}`,
     ]
     if (process.env.PANDAVIDEO_FOLDER_ID) {
@@ -64,6 +59,10 @@ exports.handler = async (event) => {
       console.error('Panda Video: sem Location header. Status:', uploaderRes.status, 'Headers:', Object.fromEntries(uploaderRes.headers))
       return { statusCode: 502, headers, body: JSON.stringify({ error: 'Panda Video não retornou URL de upload' }) }
     }
+
+    // O Panda Video atribui o próprio ID ao vídeo — extraímos do Location header
+    // Ex: https://uploader-us01.pandavideo.com.br/files/atc-17847404368808
+    const videoId = uploadUrl.split('/').pop()
 
     const playerDomain = process.env.PANDAVIDEO_PLAYER_DOMAIN
       .replace(/^https?:\/\//, '')
