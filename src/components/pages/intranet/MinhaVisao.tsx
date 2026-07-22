@@ -63,7 +63,7 @@ interface Aniversariante {
 
 const PORTAIS = [
   { nome: 'Zeev',              desc: 'Chamados e fluxos das áreas',     logo: '/portais/zeev.png',      from: 'from-purple-600', to: 'to-purple-800', url: 'https://rttshop.zeev.it/' },
-  { nome: 'E-mail',            desc: 'E-mail corporativo',              logo: '/portais/gmail.png',     from: 'from-red-500',    to: 'to-rose-700',   url: 'https://mail.google.com' },
+  { nome: 'Protheus',          desc: 'Sistema ERP',                     logo: '/portais/protheus.svg',  from: 'from-blue-700',   to: 'to-blue-900',   url: 'http://balancer-rema.jelastic.saveincloud.net:13193/webapp/#' },
   { nome: 'Ponto Eletrônico',  desc: 'Registro de ponto e jornada',     logo: '/portais/ponto.svg',     from: 'from-emerald-500',to: 'to-teal-700',   url: '#' },
   { nome: 'Drive',             desc: 'Documentos e arquivos',           logo: '/portais/drive.png',     from: 'from-amber-500',  to: 'to-orange-600', url: 'https://drive.google.com' },
   { nome: 'WhatsApp',          desc: 'Atendimento ao cliente',          logo: '/portais/whatsapp.png',  from: 'from-green-500',  to: 'to-green-700',  url: 'https://web.whatsapp.com' },

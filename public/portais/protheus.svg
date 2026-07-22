@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 36" fill="none">
+  <!-- TOTVS wordmark style -->
+  <rect width="120" height="36" rx="4" fill="white"/>
+  <!-- Blue bar accent -->
+  <rect x="0" y="0" width="6" height="36" rx="2" fill="#1d4ed8"/>
+  <!-- "TOTVS" text -->
+  <text x="14" y="14" font-family="Arial,sans-serif" font-weight="700" font-size="9" fill="#1d4ed8" letter-spacing="1">TOTVS</text>
+  <!-- "Protheus" text -->
+  <text x="14" y="27" font-family="Arial,sans-serif" font-weight="800" font-size="11" fill="#1e3a8a" letter-spacing="0.5">Protheus</text>
+</svg>
