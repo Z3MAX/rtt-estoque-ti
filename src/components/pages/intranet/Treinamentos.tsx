@@ -7,7 +7,7 @@ import {
   AlertTriangle, Eye, Link, Edit2, Save, ExternalLink, RefreshCw,
   Plus, Trash2, Pencil, Send, Download, GraduationCap, Target,
   FileSpreadsheet, UserCheck, Briefcase, ArrowLeft, BookMarked, UserPlus,
-  Globe, FilePen, Archive, Upload,
+  Globe, FilePen, Archive,
 } from 'lucide-react'
 import { useAuth, isAdmin, isGestor, isInstrutor } from '../../../lib/auth'
 import { api } from '../../../lib/api'
@@ -522,81 +522,9 @@ function ModuloEditorCard({ m, idx, total, onChange, onDelete, onMove }: {
   onMove: (dir: -1 | 1) => void
 }) {
   const [expanded, setExpanded] = useState(true)
-  const [uploading, setUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [uploadError, setUploadError] = useState('')
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   function set(field: keyof ModuloEdit, value: any) {
     onChange({ ...m, [field]: value })
-  }
-
-  async function handlePandaUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (fileInputRef.current) fileInputRef.current.value = ''
-
-    setUploading(true)
-    setUploadProgress(0)
-    setUploadError('')
-
-    try {
-      const token = localStorage.getItem('osiris_token')
-      const initRes = await fetch('/.netlify/functions/panda-upload', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ title: m.titulo || file.name.replace(/\.[^.]+$/, ''), fileSize: file.size }),
-      })
-      if (!initRes.ok) {
-        const err = await initRes.json().catch(() => ({ error: 'Erro ao iniciar upload' }))
-        const msg = [err.error, err.detail].filter(Boolean).join(' — ')
-        throw new Error(msg || 'Erro ao iniciar upload')
-      }
-      const { upload_url } = await initRes.json()
-
-      // Upload via Tus PATCH direto para o Panda Video
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest()
-        xhr.open('PATCH', upload_url)
-        xhr.setRequestHeader('Tus-Resumable', '1.0.0')
-        xhr.setRequestHeader('Upload-Offset', '0')
-        xhr.setRequestHeader('Content-Type', 'application/offset+octet-stream')
-        xhr.upload.onprogress = (ev) => {
-          if (ev.lengthComputable) setUploadProgress(Math.round((ev.loaded / ev.total) * 100))
-        }
-        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Upload falhou: ${xhr.status}`)))
-        xhr.onerror = () => reject(new Error('Erro de rede durante upload'))
-        xhr.send(file)
-      })
-
-      setUploadProgress(100)
-
-      // Após upload, busca o ID real atribuído pelo Panda Video (com até 4 tentativas)
-      const videoTitle = m.titulo || file.name.replace(/\.[^.]+$/, '')
-      const token = localStorage.getItem('osiris_token')
-      let embedUrl: string | null = null
-      for (let attempt = 0; attempt < 4; attempt++) {
-        await new Promise(r => setTimeout(r, attempt === 0 ? 3000 : 2000))
-        const lookupRes = await fetch(
-          `/.netlify/functions/panda-video-lookup?title=${encodeURIComponent(videoTitle)}`,
-          { headers: token ? { Authorization: `Bearer ${token}` } : {} }
-        )
-        if (lookupRes.ok) {
-          const { embed_url } = await lookupRes.json()
-          embedUrl = embed_url
-          break
-        }
-      }
-      if (!embedUrl) throw new Error('Vídeo enviado, mas não foi possível obter o link. Tente salvar e reabrir o editor.')
-      set('url', embedUrl)
-    } catch (err: any) {
-      setUploadError(err.message || 'Erro no upload')
-    } finally {
-      setUploading(false)
-    }
   }
 
   function setTipo(tipo: TipoModulo) {
@@ -715,43 +643,9 @@ function ModuloEditorCard({ m, idx, total, onChange, onDelete, onMove }: {
 
           {/* Tipo-specific */}
           {(m.tipo === 'video') && (
-            <div className="space-y-2">
-              <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Vídeo</label>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="video/mp4,video/webm,video/*"
-                className="hidden"
-                onChange={handlePandaUpload}
-              />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-violet-600 hover:bg-violet-700 text-white transition-colors disabled:opacity-60"
-              >
-                {uploading
-                  ? <><RefreshCw size={12} className="animate-spin" />Enviando… {uploadProgress}%</>
-                  : <><Upload size={12} />Upload do Vídeo</>}
-              </button>
-              {uploading && (
-                <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
-                  <div
-                    className="bg-violet-500 h-1.5 rounded-full transition-all duration-300"
-                    style={{ width: `${uploadProgress}%` }}
-                  />
-                </div>
-              )}
-              {!uploading && m.url && (
-                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                  <CheckCircle2 size={10} />Vídeo carregado
-                </p>
-              )}
-              {uploadError && (
-                <p className="text-[10px] text-red-500 flex items-center gap-1">
-                  <AlertTriangle size={10} />{uploadError}
-                </p>
-              )}
+            <div className="space-y-1">
+              <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">URL do Vídeo (Panda Video)</label>
+              <input value={m.url ?? ''} onChange={e => set('url', e.target.value)} placeholder="https://player-vz-….tv.pandavideo.com.br/embed/?v=…" className={inputCls} />
             </div>
           )}
 
