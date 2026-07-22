@@ -7,20 +7,25 @@ import {
   AlertTriangle, Eye, Link, Edit2, Save, ExternalLink, RefreshCw,
   Plus, Trash2, Pencil, Send, Download, GraduationCap, Target,
   FileSpreadsheet, UserCheck, Briefcase, ArrowLeft, BookMarked, UserPlus,
-  Globe, FilePen, Archive,
+  Globe, FilePen, Archive, Upload,
 } from 'lucide-react'
 import { useAuth, isAdmin, isGestor, isInstrutor } from '../../../lib/auth'
 import { api } from '../../../lib/api'
 
 // ─── Video helpers ────────────────────────────────────────────────────────────
 
-function parseVideoUrl(url: string, startSec = 0): { type: 'youtube' | 'vimeo' | 'direct' | null; embedUrl: string | null } {
+function parseVideoUrl(url: string, startSec = 0): { type: 'youtube' | 'vimeo' | 'panda' | 'direct' | null; embedUrl: string | null } {
   if (!url) return { type: null, embedUrl: null }
   const start = Math.floor(startSec)
   const yt = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
   if (yt) return { type: 'youtube', embedUrl: `https://www.youtube.com/embed/${yt[1]}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1${start > 0 ? `&start=${start}` : ''}` }
   const vi = url.match(/vimeo\.com\/(\d+)/)
   if (vi) return { type: 'vimeo', embedUrl: `https://player.vimeo.com/video/${vi[1]}?autoplay=1&api=1${start > 0 ? `#t=${start}s` : ''}` }
+  if (/pandavideo\.com\.br/.test(url)) {
+    if (url.includes('/embed/?v=')) return { type: 'panda', embedUrl: start > 0 ? `${url}&t=${start}` : url }
+    const idMatch = url.match(/\/v\/([a-zA-Z0-9_-]+)/)
+    if (idMatch) return { type: 'panda', embedUrl: `https://player.pandavideo.com.br/embed/?v=${idMatch[1]}${start > 0 ? `&t=${start}` : ''}` }
+  }
   if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(url)) return { type: 'direct', embedUrl: url }
   return { type: null, embedUrl: null }
 }
@@ -87,9 +92,9 @@ function VideoPlayer({
     return () => clearInterval(interval)
   }, [isPlaying, concluido, onMarcarConcluido])
 
-  // postMessage handler for YouTube & Vimeo
+  // postMessage handler for YouTube, Vimeo & Panda Video
   useEffect(() => {
-    if (type !== 'youtube' && type !== 'vimeo') return
+    if (type !== 'youtube' && type !== 'vimeo' && type !== 'panda') return
 
     function handle(e: MessageEvent) {
       try {
@@ -119,6 +124,15 @@ function VideoPlayer({
           }
           if (d.event === 'play') setIsPlaying(true)
           if (d.event === 'pause' || d.event === 'finish') setIsPlaying(false)
+        }
+
+        if (type === 'panda') {
+          if (d.message === 'panda_timeupdate' && d.duration && durationRef.current === 0) {
+            durationRef.current = d.duration
+            setTotalDuration(d.duration)
+          }
+          if (d.message === 'panda_play') setIsPlaying(true)
+          if (d.message === 'panda_pause' || d.message === 'panda_ended') setIsPlaying(false)
         }
       } catch { /* ignore */ }
     }
@@ -508,9 +522,60 @@ function ModuloEditorCard({ m, idx, total, onChange, onDelete, onMove }: {
   onMove: (dir: -1 | 1) => void
 }) {
   const [expanded, setExpanded] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadError, setUploadError] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   function set(field: keyof ModuloEdit, value: any) {
     onChange({ ...m, [field]: value })
+  }
+
+  async function handlePandaUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (fileInputRef.current) fileInputRef.current.value = ''
+
+    setUploading(true)
+    setUploadProgress(0)
+    setUploadError('')
+
+    try {
+      const token = localStorage.getItem('osiris_token')
+      const initRes = await fetch('/.netlify/functions/panda-upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ title: m.titulo || file.name.replace(/\.[^.]+$/, '') }),
+      })
+      if (!initRes.ok) {
+        const err = await initRes.json().catch(() => ({ error: 'Erro ao iniciar upload' }))
+        throw new Error(err.error || 'Erro ao iniciar upload')
+      }
+      const { upload_url, embed_url } = await initRes.json()
+
+      // Upload direto para o Panda Video (XHR para rastrear progresso)
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.open('PUT', upload_url)
+        xhr.setRequestHeader('Content-Type', file.type || 'video/mp4')
+        xhr.upload.onprogress = (ev) => {
+          if (ev.lengthComputable) setUploadProgress(Math.round((ev.loaded / ev.total) * 100))
+        }
+        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Upload falhou: ${xhr.status}`)))
+        xhr.onerror = () => reject(new Error('Erro de rede durante upload'))
+        xhr.send(file)
+      })
+
+      set('url', embed_url)
+      setUploadProgress(100)
+    } catch (err: any) {
+      setUploadError(err.message || 'Erro no upload')
+    } finally {
+      setUploading(false)
+    }
   }
 
   function setTipo(tipo: TipoModulo) {
@@ -629,10 +694,49 @@ function ModuloEditorCard({ m, idx, total, onChange, onDelete, onMove }: {
 
           {/* Tipo-specific */}
           {(m.tipo === 'video') && (
-            <div className="space-y-1">
+            <div className="space-y-2">
               <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">URL do vídeo</label>
-              <input value={m.url ?? ''} onChange={e => set('url', e.target.value)} placeholder="YouTube, Vimeo ou .mp4 direto" className={inputCls} />
-              <p className="text-[10px] text-slate-400">Suporta youtube.com, youtu.be, vimeo.com e arquivos .mp4/.webm</p>
+              <div className="flex gap-2">
+                <input
+                  value={m.url ?? ''}
+                  onChange={e => set('url', e.target.value)}
+                  placeholder="Cole URL do YouTube, Vimeo ou Panda Video"
+                  className={inputCls + ' flex-1'}
+                  disabled={uploading}
+                />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="video/mp4,video/webm,video/*"
+                  className="hidden"
+                  onChange={handlePandaUpload}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  title="Fazer upload de vídeo MP4 para o Panda Video"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-violet-600 hover:bg-violet-700 text-white transition-colors disabled:opacity-60 shrink-0 whitespace-nowrap"
+                >
+                  {uploading
+                    ? <><RefreshCw size={11} className="animate-spin" />{uploadProgress}%</>
+                    : <><Upload size={11} />Upload MP4</>}
+                </button>
+              </div>
+              {uploading && (
+                <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="bg-violet-500 h-1.5 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              )}
+              {uploadError && (
+                <p className="text-[10px] text-red-500 flex items-center gap-1">
+                  <AlertTriangle size={10} />{uploadError}
+                </p>
+              )}
+              <p className="text-[10px] text-slate-400">Cole uma URL ou envie um MP4 diretamente para o Panda Video</p>
             </div>
           )}
 
