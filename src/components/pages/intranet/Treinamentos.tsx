@@ -548,20 +548,22 @@ function ModuloEditorCard({ m, idx, total, onChange, onDelete, onMove }: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ title: m.titulo || file.name.replace(/\.[^.]+$/, '') }),
+        body: JSON.stringify({ title: m.titulo || file.name.replace(/\.[^.]+$/, ''), fileSize: file.size }),
       })
       if (!initRes.ok) {
         const err = await initRes.json().catch(() => ({ error: 'Erro ao iniciar upload' }))
         const msg = [err.error, err.detail].filter(Boolean).join(' — ')
         throw new Error(msg || 'Erro ao iniciar upload')
       }
-      const { upload_url, embed_url } = await initRes.json()
+      const { upload_url } = await initRes.json()
 
-      // Upload direto para a URL retornada pelo Panda Video
+      // Upload via Tus PATCH direto para o Panda Video
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest()
-        xhr.open('PUT', upload_url)
-        xhr.setRequestHeader('Content-Type', file.type || 'video/mp4')
+        xhr.open('PATCH', upload_url)
+        xhr.setRequestHeader('Tus-Resumable', '1.0.0')
+        xhr.setRequestHeader('Upload-Offset', '0')
+        xhr.setRequestHeader('Content-Type', 'application/offset+octet-stream')
         xhr.upload.onprogress = (ev) => {
           if (ev.lengthComputable) setUploadProgress(Math.round((ev.loaded / ev.total) * 100))
         }
@@ -570,8 +572,26 @@ function ModuloEditorCard({ m, idx, total, onChange, onDelete, onMove }: {
         xhr.send(file)
       })
 
-      set('url', embed_url)
       setUploadProgress(100)
+
+      // Após upload, busca o ID real atribuído pelo Panda Video (com até 4 tentativas)
+      const videoTitle = m.titulo || file.name.replace(/\.[^.]+$/, '')
+      const token = localStorage.getItem('osiris_token')
+      let embedUrl: string | null = null
+      for (let attempt = 0; attempt < 4; attempt++) {
+        await new Promise(r => setTimeout(r, attempt === 0 ? 3000 : 2000))
+        const lookupRes = await fetch(
+          `/.netlify/functions/panda-video-lookup?title=${encodeURIComponent(videoTitle)}`,
+          { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+        )
+        if (lookupRes.ok) {
+          const { embed_url } = await lookupRes.json()
+          embedUrl = embed_url
+          break
+        }
+      }
+      if (!embedUrl) throw new Error('Vídeo enviado, mas não foi possível obter o link. Tente salvar e reabrir o editor.')
+      set('url', embedUrl)
     } catch (err: any) {
       setUploadError(err.message || 'Erro no upload')
     } finally {
