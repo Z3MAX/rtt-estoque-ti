@@ -876,6 +876,11 @@ function EditCursoModal({ curso, onClose, onSave, onDelete }: {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showEmojiPickerModal, setShowEmojiPickerModal] = useState(false)
+  const [toastMsg, setToastMsg] = useState('')
+  const [toastType, setToastType] = useState<'success' | 'error'>('success')
+  function showToast(msg: string, type: 'success' | 'error' = 'success') {
+    setToastMsg(msg); setToastType(type); setTimeout(() => setToastMsg(''), 3500)
+  }
 
   function addModulo() {
     const baseId = (curso?.id ?? 0) * 100
@@ -914,6 +919,7 @@ function EditCursoModal({ curso, onClose, onSave, onDelete }: {
       })
       onClose()
     } catch {
+      showToast('Erro ao salvar o curso. Tente novamente.', 'error')
       setSaving(false)
     }
   }
@@ -925,6 +931,7 @@ function EditCursoModal({ curso, onClose, onSave, onDelete }: {
       await onDelete()
       onClose()
     } catch {
+      showToast('Erro ao excluir o curso. Tente novamente.', 'error')
       setDeleting(false)
     }
   }
@@ -1176,6 +1183,7 @@ function EditCursoModal({ curso, onClose, onSave, onDelete }: {
           </button>
         </div>
       </div>
+      <Toast msg={toastMsg} type={toastType} />
     </div>
   )
 }
@@ -1308,7 +1316,13 @@ function CourseModal({ t, onClose, onToggle, moduloConfigs, onSaveConfig, canAdm
   const [savingAvaliacao, setSavingAvaliacao] = useState(false)
   const [mediaReal, setMediaReal] = useState<number | null>(null)
   const [totalAvaliacoes, setTotalAvaliacoes] = useState(0)
+  const [toastMsg, setToastMsg] = useState('')
+  const [toastType, setToastType] = useState<'success' | 'error'>('success')
   const pct = getProgresso(t)
+
+  function showToast(msg: string, type: 'success' | 'error' = 'success') {
+    setToastMsg(msg); setToastType(type); setTimeout(() => setToastMsg(''), 3500)
+  }
 
   useEffect(() => {
     api.cursoAvaliacao.get(t.id).then(r => {
@@ -1328,6 +1342,8 @@ function CourseModal({ t, onClose, onToggle, moduloConfigs, onSaveConfig, canAdm
       setMediaReal(res.media)
       setTotalAvaliacoes(res.total)
       setAvaliacaoEnviada(true)
+    } else {
+      showToast('Erro ao enviar avaliação. Tente novamente.', 'error')
     }
   }
 
@@ -1337,9 +1353,14 @@ function CourseModal({ t, onClose, onToggle, moduloConfigs, onSaveConfig, canAdm
 
   async function saveUrl(moduloId: number) {
     setSavingUrl(true)
-    await onSaveConfig(t.id, moduloId, editUrl.trim() || null)
-    setSavingUrl(false)
-    setEditando(null)
+    try {
+      await onSaveConfig(t.id, moduloId, editUrl.trim() || null)
+      setEditando(null)
+    } catch {
+      showToast('Erro ao salvar o link. Tente novamente.', 'error')
+    } finally {
+      setSavingUrl(false)
+    }
   }
 
   return (
@@ -1572,6 +1593,7 @@ function CourseModal({ t, onClose, onToggle, moduloConfigs, onSaveConfig, canAdm
           )}
         </div>
       </div>
+      <Toast msg={toastMsg} type={toastType} />
     </div>
   )
 }
@@ -1804,6 +1826,7 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
       const novosIds = inscritos.filter(i => i.colaborador_id !== inscrito.colaborador_id).map(i => i.colaborador_id)
       await api.cursoAtribuicao.setForCurso(cursoSelecionado, novosIds)
       setInscritos(prev => prev.filter(i => i.colaborador_id !== inscrito.colaborador_id))
+      showToast('Colaborador removido com sucesso!')
     } catch {
       showToast('Erro ao remover colaborador. Tente novamente.', 'error')
     } finally {
@@ -2652,6 +2675,7 @@ function InstrutorView({ user }: { user: any }) {
       setCursos(prev => prev.filter(c => c.id !== editando.id))
       setCursosInativos(prev => [inativo, ...prev])
       setInativosLoaded(true)
+      showToast('Curso excluído com sucesso!')
       voltar()
     } catch {
       showToast('Erro ao excluir o curso. Tente novamente.', 'error')
@@ -2678,6 +2702,7 @@ function InstrutorView({ user }: { user: any }) {
       setCursos(prev => prev.filter(c => c.id !== cursoId))
       if (inativo) setCursosInativos(prev => [{ ...inativo, status: 'inativo' }, ...prev])
       setInativosLoaded(true)
+      showToast('Curso excluído com sucesso!')
     } catch {
       showToast('Erro ao excluir o curso. Tente novamente.', 'error')
     } finally {
@@ -2691,6 +2716,7 @@ function InstrutorView({ user }: { user: any }) {
     try {
       await api.cursos.delete(cursoId, { permanent: true })
       setCursosInativos(prev => prev.filter(c => c.id !== cursoId))
+      showToast('Curso excluído permanentemente.')
     } catch {
       showToast('Erro ao excluir permanentemente. Tente novamente.', 'error')
     } finally { setDeletandoPerm(null) }
@@ -2740,6 +2766,7 @@ function InstrutorView({ user }: { user: any }) {
     try {
       await api.cursos.removeInstrutor(editando.id, userId)
       setInstrutores(prev => prev.filter((i: any) => i.user_id !== userId))
+      showToast('Instrutor removido com sucesso!')
     } catch {
       showToast('Erro ao remover instrutor. Tente novamente.', 'error')
     } finally { setRemovendoInstId(null) }

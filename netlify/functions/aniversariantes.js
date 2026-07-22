@@ -12,6 +12,10 @@ exports.handler = async (event) => {
   try {
     requireAuth(event)
 
+    // Garante colunas de data caso colaboradores.js ainda não tenha sido chamado
+    await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS data_nascimento DATE`
+    await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS data_admissao DATE`
+
     const diasAFrente = 30
 
     // Usa offset de dia-do-ano para evitar MAKE_DATE com 29/fev em anos não-bissextos.

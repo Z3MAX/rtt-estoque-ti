@@ -1,6 +1,8 @@
 const { neon } = require('@neondatabase/serverless')
 const { requireAuth, isAdminRole, makeHeaders } = require('./_auth')
 
+let migrationDone = false
+
 exports.handler = async (event) => {
   const headers = makeHeaders(event)
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers, body: '' }
@@ -9,29 +11,33 @@ exports.handler = async (event) => {
   const sql = neon(process.env.DATABASE_URL)
   const params = event.queryStringParameters || {}
 
-  await sql`
-    CREATE TABLE IF NOT EXISTS curso_requisitos (
-      id          SERIAL PRIMARY KEY,
-      curso_id    INTEGER NOT NULL,
-      cargo       TEXT,
-      area        TEXT,
-      obrigatorio BOOLEAN DEFAULT true,
-      created_at  TIMESTAMP DEFAULT NOW(),
-      UNIQUE (curso_id, cargo, area)
-    )
-  `
-  await sql`
-    CREATE TABLE IF NOT EXISTS curso_atribuicao (
-      id             SERIAL PRIMARY KEY,
-      colaborador_id INTEGER NOT NULL,
-      curso_id       INTEGER NOT NULL,
-      auto_inscrito  BOOLEAN DEFAULT false,
-      created_at     TIMESTAMP DEFAULT NOW(),
-      UNIQUE (colaborador_id, curso_id)
-    )
-  `
-  // Garante coluna auto_inscrito em tabelas já existentes
-  try { await sql`ALTER TABLE curso_atribuicao ADD COLUMN IF NOT EXISTS auto_inscrito BOOLEAN DEFAULT false` } catch (e) {}
+  if (!migrationDone) {
+    await Promise.all([
+      sql`
+        CREATE TABLE IF NOT EXISTS curso_requisitos (
+          id          SERIAL PRIMARY KEY,
+          curso_id    INTEGER NOT NULL,
+          cargo       TEXT,
+          area        TEXT,
+          obrigatorio BOOLEAN DEFAULT true,
+          created_at  TIMESTAMP DEFAULT NOW(),
+          UNIQUE (curso_id, cargo, area)
+        )
+      `,
+      sql`
+        CREATE TABLE IF NOT EXISTS curso_atribuicao (
+          id             SERIAL PRIMARY KEY,
+          colaborador_id INTEGER NOT NULL,
+          curso_id       INTEGER NOT NULL,
+          auto_inscrito  BOOLEAN DEFAULT false,
+          created_at     TIMESTAMP DEFAULT NOW(),
+          UNIQUE (colaborador_id, curso_id)
+        )
+      `,
+    ])
+    try { await sql`ALTER TABLE curso_atribuicao ADD COLUMN IF NOT EXISTS auto_inscrito BOOLEAN DEFAULT false` } catch (e) {}
+    migrationDone = true
+  }
 
   try {
     const auth = requireAuth(event)

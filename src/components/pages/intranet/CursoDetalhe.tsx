@@ -41,6 +41,16 @@ function getProgresso(modulos: Modulo[]) {
   return Math.round((modulos.filter(m => m.concluido).length / modulos.length) * 100)
 }
 
+function Toast({ msg, type = 'success' }: { msg: string; type?: 'success' | 'error' }) {
+  if (!msg) return null
+  return (
+    <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] px-5 py-3 rounded-2xl shadow-xl text-sm font-semibold text-white flex items-center gap-2 pointer-events-none animate-fade-in ${type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}>
+      {type === 'error' ? <X size={15} /> : <CheckCircle2 size={15} />}
+      {msg}
+    </div>
+  )
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Modulo {
@@ -527,6 +537,12 @@ export default function CursoDetalhe() {
   const [avaliacaoEnviada, setAvaliacaoEnviada] = useState(false)
   const [savingAvaliacao, setSavingAvaliacao] = useState(false)
   const [showCertModal, setShowCertModal] = useState(false)
+  const [toastMsg, setToastMsg] = useState('')
+  const [toastType, setToastType] = useState<'success' | 'error'>('success')
+
+  function showToast(msg: string, type: 'success' | 'error' = 'success') {
+    setToastMsg(msg); setToastType(type); setTimeout(() => setToastMsg(''), 3500)
+  }
 
   useEffect(() => {
     if (!id) return
@@ -584,10 +600,15 @@ export default function CursoDetalhe() {
     setSavingUrl(true)
     const url = editUrl.trim() || null
     const key = `${curso.id}_${moduloId}`
-    await api.moduloConfig.save(curso.id, moduloId, url).catch(() => {})
-    setModuloConfigs(prev => url ? { ...prev, [key]: url } : Object.fromEntries(Object.entries(prev).filter(([k]) => k !== key)))
-    setSavingUrl(false)
-    setEditando(null)
+    try {
+      await api.moduloConfig.save(curso.id, moduloId, url)
+      setModuloConfigs(prev => url ? { ...prev, [key]: url } : Object.fromEntries(Object.entries(prev).filter(([k]) => k !== key)))
+      setEditando(null)
+    } catch {
+      showToast('Erro ao salvar o link. Tente novamente.', 'error')
+    } finally {
+      setSavingUrl(false)
+    }
   }
 
   async function handleEnviarAvaliacao() {
@@ -595,7 +616,11 @@ export default function CursoDetalhe() {
     setSavingAvaliacao(true)
     const res = await api.cursoAvaliacao.save(curso.id, avaliacaoNota, avaliacaoComentario || undefined).catch(() => null)
     setSavingAvaliacao(false)
-    if (res) setAvaliacaoEnviada(true)
+    if (res) {
+      setAvaliacaoEnviada(true)
+    } else {
+      showToast('Erro ao enviar avaliação. Tente novamente.', 'error')
+    }
   }
 
   function imprimirCertificado() {
@@ -1195,6 +1220,8 @@ export default function CursoDetalhe() {
           </div>
         </div>
       </div>
+
+      <Toast msg={toastMsg} type={toastType} />
 
       {/* Modal certificado */}
       {showCertModal && curso && user && (
