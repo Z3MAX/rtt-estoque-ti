@@ -17,6 +17,8 @@ function parseVideoUrl(url: string, startSec = 0) {
   if (yt) return { type: 'youtube' as const, embedUrl: `https://www.youtube.com/embed/${yt[1]}?autoplay=1&rel=0&enablejsapi=1${start > 0 ? `&start=${start}` : ''}` }
   const vi = url.match(/vimeo\.com\/(\d+)/)
   if (vi) return { type: 'vimeo' as const, embedUrl: `https://player.vimeo.com/video/${vi[1]}?autoplay=1&api=1${start > 0 ? `#t=${start}s` : ''}` }
+  const panda = url.match(/pandavideo\.com\.br\/(?:v\/|embed\/\?v=)([a-zA-Z0-9_-]+)/)
+  if (panda) return { type: 'panda' as const, embedUrl: `https://player.pandavideo.com.br/embed/?v=${panda[1]}${start > 0 ? `&t=${start}` : ''}` }
   if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(url)) return { type: 'direct' as const, embedUrl: url }
   return { type: null as null, embedUrl: null as string | null }
 }
@@ -125,7 +127,7 @@ function VideoPlayer({
   }, [isPlaying, concluido, onMarcarConcluido])
 
   useEffect(() => {
-    if (type !== 'youtube' && type !== 'vimeo') return
+    if (type !== 'youtube' && type !== 'vimeo' && type !== 'panda') return
     function handle(e: MessageEvent) {
       try {
         const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data
@@ -146,6 +148,14 @@ function VideoPlayer({
           }
           if (d.event === 'play') setIsPlaying(true)
           if (d.event === 'pause' || d.event === 'finish') setIsPlaying(false)
+        }
+        if (type === 'panda') {
+          if (d.message === 'panda_timeupdate' && d.duration && durationRef.current === 0) {
+            durationRef.current = d.duration
+            setTotalDuration(d.duration)
+          }
+          if (d.message === 'panda_play') setIsPlaying(true)
+          if (d.message === 'panda_pause' || d.message === 'panda_ended') setIsPlaying(false)
         }
       } catch { /* ignore */ }
     }
@@ -256,7 +266,7 @@ function VideoPlayer({
       {/* Footer */}
       <div className="flex items-center justify-between px-4 py-3 gap-3">
         <div className="flex items-center gap-2 text-xs text-white/35 min-w-0">
-          <span>{type === 'youtube' ? 'YouTube' : type === 'vimeo' ? 'Vimeo' : type === 'direct' ? 'Vídeo direto' : ''}</span>
+          <span>{type === 'youtube' ? 'YouTube' : type === 'vimeo' ? 'Vimeo' : type === 'panda' ? 'Panda Video' : type === 'direct' ? 'Vídeo direto' : ''}</span>
           {hasDuration && !unlocked && watchedSec > 0 && (
             <span className="text-amber-400/80 font-medium tabular-nums">
               {fmtTime(watchedSec)} / {fmtTime(totalDuration)} assistido
