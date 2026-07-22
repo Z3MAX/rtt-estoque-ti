@@ -552,7 +552,8 @@ function ModuloEditorCard({ m, idx, total, onChange, onDelete, onMove }: {
       })
       if (!initRes.ok) {
         const err = await initRes.json().catch(() => ({ error: 'Erro ao iniciar upload' }))
-        throw new Error(err.error || 'Erro ao iniciar upload')
+        const msg = [err.error, err.detail].filter(Boolean).join(' — ')
+        throw new Error(msg || 'Erro ao iniciar upload')
       }
       const { upload_url, embed_url } = await initRes.json()
 
