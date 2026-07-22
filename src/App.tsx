@@ -42,15 +42,15 @@ function ProtectedRoutes() {
     return (stored === 'avaliacao' || stored === 'intranet') ? stored : null
   })
 
-  // Reset portal on every fresh login (user transitions null → non-null).
-  // The login function already removes 'rtt_portal' from localStorage,
-  // but the React state isn't updated because ProtectedRoutes stays mounted.
+  // Reset portal on fresh login (user transitions null → non-null).
+  // On page reload the same transition happens, but login() already cleared
+  // 'rtt_portal' from localStorage before the transition — so we use the
+  // presence of that key to distinguish reload (keep portal) from fresh login (reset).
   const prevUserIdRef = useRef<number | undefined>(user?.id)
   useEffect(() => {
     const prevId = prevUserIdRef.current
     prevUserIdRef.current = user?.id
-    if (!prevId && user?.id) {
-      // Fresh login: always show portal selector regardless of stale state
+    if (!prevId && user?.id && !localStorage.getItem('rtt_portal')) {
       setPortal(null)
     }
   }, [user?.id])
