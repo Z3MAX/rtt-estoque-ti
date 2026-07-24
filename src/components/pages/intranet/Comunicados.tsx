@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Megaphone, Pin, Clock, Plus, X, RefreshCw, Trash2, Edit2, Search, Users } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Megaphone, Pin, Clock, Plus, X, RefreshCw, Trash2, Edit2, Search, Users, ImageIcon } from 'lucide-react'
 import { api } from '../../../lib/api'
 import { useAuth, isAdmin } from '../../../lib/auth'
 
@@ -10,6 +10,7 @@ interface Comunicado {
   conteudo?: string
   categoria: string
   areas?: string[]
+  imagem?: string
   fixado: boolean
   publicado: boolean
   autor_nome: string
@@ -23,7 +24,7 @@ const CAT_COLORS: Record<string, string> = {
   Geral:     'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
 }
 
-const EMPTY = { titulo: '', resumo: '', conteudo: '', categoria: 'Geral', fixado: false, areas: [] as string[] }
+const EMPTY = { titulo: '', resumo: '', conteudo: '', categoria: 'Geral', fixado: false, areas: [] as string[], imagem: '' }
 
 function Modal({ init, onSave, onClose }: {
   init?: Comunicado | null
@@ -32,10 +33,11 @@ function Modal({ init, onSave, onClose }: {
 }) {
   const [form, setForm] = useState(init ? {
     titulo: init.titulo, resumo: init.resumo ?? '', conteudo: init.conteudo ?? '',
-    categoria: init.categoria, fixado: init.fixado, areas: init.areas ?? [],
+    categoria: init.categoria, fixado: init.fixado, areas: init.areas ?? [], imagem: init.imagem ?? '',
   } : { ...EMPTY })
   const [saving, setSaving] = useState(false)
   const [availableAreas, setAvailableAreas] = useState<string[]>([])
+  const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     api.comunicados.areas().then(setAvailableAreas).catch(() => {})
@@ -47,6 +49,13 @@ function Modal({ init, onSave, onClose }: {
     setSaving(true)
     await onSave(form)
     setSaving(false)
+  }
+
+  function handleImageFile(file: File | null) {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = e => setForm(f => ({ ...f, imagem: (e.target?.result as string) ?? '' }))
+    reader.readAsDataURL(file)
   }
 
   function toggleArea(area: string) {
@@ -124,6 +133,40 @@ function Modal({ init, onSave, onClose }: {
               </div>
             </div>
           )}
+
+          <div>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 flex items-center gap-1.5">
+              <ImageIcon size={11} /> Imagem do comunicado
+            </label>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp"
+              className="hidden"
+              onChange={e => handleImageFile(e.target.files?.[0] ?? null)}
+            />
+            {form.imagem ? (
+              <div className="relative group">
+                <img src={form.imagem} alt="preview" className="w-full rounded-xl object-contain max-h-48 bg-slate-100 dark:bg-slate-700" />
+                <button
+                  type="button"
+                  onClick={() => { setForm(f => ({ ...f, imagem: '' })); if (fileRef.current) fileRef.current.value = '' }}
+                  className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="w-full flex flex-col items-center justify-center gap-2 py-6 border-2 border-dashed border-slate-200 dark:border-slate-600 rounded-xl text-slate-400 hover:border-primary-400 hover:text-primary-500 transition-colors"
+              >
+                <ImageIcon size={20} />
+                <span className="text-xs">Clique para adicionar imagem (PNG, JPG)</span>
+              </button>
+            )}
+          </div>
 
           <div>
             <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 block">Resumo</label>
@@ -291,10 +334,22 @@ export default function ComunicadosPage() {
                     </div>
                   )}
                 </button>
-                {open && (c.resumo || c.conteudo) && (
-                  <div className="px-5 pb-5 pt-0 ml-[3.25rem] text-sm text-slate-600 dark:text-slate-300 space-y-2 border-t border-slate-100 dark:border-slate-700">
-                    {c.resumo && <p className="pt-4 font-medium">{c.resumo}</p>}
-                    {c.conteudo && <p className="text-slate-500 dark:text-slate-400 whitespace-pre-line">{c.conteudo}</p>}
+                {open && (c.imagem || c.resumo || c.conteudo) && (
+                  <div className="px-5 pb-5 pt-0 text-sm text-slate-600 dark:text-slate-300 space-y-3 border-t border-slate-100 dark:border-slate-700">
+                    {c.imagem && (
+                      <img
+                        src={c.imagem}
+                        alt={c.titulo}
+                        className="w-full rounded-xl object-contain mt-4 cursor-zoom-in"
+                        onClick={e => { e.stopPropagation(); window.open(c.imagem, '_blank') }}
+                      />
+                    )}
+                    {(c.resumo || c.conteudo) && (
+                      <div className="ml-[2.25rem] space-y-2">
+                        {c.resumo && <p className="font-medium">{c.resumo}</p>}
+                        {c.conteudo && <p className="text-slate-500 dark:text-slate-400 whitespace-pre-line">{c.conteudo}</p>}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

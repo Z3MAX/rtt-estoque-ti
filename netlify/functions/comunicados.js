@@ -16,8 +16,9 @@ exports.handler = async (event) => {
   try {
     const auth = requireAuth(event)
 
-    // One-time migration: add areas column if it doesn't exist yet
+    // Migrations
     await sql`ALTER TABLE comunicados ADD COLUMN IF NOT EXISTS areas TEXT[]`
+    await sql`ALTER TABLE comunicados ADD COLUMN IF NOT EXISTS imagem TEXT`
 
     if (event.httpMethod === 'GET') {
       // Return distinct areas from colaboradores
@@ -60,12 +61,12 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'POST') {
-      const { titulo, resumo, conteudo, categoria, fixado, areas } = JSON.parse(event.body || '{}')
+      const { titulo, resumo, conteudo, categoria, fixado, areas, imagem } = JSON.parse(event.body || '{}')
       if (!titulo) return { statusCode: 400, headers, body: JSON.stringify({ error: 'titulo obrigatório' }) }
       const areasVal = Array.isArray(areas) && areas.length > 0 ? areas : null
       const rows = await sql`
-        INSERT INTO comunicados (titulo, resumo, conteudo, categoria, fixado, areas, autor_id, autor_nome)
-        VALUES (${titulo}, ${resumo ?? null}, ${conteudo ?? null}, ${categoria ?? 'Geral'}, ${fixado ?? false}, ${areasVal}, ${auth.userId}, ${auth.name})
+        INSERT INTO comunicados (titulo, resumo, conteudo, categoria, fixado, areas, imagem, autor_id, autor_nome)
+        VALUES (${titulo}, ${resumo ?? null}, ${conteudo ?? null}, ${categoria ?? 'Geral'}, ${fixado ?? false}, ${areasVal}, ${imagem ?? null}, ${auth.userId}, ${auth.name})
         RETURNING *
       `
       return { statusCode: 201, headers, body: JSON.stringify(rows[0]) }
@@ -85,6 +86,7 @@ exports.handler = async (event) => {
           fixado     = COALESCE(${body.fixado ?? null}, fixado),
           publicado  = COALESCE(${body.publicado ?? null}, publicado),
           areas      = ${areasVal},
+          imagem     = ${body.imagem ?? null},
           updated_at = NOW()
         WHERE id = ${id}
         RETURNING *
