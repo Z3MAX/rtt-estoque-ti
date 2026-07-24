@@ -77,6 +77,7 @@ exports.handler = async (event) => {
         SELECT
           c.id          AS curso_id,
           c.titulo,
+          c.versao,
           c.instrutor,
           c.categoria,
           c.obrigatorio,

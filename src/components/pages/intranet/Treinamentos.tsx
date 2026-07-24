@@ -2389,7 +2389,7 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
                           {cursosDaInst.length > 0 && (
                             <button
                               onClick={() => downloadXLSX(cursosDaInst.map((d: any) => ({
-                                Instrutor: d.instrutor, Curso: d.titulo, Categoria: d.categoria,
+                                Instrutor: d.instrutor, Curso: d.titulo, Versão: d.versao ?? '', Categoria: d.categoria,
                                 Obrigatório: d.obrigatorio ? 'Sim' : 'Não',
                                 'Total alunos': d.total_alunos, Concluídos: d.concluidos,
                                 'Em andamento': d.em_andamento, 'Não iniciados': d.nao_iniciados,
