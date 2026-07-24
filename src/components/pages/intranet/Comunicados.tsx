@@ -98,9 +98,18 @@ function Modal({ init, onSave, onClose }: {
                 )}
               </div>
               <p className="text-[10px] text-slate-400 mb-2">
-                {form.areas.length === 0 ? 'Nenhuma área selecionada — será enviado para todas as áreas.' : `${form.areas.length} área(s) selecionada(s).`}
+                {form.areas.length === 0 ? 'Todas as áreas e colaboradores receberão este comunicado.' : `${form.areas.length} área(s) selecionada(s).`}
               </p>
               <div className="max-h-36 overflow-y-auto border border-slate-200 dark:border-slate-600 rounded-xl divide-y divide-slate-100 dark:divide-slate-700">
+                <label className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors bg-slate-50 dark:bg-slate-700/30">
+                  <input
+                    type="checkbox"
+                    className="w-3.5 h-3.5 rounded accent-primary-500 shrink-0"
+                    checked={form.areas.length === 0}
+                    onChange={() => setForm(f => ({ ...f, areas: [] }))}
+                  />
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Todos</span>
+                </label>
                 {availableAreas.map(area => (
                   <label key={area} className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
                     <input
