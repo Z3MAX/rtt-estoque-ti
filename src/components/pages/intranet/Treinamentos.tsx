@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useAuth, isAdmin, isGestor, isInstrutor } from '../../../lib/auth'
 import { api } from '../../../lib/api'
+import ExcelJS from 'exceljs'
 
 // ─── Video helpers ────────────────────────────────────────────────────────────
 
@@ -1690,19 +1691,79 @@ interface InscritoRow {
   validado_por: string | null
 }
 
-// Download helper: converts array of objects to CSV and triggers download
-function downloadCSV(rows: Record<string, any>[], filename: string) {
+// Paleta de cores para os relatórios XLSX
+const XL = {
+  headerBg:   'FF1E3A5F',  // azul escuro
+  headerFg:   'FFFFFFFF',  // branco
+  rowEven:    'FFFFFFFF',  // branco
+  rowOdd:     'FFF0F4F8',  // cinza azulado claro
+  borderClr:  'FFD1D9E0',  // borda suave
+  accentBg:   'FFE8F0FE',  // azul claro (total/sumário)
+  accentFg:   'FF1E3A5F',
+}
+
+async function downloadXLSX(
+  rows: Record<string, any>[],
+  filename: string,
+  sheetName = 'Relatório',
+  numericCols: string[] = [],
+) {
   if (!rows.length) return
   const cols = Object.keys(rows[0])
-  const escape = (v: any) => {
-    const s = v == null ? '' : String(v)
-    return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
-  }
-  const lines = [cols.join(','), ...rows.map(r => cols.map(c => escape(r[c])).join(','))]
-  const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+
+  const wb = new ExcelJS.Workbook()
+  wb.creator = 'RTT Sistema'
+  const ws = wb.addWorksheet(sheetName, { views: [{ state: 'frozen', ySplit: 1 }] })
+
+  const border = (clr = XL.borderClr): Partial<ExcelJS.Borders> => ({
+    top:    { style: 'thin', color: { argb: clr } },
+    left:   { style: 'thin', color: { argb: clr } },
+    bottom: { style: 'thin', color: { argb: clr } },
+    right:  { style: 'thin', color: { argb: clr } },
+  })
+
+  // Cabeçalho
+  const hdr = ws.addRow(cols)
+  hdr.height = 24
+  hdr.eachCell(cell => {
+    cell.fill   = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL.headerBg } }
+    cell.font   = { bold: true, color: { argb: XL.headerFg }, size: 11, name: 'Calibri' }
+    cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false }
+    cell.border = border('FF2D5A8E')
+  })
+
+  // Linhas de dados
+  rows.forEach((row, i) => {
+    const dr = ws.addRow(cols.map(c => row[c] ?? ''))
+    dr.height = 18
+    const isEven = i % 2 === 0
+    dr.eachCell((cell, colNum) => {
+      const colName = cols[colNum - 1]
+      const isNum = numericCols.includes(colName)
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? XL.rowEven : XL.rowOdd } }
+      cell.font = { size: 10, name: 'Calibri' }
+      cell.alignment = { vertical: 'middle', horizontal: isNum ? 'right' : 'left' }
+      cell.border = border()
+    })
+  })
+
+  // Largura das colunas (mín 10, máx 40)
+  ws.columns = cols.map(col => ({
+    width: Math.min(40, Math.max(10, col.length + 2,
+      ...rows.map(r => String(r[col] ?? '').length + 1)
+    ))
+  }))
+
+  // Auto-filtro no cabeçalho
+  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: cols.length } }
+
+  const buffer = await wb.xlsx.writeBuffer()
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
-  a.href = url; a.download = filename; a.click()
+  a.href = url
+  a.download = filename.endsWith('.xlsx') ? filename : `${filename}.xlsx`
+  a.click()
   URL.revokeObjectURL(url)
 }
 
@@ -1934,18 +1995,18 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
             </div>
             {lista.length > 0 && (
               <button
-                onClick={() => downloadCSV(lista.map(f => ({
+                onClick={() => downloadXLSX(lista.map(f => ({
                   Colaborador: f.nome, Cargo: f.cargo, Área: f.area,
-                  Progresso: `${f.total_modulos > 0 ? Math.round((f.modulos_concluidos / f.total_modulos) * 100) : 0}%`,
+                  'Progresso (%)': f.total_modulos > 0 ? Math.round((f.modulos_concluidos / f.total_modulos) * 100) : 0,
                   'Módulos concluídos': f.modulos_concluidos,
                   'Total módulos': f.total_modulos,
                   Validado: f.validado ? 'Sim' : 'Não',
                   'Data validação': f.data_validacao ?? '',
                   'Validado por': f.validado_por ?? '',
-                })), `progresso_${curso?.titulo?.replace(/\s/g, '_') ?? 'curso'}.csv`)}
+                })), `progresso_${(curso?.titulo ?? 'curso').replace(/\s/g, '_')}`, 'Progresso', ['Progresso (%)', 'Módulos concluídos', 'Total módulos'])}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shrink-0"
               >
-                <Download size={13} />CSV
+                <Download size={13} />Excel
               </button>
             )}
           </div>
@@ -2167,7 +2228,7 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
             </select>
             {relatorioRows.length > 0 && (
               <button
-                onClick={() => downloadCSV(relatorioRows.map(r => ({
+                onClick={() => downloadXLSX(relatorioRows.map(r => ({
                   Colaborador: r.colaborador, Cargo: r.cargo, Área: r.area,
                   Curso: r.curso, Categoria: r.categoria, Instrutor: r.instrutor,
                   Obrigatório: r.obrigatorio ? 'Sim' : 'Não',
@@ -2177,10 +2238,10 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
                   Status: r.status,
                   Validado: r.validado ? 'Sim' : 'Não',
                   'Data conclusão': r.data_conclusao ? new Date(r.data_conclusao).toLocaleDateString('pt-BR') : '',
-                })), 'relatorio_treinamentos.csv')}
+                })), 'relatorio_treinamentos', 'Treinamentos', ['Módulos concluídos', 'Total módulos'])}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors"
               >
-                <Download size={13} />Exportar CSV
+                <Download size={13} />Exportar Excel
               </button>
             )}
           </div>
@@ -2327,16 +2388,16 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
                           )}
                           {cursosDaInst.length > 0 && (
                             <button
-                              onClick={() => downloadCSV(cursosDaInst.map((d: any) => ({
+                              onClick={() => downloadXLSX(cursosDaInst.map((d: any) => ({
                                 Instrutor: d.instrutor, Curso: d.titulo, Categoria: d.categoria,
                                 Obrigatório: d.obrigatorio ? 'Sim' : 'Não',
                                 'Total alunos': d.total_alunos, Concluídos: d.concluidos,
                                 'Em andamento': d.em_andamento, 'Não iniciados': d.nao_iniciados,
                                 '% Conclusão': d.pct_conclusao,
-                              })), `instrutor_${instSelecionado.replace(/\s/g,'_')}.csv`)}
+                              })), `instrutor_${instSelecionado.replace(/\s/g,'_')}`, 'Instrutores', ['Total alunos', 'Concluídos', 'Em andamento', 'Não iniciados', '% Conclusão'])}
                               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                             >
-                              <Download size={12} />CSV
+                              <Download size={12} />Excel
                             </button>
                           )}
                         </div>
