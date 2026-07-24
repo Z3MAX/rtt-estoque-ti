@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Megaphone, Pin, Clock, Plus, X, RefreshCw, Trash2, Edit2, Search } from 'lucide-react'
+import { Megaphone, Pin, Clock, Plus, X, RefreshCw, Trash2, Edit2, Search, Users } from 'lucide-react'
 import { api } from '../../../lib/api'
 import { useAuth, isAdmin } from '../../../lib/auth'
 
@@ -9,6 +9,7 @@ interface Comunicado {
   resumo?: string
   conteudo?: string
   categoria: string
+  areas?: string[]
   fixado: boolean
   publicado: boolean
   autor_nome: string
@@ -22,7 +23,7 @@ const CAT_COLORS: Record<string, string> = {
   Geral:     'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
 }
 
-const EMPTY = { titulo: '', resumo: '', conteudo: '', categoria: 'Geral', fixado: false }
+const EMPTY = { titulo: '', resumo: '', conteudo: '', categoria: 'Geral', fixado: false, areas: [] as string[] }
 
 function Modal({ init, onSave, onClose }: {
   init?: Comunicado | null
@@ -31,9 +32,14 @@ function Modal({ init, onSave, onClose }: {
 }) {
   const [form, setForm] = useState(init ? {
     titulo: init.titulo, resumo: init.resumo ?? '', conteudo: init.conteudo ?? '',
-    categoria: init.categoria, fixado: init.fixado,
+    categoria: init.categoria, fixado: init.fixado, areas: init.areas ?? [],
   } : { ...EMPTY })
   const [saving, setSaving] = useState(false)
+  const [availableAreas, setAvailableAreas] = useState<string[]>([])
+
+  useEffect(() => {
+    api.comunicados.areas().then(setAvailableAreas).catch(() => {})
+  }, [])
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -41,6 +47,13 @@ function Modal({ init, onSave, onClose }: {
     setSaving(true)
     await onSave(form)
     setSaving(false)
+  }
+
+  function toggleArea(area: string) {
+    setForm(f => ({
+      ...f,
+      areas: f.areas.includes(area) ? f.areas.filter(a => a !== area) : [...f.areas, area],
+    }))
   }
 
   const inputCls = 'w-full border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500/30'
@@ -52,7 +65,7 @@ function Modal({ init, onSave, onClose }: {
           <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">{init ? 'Editar comunicado' : 'Novo comunicado'}</h2>
           <button type="button" onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"><X size={15} /></button>
         </div>
-        <div className="p-5 space-y-4">
+        <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
           <div>
             <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 block">Título *</label>
             <input className={inputCls} value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))} required />
@@ -71,6 +84,38 @@ function Modal({ init, onSave, onClose }: {
               </label>
             </div>
           </div>
+
+          {availableAreas.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                  <Users size={11} /> Destinatários
+                </label>
+                {form.areas.length > 0 && (
+                  <button type="button" onClick={() => setForm(f => ({ ...f, areas: [] }))} className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                    Limpar seleção
+                  </button>
+                )}
+              </div>
+              <p className="text-[10px] text-slate-400 mb-2">
+                {form.areas.length === 0 ? 'Nenhuma área selecionada — será enviado para todas as áreas.' : `${form.areas.length} área(s) selecionada(s).`}
+              </p>
+              <div className="max-h-36 overflow-y-auto border border-slate-200 dark:border-slate-600 rounded-xl divide-y divide-slate-100 dark:divide-slate-700">
+                {availableAreas.map(area => (
+                  <label key={area} className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                    <input
+                      type="checkbox"
+                      className="w-3.5 h-3.5 rounded accent-primary-500 shrink-0"
+                      checked={form.areas.includes(area)}
+                      onChange={() => toggleArea(area)}
+                    />
+                    <span className="text-sm text-slate-700 dark:text-slate-300">{area}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 block">Resumo</label>
             <textarea className={inputCls} rows={2} value={form.resumo} onChange={e => setForm(f => ({ ...f, resumo: e.target.value }))} />
@@ -80,7 +125,7 @@ function Modal({ init, onSave, onClose }: {
             <textarea className={inputCls} rows={4} value={form.conteudo} onChange={e => setForm(f => ({ ...f, conteudo: e.target.value }))} />
           </div>
         </div>
-        <div className="flex gap-2 px-5 pb-5">
+        <div className="flex gap-2 px-5 pb-5 pt-3 border-t border-slate-100 dark:border-slate-700">
           <button type="button" onClick={onClose} className="flex-1 py-2 rounded-xl text-sm font-medium border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Cancelar</button>
           <button type="submit" disabled={saving} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-semibold bg-primary-600 hover:bg-primary-700 text-white disabled:opacity-60 transition-colors">
             {saving ? <><RefreshCw size={13} className="animate-spin" />Salvando...</> : 'Publicar'}
@@ -157,7 +202,6 @@ export default function ComunicadosPage() {
           <p className="text-sm text-slate-400 mt-0.5">Informações e avisos da empresa</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Campo de busca */}
           <div className="relative">
             <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -206,6 +250,7 @@ export default function ComunicadosPage() {
             const catCls = CAT_COLORS[c.categoria] ?? CAT_COLORS.Geral
             const data = new Date(c.created_at).toLocaleDateString('pt-BR')
             const open = expanded === c.id
+            const hasAreas = c.areas && c.areas.length > 0
             return (
               <div key={c.id} className={`bg-white dark:bg-slate-800 rounded-2xl border ${c.fixado ? 'border-primary-200 dark:border-primary-800' : 'border-slate-200 dark:border-slate-700'} overflow-hidden hover:shadow-md transition-all`}>
                 <button className="w-full p-5 flex gap-4 text-left" onClick={() => setExpanded(open ? null : c.id)}>
@@ -213,9 +258,14 @@ export default function ComunicadosPage() {
                     {c.fixado ? <Pin size={15} className="text-primary-600" /> : <Megaphone size={15} className="text-slate-400" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <div className="flex items-center gap-1.5 flex-wrap mb-1">
                       <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${catCls}`}>{c.categoria}</span>
                       {c.fixado && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400">Fixado</span>}
+                      {hasAreas && c.areas!.map(a => (
+                        <span key={a} className="text-[10px] px-2 py-0.5 rounded-full bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-800">
+                          {a}
+                        </span>
+                      ))}
                     </div>
                     <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{c.titulo}</p>
                     {c.resumo && !open && <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{c.resumo}</p>}

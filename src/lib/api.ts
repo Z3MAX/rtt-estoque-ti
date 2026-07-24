@@ -286,7 +286,11 @@ export const api = {
       if (MOCK) { await delay(300); return [] }
       return request<any[]>(`${BASE}/comunicados`)
     },
-    create: async (data: { titulo: string; resumo?: string; conteudo?: string; categoria?: string; fixado?: boolean }) => {
+    areas: async () => {
+      if (MOCK) { await delay(200); return [] }
+      return request<string[]>(`${BASE}/comunicados?action=areas`)
+    },
+    create: async (data: { titulo: string; resumo?: string; conteudo?: string; categoria?: string; fixado?: boolean; areas?: string[] }) => {
       if (MOCK) { await delay(300); return { id: _nextId++, ...data, created_at: new Date().toISOString() } }
       return request(`${BASE}/comunicados`, { method: 'POST', body: JSON.stringify(data) })
     },

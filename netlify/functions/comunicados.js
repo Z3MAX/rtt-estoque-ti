@@ -16,12 +16,42 @@ exports.handler = async (event) => {
   try {
     const auth = requireAuth(event)
 
+    // One-time migration: add areas column if it doesn't exist yet
+    await sql`ALTER TABLE comunicados ADD COLUMN IF NOT EXISTS areas TEXT[]`
+
     if (event.httpMethod === 'GET') {
-      const rows = await sql`
-        SELECT * FROM comunicados
-        WHERE publicado = true
-        ORDER BY fixado DESC, created_at DESC
-      `
+      // Return distinct areas from colaboradores
+      if (params.action === 'areas') {
+        const rows = await sql`
+          SELECT DISTINCT area FROM colaboradores
+          WHERE area IS NOT NULL AND area <> ''
+          ORDER BY area
+        `
+        return { statusCode: 200, headers, body: JSON.stringify(rows.map(r => r.area)) }
+      }
+
+      // Admins see all; regular users see comunicados for their area (or unrestricted ones)
+      const admin = isAdminRole(auth.role)
+      const userArea = auth.area || null
+
+      const rows = admin
+        ? await sql`
+            SELECT * FROM comunicados
+            WHERE publicado = true
+            ORDER BY fixado DESC, created_at DESC
+          `
+        : await sql`
+            SELECT * FROM comunicados
+            WHERE publicado = true
+            AND (
+              areas IS NULL
+              OR array_length(areas, 1) IS NULL
+              OR ${userArea} IS NULL
+              OR ${userArea} = ANY(areas)
+            )
+            ORDER BY fixado DESC, created_at DESC
+          `
+
       return { statusCode: 200, headers, body: JSON.stringify(rows) }
     }
 
@@ -30,11 +60,12 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'POST') {
-      const { titulo, resumo, conteudo, categoria, fixado } = JSON.parse(event.body || '{}')
+      const { titulo, resumo, conteudo, categoria, fixado, areas } = JSON.parse(event.body || '{}')
       if (!titulo) return { statusCode: 400, headers, body: JSON.stringify({ error: 'titulo obrigatório' }) }
+      const areasVal = Array.isArray(areas) && areas.length > 0 ? areas : null
       const rows = await sql`
-        INSERT INTO comunicados (titulo, resumo, conteudo, categoria, fixado, autor_id, autor_nome)
-        VALUES (${titulo}, ${resumo ?? null}, ${conteudo ?? null}, ${categoria ?? 'Geral'}, ${fixado ?? false}, ${auth.userId}, ${auth.name})
+        INSERT INTO comunicados (titulo, resumo, conteudo, categoria, fixado, areas, autor_id, autor_nome)
+        VALUES (${titulo}, ${resumo ?? null}, ${conteudo ?? null}, ${categoria ?? 'Geral'}, ${fixado ?? false}, ${areasVal}, ${auth.userId}, ${auth.name})
         RETURNING *
       `
       return { statusCode: 201, headers, body: JSON.stringify(rows[0]) }
@@ -44,6 +75,7 @@ exports.handler = async (event) => {
       const id = parseInt(params.id)
       if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'id obrigatório' }) }
       const body = JSON.parse(event.body || '{}')
+      const areasVal = Array.isArray(body.areas) && body.areas.length > 0 ? body.areas : null
       const rows = await sql`
         UPDATE comunicados SET
           titulo     = COALESCE(${body.titulo ?? null}, titulo),
@@ -52,6 +84,7 @@ exports.handler = async (event) => {
           categoria  = COALESCE(${body.categoria ?? null}, categoria),
           fixado     = COALESCE(${body.fixado ?? null}, fixado),
           publicado  = COALESCE(${body.publicado ?? null}, publicado),
+          areas      = ${areasVal},
           updated_at = NOW()
         WHERE id = ${id}
         RETURNING *
