@@ -248,6 +248,10 @@ export const api = {
       if (MOCK) { await delay(400); return { success: true } }
       return request(`${BASE}/ciclos?id=${id}`, { method: 'DELETE' })
     },
+    recalcularNiveis: async (id: number) => {
+      if (MOCK) { await delay(400); return { total_avaliadas: 0, total_alterado: 0, alterados: [] } }
+      return request(`${BASE}/recalcular-niveis?id=${id}`, { method: 'POST' })
+    },
   },
 
   avaliacoesPendentes: {

@@ -198,7 +198,7 @@ const NINE_BOX_CELLS = [['E1','E2','E3'],['M1','M2','M3'],['B1','B2','B3']]
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 function classificarEixo(media: number): string {
-  if (media >= 3.7) return 'Alto'
+  if (media >= 4) return 'Alto'
   if (media >= 2.7) return 'Médio'
   return 'Baixo'
 }

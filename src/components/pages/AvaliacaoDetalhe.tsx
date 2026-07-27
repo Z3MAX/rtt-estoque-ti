@@ -67,7 +67,7 @@ function formatDate(iso?: string) {
 }
 
 function classificarEixo(media: number): string {
-  if (media >= 3.7) return 'Alto'
+  if (media >= 4) return 'Alto'
   if (media >= 2.7) return 'Médio'
   return 'Baixo'
 }

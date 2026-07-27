@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import {
   CalendarRange, RefreshCw, Play, Square, ChevronDown, ChevronUp,
-  CheckCircle2, Clock, AlertCircle, Users, Trash2,
+  CheckCircle2, Clock, AlertCircle, Users, Trash2, Calculator,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
@@ -138,6 +138,8 @@ function CicloCard({ ciclo, onEncerrar, onDeletado, isMaster }: { ciclo: Ciclo; 
   const [expanded, setExpanded] = useState(ciclo.status === 'aberto')
   const [encerrando, setEncerrando] = useState(false)
   const [deletando, setDeletando] = useState(false)
+  const [recalculando, setRecalculando] = useState(false)
+  const [recalculoMsg, setRecalculoMsg] = useState('')
   const isAberto = ciclo.status === 'aberto'
   const gestoresCompletos = ciclo.gestores.filter(g => g.enviadas >= g.total_colabs && g.total_colabs > 0).length
   const totalGestores = ciclo.gestores.length
@@ -154,6 +156,20 @@ function CicloCard({ ciclo, onEncerrar, onDeletado, isMaster }: { ciclo: Ciclo; 
     setDeletando(true)
     try { await api.ciclos.deletar(ciclo.id); onDeletado(ciclo.id) }
     catch { /* silencioso */ } finally { setDeletando(false) }
+  }
+
+  async function handleRecalcular() {
+    if (!confirm('Recalcular os níveis (Baixo/Médio/Alto) e o quadrante de todas as avaliações já calibradas neste ciclo, usando os critérios de corte atuais?')) return
+    setRecalculando(true)
+    setRecalculoMsg('')
+    try {
+      const r = await api.ciclos.recalcularNiveis(ciclo.id) as { total_avaliadas: number; total_alterado: number }
+      setRecalculoMsg(`${r.total_alterado} de ${r.total_avaliadas} avaliação(ões) recalculada(s).`)
+    } catch (err) {
+      setRecalculoMsg((err as Error).message || 'Erro ao recalcular')
+    } finally {
+      setRecalculando(false)
+    }
   }
 
   return (
@@ -180,6 +196,17 @@ function CicloCard({ ciclo, onEncerrar, onDeletado, isMaster }: { ciclo: Ciclo; 
         <div className="flex items-center gap-2 shrink-0">
           {isAberto && (
             <button
+              onClick={handleRecalcular}
+              disabled={recalculando}
+              title="Recalcular níveis (Baixo/Médio/Alto) e quadrante das avaliações já calibradas, usando os critérios de corte atuais"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-800 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors disabled:opacity-50"
+            >
+              {recalculando ? <RefreshCw size={11} className="animate-spin" /> : <Calculator size={11} />}
+              Recalcular níveis
+            </button>
+          )}
+          {isAberto && (
+            <button
               onClick={handleEncerrar}
               disabled={encerrando}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
@@ -204,6 +231,12 @@ function CicloCard({ ciclo, onEncerrar, onDeletado, isMaster }: { ciclo: Ciclo; 
           </button>
         </div>
       </div>
+
+      {recalculoMsg && (
+        <div className="mx-5 mb-4 px-3 py-2 rounded-lg text-xs font-medium bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 border border-primary-200 dark:border-primary-800">
+          {recalculoMsg}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-0 border-t border-slate-100 dark:border-slate-700">
