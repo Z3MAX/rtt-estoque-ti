@@ -32,6 +32,7 @@ import EquipePage from './components/pages/intranet/Equipe'
 import PesquisasIntranetPage from './components/pages/intranet/Pesquisas'
 import PesquisaResponder from './components/pages/intranet/PesquisaResponder'
 import PesquisaPublica from './components/pages/PesquisaPublica'
+import PresencaPublica from './components/pages/PresencaPublica'
 import FeedbacksPage from './components/pages/intranet/Feedbacks'
 
 type Portal = 'avaliacao' | 'intranet' | null
@@ -138,6 +139,7 @@ export default function App() {
           <Route path="/reset-password"  element={<ForceLightMode><ResetPasswordPage /></ForceLightMode>} />
           <Route path="/assinar/:token"  element={<ForceLightMode><AssinarPage /></ForceLightMode>} />
           <Route path="/p/:token"        element={<PesquisaPublica />} />
+          <Route path="/presenca/:token" element={<PresencaPublica />} />
           <Route path="*" element={<ProtectedRoutes />} />
         </Routes>
       </AuthProvider>

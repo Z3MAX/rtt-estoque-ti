@@ -12,6 +12,7 @@ import {
 import { useAuth, isAdmin, isGestor, isInstrutor } from '../../../lib/auth'
 import { api } from '../../../lib/api'
 import ExcelJS from 'exceljs'
+import TreinamentosPresenciais from './TreinamentosPresenciais'
 
 // ─── Video helpers ────────────────────────────────────────────────────────────
 
@@ -3350,7 +3351,7 @@ export default function TreinamentosPage() {
   const podeGerenciar = isAdmin(user?.role) || isGestor(user?.role)
   const podeInstrutor = isAdmin(user?.role) || isInstrutor(user?.role, user?.roles)
 
-  const [view, setView] = useState<'meus' | 'gestao' | 'instrutor'>('meus')
+  const [view, setView] = useState<'meus' | 'gestao' | 'instrutor' | 'presenciais'>('meus')
   const [search, setSearch] = useState('')
   const [categoria, setCategoria] = useState('Todos')
   const [filtroStatus, setFiltroStatus] = useState<'todos' | 'em-andamento' | 'concluidos' | 'nao-iniciados'>('todos')
@@ -3496,10 +3497,10 @@ const [loading, setLoading] = useState(true)
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-            {view === 'instrutor' ? 'Área do Instrutor' : view === 'gestao' ? 'Gestão de Treinamentos' : 'Treinamentos'}
+            {view === 'instrutor' ? 'Área do Instrutor' : view === 'gestao' ? 'Gestão de Treinamentos' : view === 'presenciais' ? 'Treinamentos Presenciais' : 'Treinamentos'}
           </h1>
           <p className="text-sm text-slate-400 mt-0.5">
-            {view === 'instrutor' ? 'Crie e gerencie os cursos que você ministra' : view === 'gestao' ? 'Acompanhe o progresso, defina requisitos e extraia relatórios' : 'Trilhas de desenvolvimento disponíveis para você'}
+            {view === 'instrutor' ? 'Crie e gerencie os cursos que você ministra' : view === 'gestao' ? 'Acompanhe o progresso, defina requisitos e extraia relatórios' : view === 'presenciais' ? 'Listas de presença com QR Code para treinamentos presenciais' : 'Trilhas de desenvolvimento disponíveis para você'}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -3529,11 +3530,19 @@ const [loading, setLoading] = useState(true)
                 )}
               </button>
             )}
+            {podeGerenciar && (
+              <button
+                onClick={() => setView('presenciais')}
+                className={`px-4 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${view === 'presenciais' ? 'bg-white dark:bg-slate-800 shadow text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+              >
+                <UserCheck size={14} />Presenciais
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {view === 'instrutor' ? <InstrutorView user={user} /> : view === 'gestao' ? <RHView todosCursos={cursos} /> : (
+      {view === 'presenciais' ? <TreinamentosPresenciais /> : view === 'instrutor' ? <InstrutorView user={user} /> : view === 'gestao' ? <RHView todosCursos={cursos} /> : (
         <>
           {/* Sub-tabs: Ativos / Inativos */}
           <div className="flex gap-1.5">

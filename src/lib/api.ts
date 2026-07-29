@@ -557,4 +557,19 @@ export const api = {
       return request<{ items: any[]; total: number }>(`${BASE}/humor-feedback${qs.toString() ? '?' + qs : ''}`)
     },
   },
+
+  treinamentosPresenciais: {
+    list: async () => request<any[]>(`${BASE}/treinamentos-presenciais`),
+    create: async (data: any) => request<any>(`${BASE}/treinamentos-presenciais`, { method: 'POST', body: JSON.stringify(data) }),
+    update: async (id: number, data: any) => request<any>(`${BASE}/treinamentos-presenciais?id=${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: async (id: number) => request(`${BASE}/treinamentos-presenciais?id=${id}`, { method: 'DELETE' }),
+    presenca: async (id: number) => request<any[]>(`${BASE}/treinamentos-presenciais?id=${id}&action=presenca`),
+  },
+
+  presencaPublica: {
+    get: async (token: string) => request<any>(`${BASE}/presenca-publica?token=${encodeURIComponent(token)}`),
+    buscar: async (q: string) => request<any[]>(`${BASE}/presenca-publica?action=buscar&q=${encodeURIComponent(q)}`),
+    submit: async (data: { token: string; colaborador_id?: number; nome: string; cargo?: string; area?: string; codigo?: string }) =>
+      request(`${BASE}/presenca-publica`, { method: 'POST', body: JSON.stringify(data) }),
+  },
 }
