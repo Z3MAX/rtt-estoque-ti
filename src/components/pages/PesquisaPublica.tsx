@@ -169,6 +169,22 @@ function CampoResposta({ pergunta, resposta, onChange }: {
   )
 }
 
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen bg-slate-50 py-10 px-4">
+      <div className="max-w-2xl mx-auto">
+        <div className="flex items-center justify-center mb-8 gap-3">
+          <div className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center">
+            <ClipboardList size={18} className="text-white" />
+          </div>
+          <span className="text-lg font-bold text-slate-700">RTT Sistema</span>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 export default function PesquisaPublica() {
   const { token } = useParams<{ token: string }>()
   const [pesquisa, setPesquisa] = useState<{ id: number; nome: string; objetivo?: string; perguntas: Pergunta[] } | null>(null)
@@ -244,20 +260,6 @@ export default function PesquisaPublica() {
       setSubmitting(false)
     }
   }
-
-  const Shell = ({ children }: { children: React.ReactNode }) => (
-    <div className="min-h-screen bg-slate-50 py-10 px-4">
-      <div className="max-w-2xl mx-auto">
-        <div className="flex items-center justify-center mb-8 gap-3">
-          <div className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center">
-            <ClipboardList size={18} className="text-white" />
-          </div>
-          <span className="text-lg font-bold text-slate-700">RTT Sistema</span>
-        </div>
-        {children}
-      </div>
-    </div>
-  )
 
   if (status === 'loading') return (
     <Shell>
