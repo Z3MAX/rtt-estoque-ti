@@ -42,6 +42,7 @@ exports.handler = async (event) => {
       )
     `
     await sql`ALTER TABLE pesquisas ADD COLUMN IF NOT EXISTS perguntas JSONB DEFAULT '[]'`
+    await sql`ALTER TABLE pesquisas ADD COLUMN IF NOT EXISTS link_publico UUID`
     await sql`
       CREATE TABLE IF NOT EXISTS pesquisa_respostas (
         id             SERIAL PRIMARY KEY,
@@ -112,7 +113,7 @@ exports.handler = async (event) => {
           data_inicio, data_fim, frequencia_pulso, perguntas_por_pulso,
           questionario, email_auto, dias_aviso, relatorio_permissao,
           relatorio_selecionados, notif_respondido, autenticacao_codigo,
-          vinculos_desligamento, colaborador_ids, perguntas, created_by
+          vinculos_desligamento, colaborador_ids, perguntas, created_by, link_publico
         ) VALUES (
           ${nome}, ${objetivo ?? null}, ${tipo}, ${situacao ?? 'RASCUNHO'}, ${status ?? 'ATIVA'},
           ${anonima ?? false}, ${ocultar_min ?? false},
@@ -122,7 +123,8 @@ exports.handler = async (event) => {
           ${relatorio_permissao ?? true}, ${relatorio_selecionados ?? false},
           ${notif_respondido ?? false}, ${autenticacao_codigo ?? true},
           ${JSON.stringify(vinculos_desligamento ?? [])}, ${JSON.stringify(colaborador_ids ?? [])},
-          ${JSON.stringify(perguntas ?? [])}, ${auth.userId}
+          ${JSON.stringify(perguntas ?? [])}, ${auth.userId},
+          CASE WHEN ${anonima ?? false} THEN gen_random_uuid() ELSE NULL END
         )
         RETURNING *
       `
@@ -161,6 +163,7 @@ exports.handler = async (event) => {
           vinculos_desligamento  = COALESCE(${body.vinculos_desligamento != null ? JSON.stringify(body.vinculos_desligamento) : null}::jsonb, vinculos_desligamento),
           colaborador_ids        = COALESCE(${body.colaborador_ids != null ? JSON.stringify(body.colaborador_ids) : null}::jsonb, colaborador_ids),
           perguntas              = COALESCE(${body.perguntas != null ? JSON.stringify(body.perguntas) : null}::jsonb, perguntas),
+          link_publico           = CASE WHEN ${body.anonima ?? false} AND link_publico IS NULL THEN gen_random_uuid() ELSE link_publico END,
           updated_at             = NOW()
         WHERE id = ${id}
         RETURNING *

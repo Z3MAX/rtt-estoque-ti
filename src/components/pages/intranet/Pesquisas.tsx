@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
+import ExcelJS from 'exceljs'
 import {
   ClipboardList, Plus, Search, Filter, X, Pencil, BarChart2, Link2,
   ChevronLeft, ChevronDown, AlertCircle, Info, Trash2, Users, Calendar, Clock,
   Loader2, ChevronUp, GripVertical, CheckSquare, AlignLeft, Hash, Send,
-  CheckCircle2, ArrowUp, ArrowDown, Eye, MessageSquare,
+  CheckCircle2, ArrowUp, ArrowDown, Eye, MessageSquare, Download,
 } from 'lucide-react'
 import { api } from '../../../lib/api'
 
@@ -50,6 +51,7 @@ interface Pesquisa {
   colaborador_ids: number[]
   perguntas?: Pergunta[]
   total_respostas?: number
+  link_publico?: string
   created_at: string
 }
 
@@ -875,6 +877,83 @@ function NovaPesquisaForm({ onBack, pesquisaInicial }: { onBack: (recarregar?: b
   )
 }
 
+async function exportarResultadosXLSX(pesquisa: Pesquisa, respostas: any[]) {
+  if (!respostas.length) return
+  const perguntas = pesquisa.perguntas ?? []
+  const wb = new ExcelJS.Workbook()
+  wb.creator = 'RTT Sistema'
+
+  const headerStyle = (ws: ExcelJS.Worksheet, row: ExcelJS.Row) => {
+    row.height = 22
+    row.eachCell(c => {
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } }
+      c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10, name: 'Calibri' }
+      c.alignment = { vertical: 'middle', horizontal: 'center' }
+      c.border = { top: { style: 'thin', color: { argb: 'FF2D5A8E' } }, bottom: { style: 'thin', color: { argb: 'FF2D5A8E' } }, left: { style: 'thin', color: { argb: 'FF2D5A8E' } }, right: { style: 'thin', color: { argb: 'FF2D5A8E' } } }
+    })
+  }
+
+  // Sheet 1: Respostas brutas
+  const ws1 = wb.addWorksheet('Respostas', { views: [{ state: 'frozen', ySplit: 1 }] })
+  const cols = ['#', 'Data', ...(pesquisa.anonima ? [] : ['Colaborador', 'Cargo']), ...perguntas.map(p => p.titulo || `Pergunta ${p.id}`)]
+  headerStyle(ws1, ws1.addRow(cols))
+  respostas.forEach((r, i) => {
+    const data = new Date(r.created_at).toLocaleDateString('pt-BR')
+    const base = [i + 1, data, ...(pesquisa.anonima ? [] : [r.colaborador_nome ?? '—', r.colaborador_cargo ?? '—'])]
+    const resArr: any[] = r.respostas ?? []
+    const vals = perguntas.map(p => {
+      const found = resArr.find((x: any) => x.pergunta_id === p.id)
+      const v = found?.valor
+      if (Array.isArray(v)) return v.join(', ')
+      return v ?? ''
+    })
+    const row = ws1.addRow([...base, ...vals])
+    row.height = 16
+    const bg = i % 2 === 0 ? 'FFFFFFFF' : 'FFF0F4F8'
+    row.eachCell(c => {
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } }
+      c.font = { size: 10, name: 'Calibri' }
+      c.border = { top: { style: 'thin', color: { argb: 'FFD1D9E0' } }, bottom: { style: 'thin', color: { argb: 'FFD1D9E0' } }, left: { style: 'thin', color: { argb: 'FFD1D9E0' } }, right: { style: 'thin', color: { argb: 'FFD1D9E0' } } }
+    })
+  })
+  ws1.columns = cols.map(c => ({ width: Math.min(40, Math.max(12, c.length + 2)) }))
+  ws1.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: cols.length } }
+
+  // Sheet 2: Resumo agregado (only for choice/scale/nps/sim_nao questions)
+  const ws2 = wb.addWorksheet('Resumo')
+  ws2.addRow(['Pergunta', 'Tipo', 'Opção / Valor', 'Contagem', '% do total']).height = 22
+  headerStyle(ws2, ws2.getRow(1))
+  let row2 = 2
+  perguntas.forEach(p => {
+    const vals = respostas.flatMap(r => {
+      const found = (r.respostas ?? []).find((x: any) => x.pergunta_id === p.id)
+      const v = found?.valor
+      if (v === null || v === undefined || v === '') return []
+      return Array.isArray(v) ? v : [String(v)]
+    })
+    if (['texto'].includes(p.tipo)) return
+    const counts: Record<string, number> = {}
+    vals.forEach(v => { counts[v] = (counts[v] ?? 0) + 1 })
+    Object.entries(counts).sort((a, b) => b[1] - a[1]).forEach(([opt, cnt]) => {
+      const row = ws2.addRow([p.titulo, p.tipo.replace('_', ' '), opt, cnt, vals.length ? `${Math.round(cnt / vals.length * 100)}%` : '0%'])
+      row.height = 16
+      row.getCell(4).alignment = { horizontal: 'center' }
+      row.getCell(5).alignment = { horizontal: 'center' }
+      row2++
+    })
+  })
+  ws2.columns = [{ width: 40 }, { width: 16 }, { width: 30 }, { width: 12 }, { width: 12 }]
+
+  const buffer = await wb.xlsx.writeBuffer()
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `pesquisa_${pesquisa.nome.replace(/\s+/g, '_')}.xlsx`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 /* ─── Resultados ─── */
 function ResultadosView({ pesquisa, onBack }: { pesquisa: Pesquisa; onBack: () => void }) {
   const [respostas, setRespostas] = useState<any[]>([])
@@ -940,6 +1019,14 @@ function ResultadosView({ pesquisa, onBack }: { pesquisa: Pesquisa; onBack: () =
               <p className="text-2xl font-black text-emerald-600">{loading ? '—' : `${taxa}%`}</p>
               <p className="text-xs text-slate-400">Taxa de resposta</p>
             </div>
+          )}
+          {!loading && total > 0 && (
+            <button
+              onClick={() => exportarResultadosXLSX(pesquisa, respostas)}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            >
+              <Download size={14} /> Exportar Excel
+            </button>
           )}
         </div>
       </div>
@@ -1175,7 +1262,9 @@ export default function PesquisasPage() {
   }
 
   function handleCopyLink(p: Pesquisa) {
-    const url = `${window.location.origin}/intranet/pesquisas/${p.id}/responder`
+    const url = p.anonima && p.link_publico
+      ? `${window.location.origin}/p/${p.link_publico}`
+      : `${window.location.origin}/intranet/pesquisas/${p.id}/responder`
     navigator.clipboard.writeText(url).then(() => {
       setCopiedId(p.id)
       setTimeout(() => setCopiedId(null), 2000)
@@ -1301,7 +1390,7 @@ export default function PesquisasPage() {
                         className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
                         <BarChart2 size={14} />
                       </button>
-                      <button title={copiedId === p.id ? 'Copiado!' : 'Copiar link de resposta'} onClick={() => handleCopyLink(p)}
+                      <button title={copiedId === p.id ? 'Copiado!' : p.anonima ? 'Copiar link público anônimo' : 'Copiar link de resposta'} onClick={() => handleCopyLink(p)}
                         className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${copiedId === p.id ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-200'}`}>
                         <Link2 size={14} />
                       </button>

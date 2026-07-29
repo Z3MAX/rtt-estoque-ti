@@ -486,6 +486,15 @@ export const api = {
     },
   },
 
+  pesquisaPublica: {
+    get: async (token: string) => {
+      return request<any>(`${BASE}/pesquisa-publica?token=${encodeURIComponent(token)}`)
+    },
+    submit: async (data: { token: string; token_anonimo: string; respostas: any[] }) => {
+      return request(`${BASE}/pesquisa-publica`, { method: 'POST', body: JSON.stringify(data) })
+    },
+  },
+
   aniversariantes: {
     list: async () => {
       if (MOCK) { await delay(200); return { nascimento: [], empresa: [] } }
