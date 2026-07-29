@@ -1,4 +1,4 @@
-import { useAuth } from '../lib/auth'
+import { useAuth, isAdmin } from '../lib/auth'
 import { ClipboardCheck, BookOpen, LogOut, ChevronRight } from 'lucide-react'
 
 interface Props {
@@ -14,7 +14,7 @@ export default function PortalSelector({ onSelect }: Props) {
   }
 
   const firstName = user?.name?.split(' ')[0] ?? 'Colaborador'
-  const canAccessIntranet = user?.role === 'Administrador Master' || user?.role === 'Beta Teste'
+  const canAccessIntranet = isAdmin(user?.role) || user?.role === 'Beta Teste'
 
   return (
     <div className="min-h-screen w-full flex">
@@ -125,7 +125,7 @@ export default function PortalSelector({ onSelect }: Props) {
                 <ChevronRight size={16} className="text-slate-300 group-hover:text-primary-500 group-hover:translate-x-0.5 transition-all shrink-0" />
               </button>
 
-              {/* Intranet — apenas Administrador Master */}
+              {/* Intranet — administradores e Beta Teste */}
               {canAccessIntranet && (
                 <button
                   onClick={() => choose('intranet')}
