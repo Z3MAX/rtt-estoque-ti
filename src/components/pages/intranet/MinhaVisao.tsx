@@ -476,7 +476,7 @@ export default function MinhaVisao() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                      {avaliacoesPendentes.length} avaliação{avaliacoesPendentes.length !== 1 ? 'ões' : ''} pendente{avaliacoesPendentes.length !== 1 ? 's' : ''}
+                      {avaliacoesPendentes.length} {avaliacoesPendentes.length !== 1 ? 'avaliações' : 'avaliação'} pendente{avaliacoesPendentes.length !== 1 ? 's' : ''}
                     </p>
                     <p className="text-xs text-slate-400 mt-0.5">Colaboradores aguardando avaliação</p>
                   </div>
