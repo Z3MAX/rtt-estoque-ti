@@ -263,7 +263,7 @@ exports.handler = async (event) => {
               if (!isSafeQuery(query)) {
                 result = { error: 'Query não permitida. Apenas SELECT é autorizado.' }
               } else {
-                const rows = await sql.unsafe(query)
+                const rows = await sql(query)
                 result = { rows: rows.slice(0, 100), total: rows.length }
               }
             } catch (err) {
