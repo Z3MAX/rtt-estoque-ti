@@ -43,20 +43,92 @@ function MessageBubble({ msg }: { msg: Message }) {
   )
 }
 
-function FormattedResponse({ text }: { text: string }) {
-  // Convert markdown-like formatting to JSX
+function isTableRow(line: string) {
+  const t = line.trim()
+  return t.startsWith('|') && t.endsWith('|') && t.length > 2
+}
+
+function isSeparatorRow(line: string) {
+  return /^\|[\s\-:|]+\|$/.test(line.trim())
+}
+
+function parseRow(line: string): string[] {
+  return line.trim().slice(1, -1).split('|').map(c => c.trim())
+}
+
+function MarkdownTable({ rows }: { rows: string[][] }) {
+  const [header, ...body] = rows
+  return (
+    <div className="overflow-x-auto my-2 rounded-xl border border-slate-200 dark:border-slate-700">
+      <table className="w-full text-xs border-collapse">
+        <thead>
+          <tr className="bg-violet-50 dark:bg-violet-900/20">
+            {header.map((cell, i) => (
+              <th key={i} className="px-3 py-2 text-left font-semibold text-violet-700 dark:text-violet-300 whitespace-nowrap border-b border-slate-200 dark:border-slate-700">
+                {cell}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {body.map((row, ri) => (
+            <tr key={ri} className={ri % 2 === 0 ? 'bg-white dark:bg-slate-800/50' : 'bg-slate-50 dark:bg-slate-800'}>
+              {row.map((cell, ci) => (
+                <td key={ci} className="px-3 py-2 text-slate-700 dark:text-slate-300 border-b border-slate-100 dark:border-slate-700/50 last:border-b-0">
+                  <span dangerouslySetInnerHTML={{ __html: formatInline(cell) }} />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+type Block =
+  | { type: 'table'; rows: string[][] }
+  | { type: 'line'; content: string; index: number }
+
+function parseBlocks(text: string): Block[] {
   const lines = text.split('\n')
+  const blocks: Block[] = []
+  let i = 0
+  while (i < lines.length) {
+    if (isTableRow(lines[i])) {
+      const tableLines: string[] = []
+      while (i < lines.length && isTableRow(lines[i])) {
+        tableLines.push(lines[i])
+        i++
+      }
+      const rows = tableLines
+        .filter(l => !isSeparatorRow(l))
+        .map(parseRow)
+      if (rows.length > 0) blocks.push({ type: 'table', rows })
+    } else {
+      blocks.push({ type: 'line', content: lines[i], index: i })
+      i++
+    }
+  }
+  return blocks
+}
+
+function FormattedResponse({ text }: { text: string }) {
+  const blocks = parseBlocks(text)
   return (
     <div className="space-y-1.5">
-      {lines.map((line, i) => {
+      {blocks.map((block, i) => {
+        if (block.type === 'table') {
+          return <MarkdownTable key={i} rows={block.rows} />
+        }
+
+        const line = block.content
         if (!line.trim()) return <div key={i} className="h-1" />
 
-        // Bold headers (** or ###)
         if (line.startsWith('### ') || line.startsWith('## ')) {
           return <p key={i} className="font-bold text-slate-800 dark:text-slate-100 mt-2">{line.replace(/^#{2,3}\s/, '')}</p>
         }
 
-        // Bullet points
         if (line.startsWith('- ') || line.startsWith('• ')) {
           const content = line.replace(/^[-•]\s/, '')
           return (
@@ -67,7 +139,6 @@ function FormattedResponse({ text }: { text: string }) {
           )
         }
 
-        // Numbered list
         if (/^\d+\.\s/.test(line)) {
           const [num, ...rest] = line.split('. ')
           return (
