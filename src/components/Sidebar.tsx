@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, LogOut,
-  ChevronRight, Sun, Moon, ClipboardList, Building2, ClipboardCheck, ListChecks, Shield, CalendarRange, ArrowLeftRight, Sparkles,
+  ChevronRight, Sun, Moon, ClipboardList, Building2, ClipboardCheck, ListChecks, Shield, CalendarRange, ArrowLeftRight,
 } from 'lucide-react'
 import { useAuth, isAdmin, isMaster } from '../lib/auth'
 import { useTheme } from '../lib/theme'
@@ -18,7 +18,6 @@ const navItems = [
   { to: '/ciclo-avaliacao',    icon: CalendarRange,   label: 'Ciclo de Avaliação',   adminOnly: true,  masterOnly: false },
   { to: '/usuarios',           icon: Users,           label: 'Usuários',             adminOnly: true,  masterOnly: false },
   { to: '/auditoria',          icon: Shield,          label: 'Auditoria',            adminOnly: false, masterOnly: true  },
-  { to: '/assistente',         icon: Sparkles,        label: 'Assistente IA',        adminOnly: true,  masterOnly: false },
 ]
 
 export default function Sidebar() {

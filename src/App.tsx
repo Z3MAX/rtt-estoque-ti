@@ -30,7 +30,6 @@ import ComunicadosPage from './components/pages/intranet/Comunicados'
 import PDIPage from './components/pages/intranet/PDI'
 import EquipePage from './components/pages/intranet/Equipe'
 import PesquisasIntranetPage from './components/pages/intranet/Pesquisas'
-import AgenteRH from './components/pages/intranet/AgenteRH'
 import PesquisaResponder from './components/pages/intranet/PesquisaResponder'
 import PesquisaPublica from './components/pages/PesquisaPublica'
 import PresencaPublica from './components/pages/PresencaPublica'
@@ -125,8 +124,7 @@ function ProtectedRoutes() {
         <Route path="/usuarios" element={isAdmin(user?.role) ? <UsersPage /> : <Navigate to="/dashboard" replace />} />
         <Route path="/auditoria" element={isMaster(user?.role) ? <AuditoriaPage /> : <Navigate to="/dashboard" replace />} />
         <Route path="/ciclo-avaliacao" element={isAdmin(user?.role) ? <CicloAvaliacaoPage /> : <Navigate to="/dashboard" replace />} />
-        <Route path="/assistente" element={isAdmin(user?.role) ? <AgenteRH /> : <Navigate to="/dashboard" replace />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+<Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>
   )

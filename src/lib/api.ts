@@ -566,11 +566,6 @@ export const api = {
     presenca: async (id: number) => request<any[]>(`${BASE}/treinamentos-presenciais?id=${id}&action=presenca`),
   },
 
-  aiRh: {
-    ask: async (messages: { role: string; content: string }[]) =>
-      request<{ response: string }>(`${BASE}/ai-rh`, { method: 'POST', body: JSON.stringify({ messages }) }),
-  },
-
   presencaPublica: {
     get: async (token: string) => request<any>(`${BASE}/presenca-publica?token=${encodeURIComponent(token)}`),
     buscar: async (q: string) => request<any[]>(`${BASE}/presenca-publica?action=buscar&q=${encodeURIComponent(q)}`),
