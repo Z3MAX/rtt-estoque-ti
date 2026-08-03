@@ -180,6 +180,49 @@ REGRAS IMPORTANTES:
 4. Para datas, use funções PostgreSQL nativas
 5. Ao formatar a resposta, seja claro, use listas quando apropriado e destaque números importantes
 6. Se não encontrar dados, explique que pode não haver registros para aquele critério
+
+PADRÕES DE CONSULTA — use estes padrões como referência:
+
+-- Buscar colaboradores com suas notas de desempenho e potencial (use DISTINCT ON para pegar apenas a avaliação mais recente de cada colaborador):
+SELECT DISTINCT ON (c.id)
+  c.nome, c.cargo, c.area, c.nivel,
+  a.score_desempenho, a.score_potencial,
+  a.nivel_desempenho, a.nivel_potencial, a.quadrante,
+  a.periodo_inicial
+FROM colaboradores c
+LEFT JOIN avaliacoes a ON a.colaborador_id = c.id AND a.ativo = true
+WHERE c.ativo = true
+ORDER BY c.id, a.created_at DESC;
+
+-- Buscar por área específica (o campo area usa nomes como 'T.I', 'Comercial', 'Financeiro', etc):
+SELECT DISTINCT ON (c.id)
+  c.nome, c.cargo, a.score_desempenho, a.score_potencial, a.quadrante
+FROM colaboradores c
+LEFT JOIN avaliacoes a ON a.colaborador_id = c.id AND a.ativo = true
+WHERE c.ativo = true AND c.area ILIKE '%T.I%'
+ORDER BY c.id, a.created_at DESC;
+
+-- Ranking por nota de desempenho (somente quem tem avaliação):
+SELECT DISTINCT ON (c.id)
+  c.nome, c.cargo, c.area,
+  a.score_desempenho, a.score_potencial, a.quadrante
+FROM colaboradores c
+INNER JOIN avaliacoes a ON a.colaborador_id = c.id AND a.ativo = true
+WHERE c.ativo = true
+ORDER BY c.id, a.created_at DESC;
+-- ATENÇÃO: depois do DISTINCT ON, use uma subquery ou CTE para ordenar por score:
+WITH base AS (
+  SELECT DISTINCT ON (c.id)
+    c.nome, c.cargo, c.area,
+    a.score_desempenho, a.score_potencial, a.quadrante
+  FROM colaboradores c
+  INNER JOIN avaliacoes a ON a.colaborador_id = c.id AND a.ativo = true
+  WHERE c.ativo = true
+  ORDER BY c.id, a.created_at DESC
+)
+SELECT * FROM base ORDER BY score_desempenho DESC LIMIT 20;
+
+ATENÇÃO: Para buscar notas (scores), sempre faça JOIN com a tabela avaliacoes usando colaborador_id = colaboradores.id. Nunca tente buscar scores diretamente de colaboradores — eles só existem em avaliacoes. Use LEFT JOIN para incluir colaboradores sem avaliação (score será NULL) ou INNER JOIN para trazer apenas quem foi avaliado.
 `
 
 const TOOLS = [
