@@ -101,7 +101,6 @@ function ProtectedRoutes() {
           <Route path="/intranet/pesquisas" element={<PesquisasIntranetPage />} />
           <Route path="/intranet/pesquisas/:id/responder" element={<PesquisaResponder />} />
           <Route path="/intranet/feedbacks" element={<FeedbacksPage />} />
-          <Route path="/intranet/assistente" element={<AgenteRH />} />
           <Route path="*" element={<Navigate to="/intranet" replace />} />
         </Route>
       </Routes>
@@ -126,6 +125,7 @@ function ProtectedRoutes() {
         <Route path="/usuarios" element={isAdmin(user?.role) ? <UsersPage /> : <Navigate to="/dashboard" replace />} />
         <Route path="/auditoria" element={isMaster(user?.role) ? <AuditoriaPage /> : <Navigate to="/dashboard" replace />} />
         <Route path="/ciclo-avaliacao" element={isAdmin(user?.role) ? <CicloAvaliacaoPage /> : <Navigate to="/dashboard" replace />} />
+        <Route path="/assistente" element={isAdmin(user?.role) ? <AgenteRH /> : <Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>

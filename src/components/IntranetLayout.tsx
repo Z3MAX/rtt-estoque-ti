@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   Home, BookOpen, Megaphone, GraduationCap, Users, ClipboardList,
-  LogOut, ChevronDown, Menu, X, ArrowLeftRight, Bell, SmilePlus, Sparkles,
+  LogOut, ChevronDown, Menu, X, ArrowLeftRight, Bell, SmilePlus,
 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import ChatBot from './ChatBot'
@@ -17,7 +17,6 @@ const NAV = [
   { to: '/intranet/equipe',      icon: Users,         label: 'Minha Equipe', adminOnly: false },
   { to: '/intranet/pesquisas',   icon: ClipboardList, label: 'Pesquisas',    adminOnly: false },
   { to: '/intranet/feedbacks',   icon: SmilePlus,     label: 'Feedbacks',    adminOnly: true  },
-  { to: '/intranet/assistente',  icon: Sparkles,      label: 'Assistente IA', adminOnly: true  },
 ]
 
 const ADMIN_NAV_ROLES = ['Administrador de RH', 'Administrador Master', 'Administrador de RH / Gestor']
