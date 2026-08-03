@@ -30,6 +30,7 @@ import ComunicadosPage from './components/pages/intranet/Comunicados'
 import PDIPage from './components/pages/intranet/PDI'
 import EquipePage from './components/pages/intranet/Equipe'
 import PesquisasIntranetPage from './components/pages/intranet/Pesquisas'
+import AgenteRH from './components/pages/intranet/AgenteRH'
 import PesquisaResponder from './components/pages/intranet/PesquisaResponder'
 import PesquisaPublica from './components/pages/PesquisaPublica'
 import PresencaPublica from './components/pages/PresencaPublica'
@@ -100,6 +101,7 @@ function ProtectedRoutes() {
           <Route path="/intranet/pesquisas" element={<PesquisasIntranetPage />} />
           <Route path="/intranet/pesquisas/:id/responder" element={<PesquisaResponder />} />
           <Route path="/intranet/feedbacks" element={<FeedbacksPage />} />
+          <Route path="/intranet/assistente" element={<AgenteRH />} />
           <Route path="*" element={<Navigate to="/intranet" replace />} />
         </Route>
       </Routes>
