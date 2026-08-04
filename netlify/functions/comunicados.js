@@ -35,6 +35,8 @@ exports.handler = async (event) => {
       const admin = isAdminRole(auth.role)
       const userArea = auth.area || null
 
+      const isGestor = auth.role === 'Gestor' || auth.role === 'Administrador de RH / Gestor'
+
       const rows = admin
         ? await sql`
             SELECT * FROM comunicados
@@ -47,8 +49,8 @@ exports.handler = async (event) => {
             AND (
               areas IS NULL
               OR array_length(areas, 1) IS NULL
-              OR ${userArea} IS NULL
-              OR ${userArea} = ANY(areas)
+              OR (${userArea} IS NOT NULL AND ${userArea} = ANY(areas))
+              OR (${isGestor} AND '__gestores__' = ANY(areas))
             )
             ORDER BY fixado DESC, created_at DESC
           `

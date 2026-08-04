@@ -107,7 +107,11 @@ function Modal({ init, onSave, onClose }: {
                 )}
               </div>
               <p className="text-[10px] text-slate-400 mb-2">
-                {form.areas.length === 0 ? 'Todas as áreas e colaboradores receberão este comunicado.' : `${form.areas.length} área(s) selecionada(s).`}
+                {form.areas.length === 0
+                  ? 'Todas as áreas e colaboradores receberão este comunicado.'
+                  : form.areas.length === 1 && form.areas[0] === '__gestores__'
+                    ? 'Visível apenas para usuários com perfil de Gestor.'
+                    : `${form.areas.filter(a => a !== '__gestores__').length} área(s) selecionada(s)${form.areas.includes('__gestores__') ? ' + Gestores' : ''}.`}
               </p>
               <div className="max-h-36 overflow-y-auto border border-slate-200 dark:border-slate-600 rounded-xl divide-y divide-slate-100 dark:divide-slate-700">
                 <label className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors bg-slate-50 dark:bg-slate-700/30">
@@ -118,6 +122,15 @@ function Modal({ init, onSave, onClose }: {
                     onChange={() => setForm(f => ({ ...f, areas: [] }))}
                   />
                   <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Todos</span>
+                </label>
+                <label className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                  <input
+                    type="checkbox"
+                    className="w-3.5 h-3.5 rounded accent-amber-500 shrink-0"
+                    checked={form.areas.includes('__gestores__')}
+                    onChange={() => toggleArea('__gestores__')}
+                  />
+                  <span className="text-sm font-medium text-amber-600 dark:text-amber-400">Somente Gestores</span>
                 </label>
                 {availableAreas.map(area => (
                   <label key={area} className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
@@ -313,7 +326,12 @@ export default function ComunicadosPage() {
                     <div className="flex items-center gap-1.5 flex-wrap mb-1">
                       <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${catCls}`}>{c.categoria}</span>
                       {c.fixado && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400">Fixado</span>}
-                      {hasAreas && c.areas!.map(a => (
+                      {hasAreas && c.areas!.includes('__gestores__') && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                          Gestores
+                        </span>
+                      )}
+                      {hasAreas && c.areas!.filter(a => a !== '__gestores__').map(a => (
                         <span key={a} className="text-[10px] px-2 py-0.5 rounded-full bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-800">
                           {a}
                         </span>
