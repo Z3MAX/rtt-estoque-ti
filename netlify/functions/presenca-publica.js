@@ -29,6 +29,16 @@ async function runMigrations(sql) {
       created_at       TIMESTAMP DEFAULT NOW()
     )
   `
+  await sql`
+    CREATE TABLE IF NOT EXISTS treinamento_convidados (
+      id               SERIAL PRIMARY KEY,
+      treinamento_id   INTEGER NOT NULL,
+      nome             TEXT NOT NULL,
+      cargo            TEXT,
+      area             TEXT,
+      created_at       TIMESTAMP DEFAULT NOW()
+    )
+  `
   try {
     await sql`CREATE UNIQUE INDEX IF NOT EXISTS presenca_colab_uq ON presenca_registros(treinamento_id, colaborador_id) WHERE colaborador_id IS NOT NULL`
   } catch (_) {}
@@ -45,11 +55,30 @@ exports.handler = async (event) => {
   try {
     await runMigrations(sql)
 
-    // Search colaboradores by name
+    // Search participants by name
     if (event.httpMethod === 'GET' && params.action === 'buscar') {
       const q = (params.q || '').trim()
       if (q.length < 2) return { statusCode: 200, headers, body: JSON.stringify([]) }
       const pattern = `%${q}%`
+
+      // If a token is provided, search convidados for that event first
+      if (params.token) {
+        const evRows = await sql`
+          SELECT id FROM treinamentos_presenciais WHERE token = ${params.token} AND ativo = true
+        `
+        if (evRows.length > 0) {
+          const convidados = await sql`
+            SELECT id, nome, cargo, area FROM treinamento_convidados
+            WHERE treinamento_id = ${evRows[0].id} AND nome ILIKE ${pattern}
+            ORDER BY nome LIMIT 10
+          `
+          if (convidados.length > 0) {
+            return { statusCode: 200, headers, body: JSON.stringify(convidados.map(r => ({ ...r, from_lista: true }))) }
+          }
+        }
+      }
+
+      // Fall back to colaboradores
       const rows = await sql`
         SELECT id, nome, cargo, area FROM colaboradores
         WHERE ativo = true AND nome ILIKE ${pattern}
@@ -61,10 +90,11 @@ exports.handler = async (event) => {
     // Load event by public token
     if (event.httpMethod === 'GET' && params.token) {
       const rows = await sql`
-        SELECT id, titulo, descricao, instrutor, local, data_evento, status,
-               (codigo IS NOT NULL AND codigo <> '') AS tem_codigo
-        FROM treinamentos_presenciais
-        WHERE token = ${params.token} AND ativo = true
+        SELECT t.id, t.titulo, t.descricao, t.instrutor, t.local, t.data_evento, t.status,
+               (t.codigo IS NOT NULL AND t.codigo <> '') AS tem_codigo,
+               (SELECT COUNT(*) FROM treinamento_convidados WHERE treinamento_id = t.id) > 0 AS tem_lista
+        FROM treinamentos_presenciais t
+        WHERE t.token = ${params.token} AND t.ativo = true
       `
       if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Evento não encontrado' }) }
       const ev = rows[0]

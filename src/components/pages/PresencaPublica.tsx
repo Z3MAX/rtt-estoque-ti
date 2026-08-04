@@ -70,13 +70,14 @@ export default function PresencaPublica() {
     if (search.trim().length < 2) { setResults([]); return }
     const t = setTimeout(() => {
       setSearching(true)
-      fetchJson(`${BASE}/presenca-publica?action=buscar&q=${encodeURIComponent(search.trim())}`)
+      const tokenParam = evento?.tem_lista ? `&token=${encodeURIComponent(token ?? '')}` : ''
+      fetchJson(`${BASE}/presenca-publica?action=buscar&q=${encodeURIComponent(search.trim())}${tokenParam}`)
         .then(setResults)
         .catch(() => setResults([]))
         .finally(() => setSearching(false))
     }, 400)
     return () => clearTimeout(t)
-  }, [search, selected])
+  }, [search, selected, evento, token])
 
   async function handleSubmit() {
     if (!selected) return
@@ -88,7 +89,7 @@ export default function PresencaPublica() {
         method: 'POST',
         body: JSON.stringify({
           token,
-          colaborador_id: selected.id,
+          colaborador_id: selected.from_lista ? undefined : selected.id,
           nome: selected.nome,
           cargo: selected.cargo ?? null,
           area: selected.area ?? null,
@@ -260,14 +261,16 @@ export default function PresencaPublica() {
 
           {!selected ? (
             <>
-              <label className="block text-xs font-medium text-slate-500 mb-1.5">Busque seu nome</label>
+              <label className="block text-xs font-medium text-slate-500 mb-1.5">
+                {evento?.tem_lista ? 'Busque seu nome na lista de participantes' : 'Busque seu nome'}
+              </label>
               <div className="relative">
                 <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  placeholder="Digite seu nome..."
+                  placeholder={evento?.tem_lista ? 'Digite seu nome...' : 'Digite seu nome...'}
                   className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   autoFocus
                 />

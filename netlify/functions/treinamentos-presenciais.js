@@ -29,6 +29,16 @@ async function runMigrations(sql) {
       created_at       TIMESTAMP DEFAULT NOW()
     )
   `
+  await sql`
+    CREATE TABLE IF NOT EXISTS treinamento_convidados (
+      id               SERIAL PRIMARY KEY,
+      treinamento_id   INTEGER NOT NULL,
+      nome             TEXT NOT NULL,
+      cargo            TEXT,
+      area             TEXT,
+      created_at       TIMESTAMP DEFAULT NOW()
+    )
+  `
   try {
     await sql`CREATE UNIQUE INDEX IF NOT EXISTS presenca_colab_uq ON presenca_registros(treinamento_id, colaborador_id) WHERE colaborador_id IS NOT NULL`
   } catch (_) {}
@@ -58,6 +68,16 @@ exports.handler = async (event) => {
         return { statusCode: 200, headers, body: JSON.stringify(rows) }
       }
 
+      // Expected participants (uploaded via Excel)
+      if (params.id && params.action === 'convidados') {
+        const id = parseInt(params.id)
+        const rows = await sql`
+          SELECT id, nome, cargo, area FROM treinamento_convidados
+          WHERE treinamento_id = ${id} ORDER BY nome ASC
+        `
+        return { statusCode: 200, headers, body: JSON.stringify(rows) }
+      }
+
       // List all events with attendance count
       const rows = await sql`
         SELECT t.*,
@@ -76,7 +96,7 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'POST') {
       if (!isAdminRole(auth.role)) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
       const body = JSON.parse(event.body || '{}')
-      const { titulo, descricao, instrutor, local, data_evento, codigo } = body
+      const { titulo, descricao, instrutor, local, data_evento, codigo, participantes } = body
       if (!titulo) return { statusCode: 400, headers, body: JSON.stringify({ error: 'titulo obrigatório' }) }
       const rows = await sql`
         INSERT INTO treinamentos_presenciais (titulo, descricao, instrutor, local, data_evento, codigo, created_by)
@@ -86,7 +106,19 @@ exports.handler = async (event) => {
         )
         RETURNING *, token::text AS token
       `
-      return { statusCode: 201, headers, body: JSON.stringify(rows[0]) }
+      const evento = rows[0]
+
+      if (Array.isArray(participantes) && participantes.length > 0) {
+        const valid = participantes.filter(p => p && typeof p.nome === 'string' && p.nome.trim())
+        for (const p of valid.slice(0, 500)) {
+          await sql`
+            INSERT INTO treinamento_convidados (treinamento_id, nome, cargo, area)
+            VALUES (${evento.id}, ${p.nome.trim()}, ${p.cargo ? String(p.cargo).trim() : null}, ${p.area ? String(p.area).trim() : null})
+          `
+        }
+      }
+
+      return { statusCode: 201, headers, body: JSON.stringify(evento) }
     }
 
     if (event.httpMethod === 'PUT') {

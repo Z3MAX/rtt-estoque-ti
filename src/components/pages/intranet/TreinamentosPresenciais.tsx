@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import {
   Plus, QrCode, Users, Edit2, Trash2, Download, Copy, Check,
   Calendar, MapPin, User, Key, Play, Square, AlertCircle, RefreshCw,
-  Printer, X, CheckCircle2, Clock, XCircle, ChevronDown,
+  Printer, X, CheckCircle2, Clock, XCircle, ChevronDown, Upload,
 } from 'lucide-react'
 import QRCode from 'qrcode'
 import ExcelJS from 'exceljs'
@@ -30,6 +30,12 @@ interface PresencaRegistro {
   cargo?: string
   area?: string
   created_at: string
+}
+
+interface Participante {
+  nome: string
+  cargo?: string
+  area?: string
 }
 
 const EMPTY_FORM = {
@@ -66,21 +72,70 @@ function EventoModal({
 }: {
   initial?: Partial<typeof EMPTY_FORM>
   onClose: () => void
-  onSave: (data: typeof EMPTY_FORM) => Promise<void>
+  onSave: (data: typeof EMPTY_FORM, participantes: Participante[]) => Promise<void>
 }) {
   const [form, setForm] = useState({ ...EMPTY_FORM, ...initial })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [participantes, setParticipantes] = useState<Participante[]>([])
+  const [parseError, setParseError] = useState('')
 
+  const isEdit = !!initial?.titulo
   const field = (key: keyof typeof EMPTY_FORM) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [key]: e.target.value }))
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setParseError('')
+    try {
+      const buffer = await file.arrayBuffer()
+      const workbook = new ExcelJS.Workbook()
+      await workbook.xlsx.load(buffer)
+      const sheet = workbook.worksheets[0]
+      if (!sheet) throw new Error('Planilha vazia')
+
+      const firstRow = sheet.getRow(1)
+      const firstCellVal = String(firstRow.getCell(1).value ?? '').toLowerCase().trim()
+      const isHeader = ['nome', 'name', 'colaborador', 'funcionário', 'participante'].includes(firstCellVal)
+
+      let nomeCol = 1, cargoCol = 2, areaCol = 3
+      if (isHeader) {
+        firstRow.eachCell((cell, col) => {
+          const v = String(cell.value ?? '').toLowerCase().trim()
+          if (['nome', 'name', 'colaborador', 'funcionário', 'participante'].includes(v)) nomeCol = col
+          else if (['cargo', 'função', 'funcao', 'role', 'position'].includes(v)) cargoCol = col
+          else if (['area', 'área', 'departamento', 'setor'].includes(v)) areaCol = col
+        })
+      }
+
+      const result: Participante[] = []
+      sheet.eachRow({ includeEmpty: false }, (row, rowNum) => {
+        if (isHeader && rowNum === 1) return
+        const nome = String(row.getCell(nomeCol).value ?? '').trim()
+        if (!nome) return
+        result.push({
+          nome,
+          cargo: String(row.getCell(cargoCol).value ?? '').trim() || undefined,
+          area: String(row.getCell(areaCol).value ?? '').trim() || undefined,
+        })
+      })
+
+      if (result.length === 0) throw new Error('Nenhum participante encontrado na planilha')
+      setParticipantes(result)
+    } catch (err: any) {
+      setParseError(err.message || 'Erro ao ler a planilha')
+      setParticipantes([])
+    }
+    e.target.value = ''
+  }
 
   async function handleSave() {
     if (!form.titulo.trim()) { setError('Título obrigatório'); return }
     setSaving(true)
     setError('')
     try {
-      await onSave(form)
+      await onSave(form, participantes)
       onClose()
     } catch (err: any) {
       setError(err.message || 'Erro ao salvar')
@@ -103,6 +158,45 @@ function EventoModal({
             <label className="block text-xs font-medium text-slate-500 mb-1">Título *</label>
             <input value={form.titulo} onChange={field('titulo')} placeholder="Ex: Treinamento de Segurança" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
+
+          {!isEdit && (
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">
+                Lista de participantes esperados <span className="font-normal text-slate-400">(opcional)</span>
+              </label>
+              {participantes.length === 0 ? (
+                <label className="flex items-center gap-3 w-full px-4 py-3 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors group">
+                  <Upload size={16} className="text-slate-300 group-hover:text-blue-400 transition-colors shrink-0" />
+                  <div>
+                    <span className="text-sm text-slate-500 group-hover:text-blue-600 transition-colors">Importar planilha Excel (.xlsx)</span>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Ao escanear o QR, participantes buscam o nome nessa lista</p>
+                  </div>
+                  <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFileUpload} />
+                </label>
+              ) : (
+                <div className="border border-blue-200 rounded-xl overflow-hidden bg-blue-50/40">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-blue-100">
+                    <span className="text-xs font-semibold text-blue-700 flex items-center gap-1.5">
+                      <Upload size={12} />{participantes.length} participantes na lista
+                    </span>
+                    <button type="button" onClick={() => setParticipantes([])} className="text-[11px] text-slate-400 hover:text-red-500 transition-colors">Remover</button>
+                  </div>
+                  <div className="max-h-24 overflow-y-auto divide-y divide-blue-100/60">
+                    {participantes.slice(0, 6).map((p, i) => (
+                      <div key={i} className="px-3 py-1.5 text-xs text-slate-700">
+                        {p.nome}{p.cargo ? <span className="text-slate-400"> · {p.cargo}</span> : null}
+                      </div>
+                    ))}
+                    {participantes.length > 6 && (
+                      <div className="px-3 py-1.5 text-xs text-slate-400 italic">+{participantes.length - 6} outros...</div>
+                    )}
+                  </div>
+                </div>
+              )}
+              {parseError && <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1"><AlertCircle size={11} />{parseError}</p>}
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Descrição</label>
             <textarea value={form.descricao} onChange={field('descricao')} rows={2} placeholder="Detalhes do treinamento..." className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
@@ -377,7 +471,7 @@ export default function TreinamentosPresenciais() {
 
   useEffect(() => { load() }, [load])
 
-  async function handleCreate(form: typeof EMPTY_FORM) {
+  async function handleCreate(form: typeof EMPTY_FORM, participantes: Participante[]) {
     const row = await api.treinamentosPresenciais.create({
       titulo: form.titulo,
       descricao: form.descricao || undefined,
@@ -385,11 +479,12 @@ export default function TreinamentosPresenciais() {
       local: form.local || undefined,
       data_evento: form.data_evento || undefined,
       codigo: form.codigo || undefined,
+      participantes: participantes.length > 0 ? participantes : undefined,
     })
     setEventos(prev => [row as TreinamentoPresencial, ...prev])
   }
 
-  async function handleEdit(form: typeof EMPTY_FORM) {
+  async function handleEdit(form: typeof EMPTY_FORM, _participantes: Participante[]) {
     if (!modalEdit) return
     const row = await api.treinamentosPresenciais.update(modalEdit.id, {
       titulo: form.titulo,
