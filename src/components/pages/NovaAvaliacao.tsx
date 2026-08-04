@@ -631,11 +631,11 @@ export default function NovaAvaliacao() {
   const handleObs    = (id: string, v: string) => setObservations(o => ({ ...o, [id]: v }))
 
   const handleGenerate = () => {
-    const somaDesemp   = [...compDesempenho, ...compLideranca].reduce((s, c) => s + (ratings[c.id] ?? 0), 0)
-    const divisorDesemp = compDesempenho.length + compLideranca.length
-    const avgDesempenho = somaDesemp / divisorDesemp
-    const somaPot       = COMP_POTENCIAL.reduce((s, c) => s + (ratings[c.id] ?? 0), 0)
-    const avgPotencial  = somaPot / COMP_POTENCIAL.length
+    const somaDesemp    = compDesempenho.reduce((s, c) => s + (ratings[c.id] ?? 0), 0)
+    const avgDesempenho = somaDesemp / compDesempenho.length
+    const somaPot       = [...COMP_POTENCIAL, ...compLideranca].reduce((s, c) => s + (ratings[c.id] ?? 0), 0)
+    const divisorPot    = COMP_POTENCIAL.length + compLideranca.length
+    const avgPotencial  = somaPot / divisorPot
     const nivelDesemp   = classificarEixo(avgDesempenho)
     const nivelPot      = classificarEixo(avgPotencial)
     const quadrante     = getQuadrante(nivelPot, nivelDesemp)

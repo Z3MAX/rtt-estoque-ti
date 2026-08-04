@@ -230,12 +230,12 @@ function CalibracaoModal({ avaliacao, onClose, onConcluido }: {
     setObservations(o)
   }, [])
 
-  // Live recalculation
-  const somaDesemp = [...compDesempenho, ...compLideranca].reduce((s, c) => s + (ratings[c.id] ?? 0), 0)
-  const divisorDesemp = compDesempenho.length + compLideranca.length
-  const avgDesempenho = divisorDesemp > 0 ? somaDesemp / divisorDesemp : 0
-  const somaPot = COMP_POTENCIAL.reduce((s, c) => s + (ratings[c.id] ?? 0), 0)
-  const avgPotencial = COMP_POTENCIAL.length > 0 ? somaPot / COMP_POTENCIAL.length : 0
+  // Live recalculation — liderança entra apenas no Potencial, não no Desempenho
+  const somaDesemp    = compDesempenho.reduce((s, c) => s + (ratings[c.id] ?? 0), 0)
+  const avgDesempenho = compDesempenho.length > 0 ? somaDesemp / compDesempenho.length : 0
+  const somaPot       = [...COMP_POTENCIAL, ...compLideranca].reduce((s, c) => s + (ratings[c.id] ?? 0), 0)
+  const divisorPot    = COMP_POTENCIAL.length + compLideranca.length
+  const avgPotencial  = divisorPot > 0 ? somaPot / divisorPot : 0
   const nivelDesemp = classificarEixo(avgDesempenho)
   const nivelPot = classificarEixo(avgPotencial)
   const quadrante = getQuadrante(nivelPot, nivelDesemp)
