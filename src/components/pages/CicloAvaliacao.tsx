@@ -172,6 +172,20 @@ function CicloCard({ ciclo, onEncerrar, onDeletado, isMaster }: { ciclo: Ciclo; 
     }
   }
 
+  async function handleRecalcularScores() {
+    if (!confirm('Recalcular os scores de Desempenho e Potencial de TODAS as avaliações deste ciclo a partir das respostas originais?\n\nIsso aplica a nova regra: Liderança impacta somente o Potencial.')) return
+    setRecalculando(true)
+    setRecalculoMsg('')
+    try {
+      const r = await api.ciclos.recalcularScores(ciclo.id) as { total_avaliadas: number; total_alterado: number }
+      setRecalculoMsg(`Scores recalculados: ${r.total_alterado} de ${r.total_avaliadas} avaliação(ões) foram alteradas.`)
+    } catch (err) {
+      setRecalculoMsg((err as Error).message || 'Erro ao recalcular scores')
+    } finally {
+      setRecalculando(false)
+    }
+  }
+
   return (
     <div className={`card overflow-hidden ${isAberto ? 'border-2 border-primary-300 dark:border-primary-700' : ''}`}>
       {/* Header */}
@@ -194,6 +208,17 @@ function CicloCard({ ciclo, onEncerrar, onDeletado, isMaster }: { ciclo: Ciclo; 
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {isAberto && (
+            <button
+              onClick={handleRecalcularScores}
+              disabled={recalculando}
+              title="Recalcular scores de Desempenho e Potencial a partir das respostas, aplicando a nova regra (Liderança → Potencial)"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors disabled:opacity-50"
+            >
+              {recalculando ? <RefreshCw size={11} className="animate-spin" /> : <Calculator size={11} />}
+              Recalcular scores
+            </button>
+          )}
           {isAberto && (
             <button
               onClick={handleRecalcular}

@@ -252,6 +252,10 @@ export const api = {
       if (MOCK) { await delay(400); return { total_avaliadas: 0, total_alterado: 0, alterados: [] } }
       return request(`${BASE}/recalcular-niveis?id=${id}`, { method: 'POST' })
     },
+    recalcularScores: async (id: number) => {
+      if (MOCK) { await delay(400); return { total_avaliadas: 0, total_alterado: 0, alterados: [] } }
+      return request(`${BASE}/recalcular-niveis?id=${id}&action=scores`, { method: 'POST' })
+    },
   },
 
   avaliacoesPendentes: {
