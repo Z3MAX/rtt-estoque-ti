@@ -552,8 +552,11 @@ export default function CursoDetalhe() {
       api.cursos.list(),
       api.moduloConfig.list().catch(() => []),
       api.treinamentoProgresso.list().catch(() => []),
-    ]).then(([cursos, configs, progresso]) => {
-      const row = cursos.find((c: any) => c.id === parseInt(id))
+    ]).then(async ([cursos, configs, progresso]) => {
+      let row = cursos.find((c: any) => c.id === parseInt(id))
+      if (!row) {
+        try { row = await api.cursos.getById(parseInt(id)) } catch { /* not found */ }
+      }
       if (!row) { setLoading(false); return }
 
       const progressoMap: Record<string, boolean> = {}
@@ -707,6 +710,13 @@ export default function CursoDetalhe() {
 
   return (
     <div className="min-h-full bg-slate-50 dark:bg-slate-950 animate-fade-in">
+
+      {(curso as any).status === 'inativo' && (
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>
+          <span>Este curso está arquivado e não aceita novos alunos. Seu progresso e histórico são mantidos.</span>
+        </div>
+      )}
 
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <div

@@ -382,6 +382,9 @@ export const api = {
     getInativos: async () => {
       return request<any[]>(`${BASE}/cursos?action=inativos`)
     },
+    getById: async (id: number) => {
+      return request<any>(`${BASE}/cursos?id=${id}`)
+    },
     getInativosInstrutor: async () => {
       return request<any[]>(`${BASE}/cursos?action=instrutor_inativos`)
     },

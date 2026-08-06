@@ -3738,10 +3738,10 @@ const [loading, setLoading] = useState(true)
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Cursos que você realizou ou estava em andamento e foram substituídos por uma nova versão. Seu progresso é mantido como histórico.</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Cursos arquivados. Clique para acessar o conteúdo e ver seu histórico de progresso.</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                     {cursosInativos.map((t: any) => (
-                      <div key={t.id} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden opacity-75">
+                      <div key={t.id} onClick={() => navigate(`/intranet/treinamentos/${t.id}`)} className="cursor-pointer bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden opacity-75 hover:opacity-100 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm transition-all">
                         <div className={`h-2 bg-gradient-to-r ${t.capa_from ?? 'from-slate-400'} ${t.capa_to ?? 'to-slate-500'}`} />
                         <div className="p-4 space-y-2">
                           <div className="flex items-start gap-2 justify-between">

@@ -221,17 +221,23 @@ exports.handler = async (event) => {
         return { statusCode: 200, headers, body: JSON.stringify(rows) }
       }
 
-      // Cursos inativos onde o usuário tem progresso (histórico de versões)
+      // Cursos inativos (todos, para exibir na aba "Cursos inativos")
       if (params.action === 'inativos') {
         const rows = await sql`
-          SELECT DISTINCT c.*,
+          SELECT c.*,
             (SELECT COUNT(*) FROM treinamento_progresso tp WHERE tp.curso_id = c.id AND tp.user_id = ${auth.userId} AND tp.concluido = true)::int AS modulos_concluidos
           FROM cursos c
-          JOIN treinamento_progresso tp ON tp.curso_id = c.id AND tp.user_id = ${auth.userId}
           WHERE c.ativo = true AND c.status = 'inativo'
           ORDER BY c.updated_at DESC
         `
         return { statusCode: 200, headers, body: JSON.stringify(rows) }
+      }
+
+      // Buscar curso único por ID (qualquer status, inclusive inativo)
+      if (cursoId && !params.action) {
+        const [row] = await sql`SELECT * FROM cursos WHERE id = ${cursoId} AND ativo = true`
+        if (!row) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Curso não encontrado' }) }
+        return { statusCode: 200, headers, body: JSON.stringify(row) }
       }
 
       // Lista pública de cursos (só publicados)
