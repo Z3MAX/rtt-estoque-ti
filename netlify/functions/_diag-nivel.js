@@ -9,10 +9,12 @@ exports.handler = async (event) => {
   try {
     requireAdmin(event)
     const rows = await sql`
-      SELECT nivel, COUNT(*) AS total
-      FROM colaboradores
-      WHERE nivel IS NOT NULL AND nivel <> ''
-      GROUP BY nivel
+      SELECT c.cargo, c.nivel, COUNT(*) AS total
+      FROM colaboradores c
+      JOIN users u ON LOWER(c.email) = LOWER(u.email)
+      WHERE u.role IN ('Gestor', 'Administrador de RH / Gestor')
+        AND c.cargo IS NOT NULL AND c.cargo <> ''
+      GROUP BY c.cargo, c.nivel
       ORDER BY total DESC
     `
     return { statusCode: 200, headers, body: JSON.stringify(rows) }
