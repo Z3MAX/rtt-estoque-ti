@@ -34,8 +34,21 @@ exports.handler = async (event) => {
       // Admins see all; regular users see comunicados for their area (or unrestricted ones)
       const admin = isAdminRole(auth.role)
       const userArea = auth.area || null
-
       const isGestor = auth.role === 'Gestor' || auth.role === 'Administrador de RH / Gestor'
+
+      // Resolve nivel from colaboradores to support gestor subgroups
+      let isGestorAdm = false
+      let isGestorOp  = false
+      if (!admin) {
+        const userRows = await sql`SELECT email FROM users WHERE id = ${auth.userId} LIMIT 1`
+        const email = userRows[0]?.email || null
+        if (email) {
+          const colabRows = await sql`SELECT nivel FROM colaboradores WHERE LOWER(email) = LOWER(${email}) LIMIT 1`
+          const nivel = (colabRows[0]?.nivel || '').toLowerCase().replace(/\s+/g, '_')
+          isGestorAdm = ['supervisor', 'coordenador', 'gerente', 'gerente_executivo', 'diretor'].includes(nivel)
+          isGestorOp  = ['coordenador', 'gerente'].includes(nivel)
+        }
+      }
 
       const rows = admin
         ? await sql`
@@ -50,7 +63,9 @@ exports.handler = async (event) => {
               areas IS NULL
               OR array_length(areas, 1) IS NULL
               OR (${userArea} IS NOT NULL AND ${userArea} = ANY(areas))
-              OR (${isGestor} AND '__gestores__' = ANY(areas))
+              OR (${isGestor}    AND '__gestores__'     = ANY(areas))
+              OR (${isGestorAdm} AND '__gestores_adm__' = ANY(areas))
+              OR (${isGestorOp}  AND '__gestores_op__'  = ANY(areas))
             )
             ORDER BY fixado DESC, created_at DESC
           `

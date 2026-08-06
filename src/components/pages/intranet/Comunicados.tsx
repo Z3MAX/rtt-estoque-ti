@@ -107,11 +107,18 @@ function Modal({ init, onSave, onClose }: {
                 )}
               </div>
               <p className="text-[10px] text-slate-400 mb-2">
-                {form.areas.length === 0
-                  ? 'Todas as áreas e colaboradores receberão este comunicado.'
-                  : form.areas.length === 1 && form.areas[0] === '__gestores__'
-                    ? 'Visível apenas para usuários com perfil de Gestor.'
-                    : `${form.areas.filter(a => a !== '__gestores__').length} área(s) selecionada(s)${form.areas.includes('__gestores__') ? ' + Gestores' : ''}.`}
+                {(() => {
+                  const MAGIC = ['__gestores__', '__gestores_adm__', '__gestores_op__']
+                  const realAreas = form.areas.filter(a => !MAGIC.includes(a))
+                  const groups = [
+                    form.areas.includes('__gestores__')     ? 'Todos os Gestores'    : null,
+                    form.areas.includes('__gestores_adm__') ? 'Gestor ADM'           : null,
+                    form.areas.includes('__gestores_op__')  ? 'Gestor Operacional'   : null,
+                  ].filter(Boolean)
+                  if (form.areas.length === 0) return 'Todas as áreas e colaboradores receberão este comunicado.'
+                  const parts = [...groups, ...realAreas.map(a => a)]
+                  return `Visível para: ${parts.join(', ')}.`
+                })()}
               </p>
               <div className="max-h-36 overflow-y-auto border border-slate-200 dark:border-slate-600 rounded-xl divide-y divide-slate-100 dark:divide-slate-700">
                 <label className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors bg-slate-50 dark:bg-slate-700/30">
@@ -130,7 +137,31 @@ function Modal({ init, onSave, onClose }: {
                     checked={form.areas.includes('__gestores__')}
                     onChange={() => toggleArea('__gestores__')}
                   />
-                  <span className="text-sm font-medium text-amber-600 dark:text-amber-400">Somente Gestores</span>
+                  <span className="text-sm font-medium text-amber-600 dark:text-amber-400">Todos os Gestores</span>
+                </label>
+                <label className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                  <input
+                    type="checkbox"
+                    className="w-3.5 h-3.5 rounded accent-orange-500 shrink-0"
+                    checked={form.areas.includes('__gestores_adm__')}
+                    onChange={() => toggleArea('__gestores_adm__')}
+                  />
+                  <span className="text-sm font-medium text-orange-600 dark:text-orange-400">
+                    Gestor ADM
+                    <span className="ml-1 text-[10px] font-normal text-slate-400">supervisor, coordenador, gerente, ger. executivo, diretor</span>
+                  </span>
+                </label>
+                <label className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                  <input
+                    type="checkbox"
+                    className="w-3.5 h-3.5 rounded accent-orange-500 shrink-0"
+                    checked={form.areas.includes('__gestores_op__')}
+                    onChange={() => toggleArea('__gestores_op__')}
+                  />
+                  <span className="text-sm font-medium text-orange-600 dark:text-orange-400">
+                    Gestor Operacional
+                    <span className="ml-1 text-[10px] font-normal text-slate-400">coordenador, gerente</span>
+                  </span>
                 </label>
                 {availableAreas.map(area => (
                   <label key={area} className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
