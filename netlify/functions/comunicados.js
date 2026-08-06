@@ -36,17 +36,22 @@ exports.handler = async (event) => {
       const userArea = auth.area || null
       const isGestor = auth.role === 'Gestor' || auth.role === 'Administrador de RH / Gestor'
 
-      // Resolve nivel from colaboradores to support gestor subgroups
+      // Resolve cargo from colaboradores to support gestor subgroups
       let isGestorAdm = false
       let isGestorOp  = false
       if (!admin) {
         const userRows = await sql`SELECT email FROM users WHERE id = ${auth.userId} LIMIT 1`
         const email = userRows[0]?.email || null
         if (email) {
-          const colabRows = await sql`SELECT nivel FROM colaboradores WHERE LOWER(email) = LOWER(${email}) LIMIT 1`
-          const nivel = (colabRows[0]?.nivel || '').toLowerCase().replace(/\s+/g, '_')
-          isGestorAdm = ['supervisor', 'coordenador', 'gerente', 'gerente_executivo', 'diretor'].includes(nivel)
-          isGestorOp  = ['coordenador', 'gerente'].includes(nivel)
+          const colabRows = await sql`SELECT cargo FROM colaboradores WHERE LOWER(email) = LOWER(${email}) LIMIT 1`
+          const cargo = (colabRows[0]?.cargo || '').toUpperCase().trim()
+          const isSup     = cargo.startsWith('SUP')
+          const isCoord   = cargo.startsWith('COORD')
+          const isGerExec = cargo.startsWith('GER EXEC')
+          const isGer     = cargo.startsWith('GER') && !isGerExec
+          const isDir     = cargo.startsWith('DIR')
+          isGestorAdm = isSup || isCoord || isGer || isGerExec || isDir
+          isGestorOp  = isCoord || isGer
         }
       }
 
