@@ -35,6 +35,8 @@ exports.handler = async (event) => {
       const id = parseInt(params.id)
       if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'id obrigatório' }) }
       const { titulo, competencia, prazo, status, pct } = JSON.parse(event.body || '{}')
+      if (titulo && titulo.length > 300) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Título muito longo (máx. 300 caracteres)' }) }
+      if (competencia && competencia.length > 200) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Competência muito longa (máx. 200 caracteres)' }) }
       const rows = await sql`
         UPDATE pdi_iniciativas SET
           titulo = COALESCE(${titulo ?? null}, titulo),

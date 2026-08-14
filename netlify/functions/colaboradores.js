@@ -226,6 +226,7 @@ exports.handler = async (event) => {
       }
       const body = JSON.parse(event.body || '{}')
       const { nome, cargo, nivel, area, email, gestor_nome, data_nascimento, data_admissao, photo_url, bio } = body
+      if (bio && bio.length > 3000) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Bio muito longa (máx. 3000 caracteres)' }) }
       const before = await sql`SELECT nome, cargo, nivel, area, email, gestor_nome FROM colaboradores WHERE id = ${id}`
       const rows = await sql`
         UPDATE colaboradores

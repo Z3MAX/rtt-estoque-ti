@@ -43,6 +43,7 @@ exports.handler = async (event) => {
       if (!token) return { statusCode: 400, headers, body: JSON.stringify({ error: 'token obrigatório' }) }
       if (!token_anonimo) return { statusCode: 400, headers, body: JSON.stringify({ error: 'token_anonimo obrigatório' }) }
       if (!Array.isArray(respostas)) return { statusCode: 400, headers, body: JSON.stringify({ error: 'respostas inválido' }) }
+      if (respostas.length > 200) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Número de respostas excede o limite' }) }
 
       const rows = await sql`
         SELECT id FROM pesquisas
