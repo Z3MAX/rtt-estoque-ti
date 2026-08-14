@@ -70,8 +70,7 @@ export default function PresencaPublica() {
     if (search.trim().length < 2) { setResults([]); return }
     const t = setTimeout(() => {
       setSearching(true)
-      const tokenParam = evento?.tem_lista ? `&token=${encodeURIComponent(token ?? '')}` : ''
-      fetchJson(`${BASE}/presenca-publica?action=buscar&q=${encodeURIComponent(search.trim())}${tokenParam}`)
+      fetchJson(`${BASE}/presenca-publica?action=buscar&q=${encodeURIComponent(search.trim())}&token=${encodeURIComponent(token ?? '')}`)
         .then(setResults)
         .catch(() => setResults([]))
         .finally(() => setSearching(false))

@@ -117,7 +117,7 @@ exports.handler = async (event) => {
       const body = JSON.parse(event.body || '{}')
 
       if (body.bulk && Array.isArray(body.colaboradores)) {
-        if (isGestor) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado' }) }
+        if (!isFullAdmin) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado' }) }
         const rawValid = body.colaboradores.filter(c => c.nome && c.nome.trim())
         if (rawValid.length === 0) {
           return { statusCode: 400, headers, body: JSON.stringify({ error: 'Nenhum colaborador válido' }) }
@@ -197,6 +197,7 @@ exports.handler = async (event) => {
         return { statusCode: 201, headers, body: JSON.stringify({ success: true, inserted, updated }) }
       }
 
+      if (!isFullAdmin) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado' }) }
       const { nome, cargo, nivel, area, email, gestor_nome, data_nascimento, data_admissao, photo_url, bio } = body
       if (!nome || !nome.trim()) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Nome é obrigatório' }) }
@@ -216,6 +217,7 @@ exports.handler = async (event) => {
 
     if (event.httpMethod === 'PUT') {
       if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'ID necessário' }) }
+      if (!isFullAdmin && !isGestor) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado' }) }
       if (isGestor && gestorName) {
         const owner = await sql`SELECT gestor_nome FROM colaboradores WHERE id = ${id}`
         if (!owner.length || (owner[0].gestor_nome || '').trim().toLowerCase() !== gestorName.trim().toLowerCase())
@@ -285,11 +287,12 @@ exports.handler = async (event) => {
       if (Array.isArray(deleteBody.ids) && deleteBody.ids.length > 0) {
         const ids = deleteBody.ids.map(Number).filter(Boolean)
         if (ids.length === 0) return { statusCode: 400, headers, body: JSON.stringify({ error: 'IDs inválidos' }) }
-        if (isGestor) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado' }) }
+        if (!isFullAdmin) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado' }) }
         await sql`UPDATE colaboradores SET ativo = false, updated_at = NOW() WHERE id = ANY(${ids}::int[])`
         return { statusCode: 200, headers, body: JSON.stringify({ success: true, deleted: ids.length }) }
       }
       if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'ID necessário' }) }
+      if (!isFullAdmin) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado' }) }
       const target = await sql`SELECT nome FROM colaboradores WHERE id = ${id}`
       await sql`UPDATE colaboradores SET ativo = false, updated_at = NOW() WHERE id = ${id}`
       const userName = await getUserName(sql, authPayload.userId)

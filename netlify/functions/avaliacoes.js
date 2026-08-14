@@ -19,6 +19,9 @@ exports.handler = async (event) => {
     const gestorName = authPayload.name || null
 
     if (event.httpMethod === 'GET') {
+      if (!isAdminRole(authPayload.role) && !isGestor) {
+        return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado' }) }
+      }
       if (id) {
         const rows = await sql`
           SELECT ca.* FROM ciclos_avaliacao ca

@@ -90,7 +90,10 @@ exports.handler = async (event) => {
         WHERE t.ativo = true
         ORDER BY t.created_at DESC
       `
-      return { statusCode: 200, headers, body: JSON.stringify(rows) }
+      const result = isAdminRole(auth.role)
+        ? rows
+        : rows.map(({ token, ...r }) => r)
+      return { statusCode: 200, headers, body: JSON.stringify(result) }
     }
 
     if (event.httpMethod === 'POST') {

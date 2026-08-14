@@ -55,27 +55,30 @@ exports.handler = async (event) => {
   try {
     await runMigrations(sql)
 
-    // Search participants by name
+    // Search participants by name — token required to prevent unauthenticated directory enumeration
     if (event.httpMethod === 'GET' && params.action === 'buscar') {
       const q = (params.q || '').trim()
       if (q.length < 2) return { statusCode: 200, headers, body: JSON.stringify([]) }
+      if (!params.token) return { statusCode: 200, headers, body: JSON.stringify([]) }
       const pattern = `%${q}%`
 
-      // If a token is provided, search convidados for that event first
-      if (params.token) {
-        const evRows = await sql`
-          SELECT id FROM treinamentos_presenciais WHERE token = ${params.token} AND ativo = true
-        `
-        if (evRows.length > 0) {
-          const convidados = await sql`
-            SELECT id, nome, cargo, area FROM treinamento_convidados
-            WHERE treinamento_id = ${evRows[0].id} AND nome ILIKE ${pattern}
-            ORDER BY nome LIMIT 10
-          `
-          if (convidados.length > 0) {
-            return { statusCode: 200, headers, body: JSON.stringify(convidados.map(r => ({ ...r, from_lista: true }))) }
-          }
-        }
+      // Validate the event exists and is active
+      const evRows = await sql`
+        SELECT id, status FROM treinamentos_presenciais WHERE token = ${params.token} AND ativo = true
+      `
+      if (evRows.length === 0 || evRows[0].status === 'ENCERRADA') {
+        return { statusCode: 200, headers, body: JSON.stringify([]) }
+      }
+      const evId = evRows[0].id
+
+      // Search convidados for this event first
+      const convidados = await sql`
+        SELECT id, nome, cargo, area FROM treinamento_convidados
+        WHERE treinamento_id = ${evId} AND nome ILIKE ${pattern}
+        ORDER BY nome LIMIT 10
+      `
+      if (convidados.length > 0) {
+        return { statusCode: 200, headers, body: JSON.stringify(convidados.map(r => ({ ...r, from_lista: true }))) }
       }
 
       // Fall back to colaboradores
@@ -125,6 +128,11 @@ exports.handler = async (event) => {
       }
 
       if (colaborador_id) {
+        // Validate the colaborador_id is a real active colaborador
+        const validColab = await sql`SELECT id FROM colaboradores WHERE id = ${colaborador_id} AND ativo = true`
+        if (validColab.length === 0) {
+          return { statusCode: 400, headers, body: JSON.stringify({ error: 'Colaborador inválido' }) }
+        }
         const existing = await sql`
           SELECT id FROM presenca_registros WHERE treinamento_id = ${ev.id} AND colaborador_id = ${colaborador_id}
         `
