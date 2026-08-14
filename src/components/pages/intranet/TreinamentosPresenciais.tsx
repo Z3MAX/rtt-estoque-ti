@@ -156,7 +156,7 @@ function EventoModal({
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Título *</label>
-            <input value={form.titulo} onChange={field('titulo')} placeholder="Ex: Treinamento de Segurança" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <input value={form.titulo} onChange={field('titulo')} placeholder="Ex: Treinamento de Segurança" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500" />
           </div>
 
           {!isEdit && (
@@ -165,23 +165,23 @@ function EventoModal({
                 Lista de participantes esperados <span className="font-normal text-slate-400">(opcional)</span>
               </label>
               {participantes.length === 0 ? (
-                <label className="flex items-center gap-3 w-full px-4 py-3 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors group">
-                  <Upload size={16} className="text-slate-300 group-hover:text-blue-400 transition-colors shrink-0" />
+                <label className="flex items-center gap-3 w-full px-4 py-3 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-red-400 hover:bg-red-50/50 transition-colors group">
+                  <Upload size={16} className="text-slate-300 group-hover:text-red-400 transition-colors shrink-0" />
                   <div>
-                    <span className="text-sm text-slate-500 group-hover:text-blue-600 transition-colors">Importar planilha Excel (.xlsx)</span>
+                    <span className="text-sm text-slate-500 group-hover:text-red-600 transition-colors">Importar planilha Excel (.xlsx)</span>
                     <p className="text-[11px] text-slate-400 mt-0.5">Ao escanear o QR, participantes buscam o nome nessa lista</p>
                   </div>
                   <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFileUpload} />
                 </label>
               ) : (
-                <div className="border border-blue-200 rounded-xl overflow-hidden bg-blue-50/40">
-                  <div className="flex items-center justify-between px-3 py-2 border-b border-blue-100">
-                    <span className="text-xs font-semibold text-blue-700 flex items-center gap-1.5">
+                <div className="border border-red-200 rounded-xl overflow-hidden bg-red-50/40">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-red-100">
+                    <span className="text-xs font-semibold text-red-700 flex items-center gap-1.5">
                       <Upload size={12} />{participantes.length} participantes na lista
                     </span>
                     <button type="button" onClick={() => setParticipantes([])} className="text-[11px] text-slate-400 hover:text-red-500 transition-colors">Remover</button>
                   </div>
-                  <div className="max-h-24 overflow-y-auto divide-y divide-blue-100/60">
+                  <div className="max-h-24 overflow-y-auto divide-y divide-red-100/60">
                     {participantes.slice(0, 6).map((p, i) => (
                       <div key={i} className="px-3 py-1.5 text-xs text-slate-700">
                         {p.nome}{p.cargo ? <span className="text-slate-400"> · {p.cargo}</span> : null}
@@ -199,27 +199,27 @@ function EventoModal({
 
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Descrição</label>
-            <textarea value={form.descricao} onChange={field('descricao')} rows={2} placeholder="Detalhes do treinamento..." className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+            <textarea value={form.descricao} onChange={field('descricao')} rows={2} placeholder="Detalhes do treinamento..." className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 resize-none" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Instrutor</label>
-              <input value={form.instrutor} onChange={field('instrutor')} placeholder="Nome do instrutor" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input value={form.instrutor} onChange={field('instrutor')} placeholder="Nome do instrutor" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Local</label>
-              <input value={form.local} onChange={field('local')} placeholder="Sala, endereço..." className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input value={form.local} onChange={field('local')} placeholder="Sala, endereço..." className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Data e horário</label>
-            <input type="datetime-local" value={form.data_evento} onChange={field('data_evento')} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <input type="datetime-local" value={form.data_evento} onChange={field('data_evento')} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500" />
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">
               Código do instrutor <span className="font-normal text-slate-400">(opcional — exigido dos participantes ao confirmar presença)</span>
             </label>
-            <input value={form.codigo} onChange={field('codigo')} placeholder="Ex: 1234" maxLength={10} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 tracking-widest" />
+            <input value={form.codigo} onChange={field('codigo')} placeholder="Ex: 1234" maxLength={10} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 tracking-widest" />
           </div>
         </div>
 
@@ -233,7 +233,7 @@ function EventoModal({
           <button onClick={onClose} className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 text-sm font-medium rounded-xl hover:bg-slate-50 transition-colors">
             Cancelar
           </button>
-          <button onClick={handleSave} disabled={saving} className="flex-1 px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
+          <button onClick={handleSave} disabled={saving} className="flex-1 px-4 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
             {saving ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Salvando...</> : 'Salvar'}
           </button>
         </div>
@@ -293,7 +293,7 @@ function QRModal({ evento, onClose }: { evento: TreinamentoPresencial; onClose: 
             <img src={qrUrl} alt="QR Code" className="w-52 h-52 rounded-xl" />
           ) : (
             <div className="w-52 h-52 bg-slate-100 rounded-xl flex items-center justify-center">
-              <div className="w-8 h-8 border-2 border-slate-200 border-t-blue-500 rounded-full animate-spin" />
+              <div className="w-8 h-8 border-2 border-slate-200 border-t-red-600 rounded-full animate-spin" />
             </div>
           )}
         </div>
@@ -304,7 +304,7 @@ function QRModal({ evento, onClose }: { evento: TreinamentoPresencial; onClose: 
           <button onClick={handleCopy} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-slate-200 text-slate-600 text-sm font-medium rounded-xl hover:bg-slate-50 transition-colors">
             {copied ? <><Check size={14} className="text-emerald-500" />Copiado!</> : <><Copy size={14} />Copiar link</>}
           </button>
-          <button onClick={handlePrint} disabled={!qrUrl} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors">
+          <button onClick={handlePrint} disabled={!qrUrl} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 disabled:opacity-50 transition-colors">
             <Printer size={14} />Imprimir
           </button>
         </div>
@@ -526,7 +526,7 @@ export default function TreinamentosPresenciais() {
         {canAdmin && (
           <button
             onClick={() => setModalCreate(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+            className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 transition-colors shadow-sm"
           >
             <Plus size={15} />Novo treinamento
           </button>
@@ -543,7 +543,7 @@ export default function TreinamentosPresenciais() {
           <QrCode size={36} className="mb-3 opacity-40" />
           <p className="text-sm font-medium">Nenhum treinamento presencial cadastrado</p>
           {canAdmin && (
-            <button onClick={() => setModalCreate(true)} className="mt-4 text-sm text-blue-600 hover:underline font-medium">
+            <button onClick={() => setModalCreate(true)} className="mt-4 text-sm text-red-600 hover:underline font-medium">
               + Criar primeiro treinamento
             </button>
           )}
