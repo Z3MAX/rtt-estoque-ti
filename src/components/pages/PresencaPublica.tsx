@@ -11,20 +11,18 @@ async function fetchJson(url: string, options?: RequestInit) {
   return data
 }
 
-// Module-level Shell — must NOT be defined inside PresencaPublica to avoid scroll reset
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center px-4 py-8">
-      <div className="w-full max-w-md">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center shrink-0">
-            <CheckCircle2 size={17} className="text-white" />
-          </div>
-          <div>
-            <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-widest">RTT Intranet</p>
-            <p className="text-sm font-semibold text-slate-700">Lista de Presença</p>
-          </div>
-        </div>
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center">
+      {/* Red header with Rema logo */}
+      <div className="w-full bg-red-700 py-5 px-4 flex items-center justify-center shadow-md">
+        <img src="/rema-logo.png" alt="Rema" className="h-10 object-contain brightness-0 invert" />
+      </div>
+      {/* Sub-header label */}
+      <div className="w-full bg-black py-2 px-4 flex items-center justify-center">
+        <p className="text-[11px] font-semibold tracking-widest uppercase text-white/80">Lista de Presença · Treinamento</p>
+      </div>
+      <div className="w-full max-w-md px-4 py-6">
         {children}
       </div>
     </div>
@@ -117,8 +115,8 @@ export default function PresencaPublica() {
   if (pageState === 'loading') {
     return (
       <Shell>
-        <div className="flex items-center justify-center h-48 text-slate-400 gap-2 text-sm">
-          <div className="w-5 h-5 border-2 border-slate-300 border-t-blue-500 rounded-full animate-spin" />
+        <div className="flex items-center justify-center h-48 text-gray-400 gap-2 text-sm">
+          <div className="w-5 h-5 border-2 border-gray-300 border-t-red-600 rounded-full animate-spin" />
           Carregando...
         </div>
       </Shell>
@@ -128,15 +126,15 @@ export default function PresencaPublica() {
   if (pageState === 'success') {
     return (
       <Shell>
-        <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center shadow-sm">
-          <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-4">
-            <CheckCircle2 size={32} className="text-emerald-500" />
+        <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center shadow-sm">
+          <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+            <CheckCircle2 size={32} className="text-red-600" />
           </div>
-          <h2 className="text-lg font-bold text-slate-800 mb-1">Presença confirmada!</h2>
-          <p className="text-sm text-slate-500 mb-2">
-            Olá, <span className="font-semibold text-slate-700">{selected?.nome}</span>. Sua presença foi registrada com sucesso.
+          <h2 className="text-lg font-bold text-gray-900 mb-1">Presença confirmada!</h2>
+          <p className="text-sm text-gray-500 mb-2">
+            Olá, <span className="font-semibold text-gray-800">{selected?.nome}</span>. Sua presença foi registrada com sucesso.
           </p>
-          <p className="text-xs text-slate-400 mt-4">{evento?.titulo}</p>
+          <p className="text-xs text-gray-400 mt-4">{evento?.titulo}</p>
         </div>
       </Shell>
     )
@@ -145,14 +143,14 @@ export default function PresencaPublica() {
   if (pageState === 'already') {
     return (
       <Shell>
-        <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center shadow-sm">
-          <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-4">
-            <CheckCircle2 size={32} className="text-blue-500" />
+        <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center shadow-sm">
+          <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+            <CheckCircle2 size={32} className="text-red-600" />
           </div>
-          <h2 className="text-lg font-bold text-slate-800 mb-1">Presença já registrada</h2>
-          <p className="text-sm text-slate-500">Você já confirmou sua presença neste treinamento.</p>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">Presença já registrada</h2>
+          <p className="text-sm text-gray-500">Você já confirmou sua presença neste treinamento.</p>
           {(evento?.titulo || tituloFallback) && (
-            <p className="text-xs text-slate-400 mt-4">{evento?.titulo || tituloFallback}</p>
+            <p className="text-xs text-gray-400 mt-4">{evento?.titulo || tituloFallback}</p>
           )}
         </div>
       </Shell>
@@ -162,13 +160,13 @@ export default function PresencaPublica() {
   if (pageState === 'closed') {
     return (
       <Shell>
-        <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center shadow-sm">
-          <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
-            <XCircle size={32} className="text-slate-400" />
+        <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center shadow-sm">
+          <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+            <XCircle size={32} className="text-gray-400" />
           </div>
-          <h2 className="text-lg font-bold text-slate-800 mb-1">Lista encerrada</h2>
-          <p className="text-sm text-slate-500">A lista de presença deste treinamento foi encerrada.</p>
-          {tituloFallback && <p className="text-xs text-slate-400 mt-4">{tituloFallback}</p>}
+          <h2 className="text-lg font-bold text-gray-900 mb-1">Lista encerrada</h2>
+          <p className="text-sm text-gray-500">A lista de presença deste treinamento foi encerrada.</p>
+          {tituloFallback && <p className="text-xs text-gray-400 mt-4">{tituloFallback}</p>}
         </div>
       </Shell>
     )
@@ -177,13 +175,13 @@ export default function PresencaPublica() {
   if (pageState === 'not_open') {
     return (
       <Shell>
-        <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center shadow-sm">
+        <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center shadow-sm">
           <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-4">
-            <Clock size={32} className="text-amber-400" />
+            <Clock size={32} className="text-amber-500" />
           </div>
-          <h2 className="text-lg font-bold text-slate-800 mb-1">Aguardando abertura</h2>
-          <p className="text-sm text-slate-500">O instrutor ainda não abriu a lista de presença. Tente novamente em instantes.</p>
-          {tituloFallback && <p className="text-xs text-slate-400 mt-4">{tituloFallback}</p>}
+          <h2 className="text-lg font-bold text-gray-900 mb-1">Aguardando abertura</h2>
+          <p className="text-sm text-gray-500">O instrutor ainda não abriu a lista de presença. Tente novamente em instantes.</p>
+          {tituloFallback && <p className="text-xs text-gray-400 mt-4">{tituloFallback}</p>}
         </div>
       </Shell>
     )
@@ -192,12 +190,12 @@ export default function PresencaPublica() {
   if (pageState === 'not_found') {
     return (
       <Shell>
-        <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center shadow-sm">
+        <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center shadow-sm">
           <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
-            <AlertCircle size={32} className="text-red-400" />
+            <AlertCircle size={32} className="text-red-500" />
           </div>
-          <h2 className="text-lg font-bold text-slate-800 mb-1">Evento não encontrado</h2>
-          <p className="text-sm text-slate-500">Este link de presença é inválido ou o evento foi removido.</p>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">Evento não encontrado</h2>
+          <p className="text-sm text-gray-500">Este link de presença é inválido ou o evento foi removido.</p>
         </div>
       </Shell>
     )
@@ -206,15 +204,15 @@ export default function PresencaPublica() {
   if (pageState === 'error') {
     return (
       <Shell>
-        <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center shadow-sm">
+        <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center shadow-sm">
           <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
-            <AlertCircle size={32} className="text-red-400" />
+            <AlertCircle size={32} className="text-red-500" />
           </div>
-          <h2 className="text-lg font-bold text-slate-800 mb-1">Erro ao carregar</h2>
-          <p className="text-sm text-slate-500">Não foi possível carregar o treinamento. Verifique sua conexão e tente novamente.</p>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">Erro ao carregar</h2>
+          <p className="text-sm text-gray-500">Não foi possível carregar o treinamento. Verifique sua conexão e tente novamente.</p>
           <button
             onClick={() => { setPageState('loading'); window.location.reload() }}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium"
+            className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors"
           >
             Tentar novamente
           </button>
@@ -229,24 +227,24 @@ export default function PresencaPublica() {
   return (
     <Shell>
       {/* Event header */}
-      <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm mb-4">
-        <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">Treinamento presencial</p>
-        <h1 className="text-base font-bold text-slate-800 leading-snug">{evento?.titulo}</h1>
+      <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm mb-4">
+        <p className="text-xs font-bold text-red-600 uppercase tracking-wide mb-1">Treinamento presencial</p>
+        <h1 className="text-base font-bold text-gray-900 leading-snug">{evento?.titulo}</h1>
         {(evento?.instrutor || evento?.local || evento?.data_evento) && (
           <div className="mt-2 space-y-0.5">
             {evento?.instrutor && (
-              <p className="text-xs text-slate-500">
-                <span className="font-medium text-slate-600">Instrutor:</span> {evento.instrutor}
+              <p className="text-xs text-gray-500">
+                <span className="font-semibold text-gray-700">Instrutor:</span> {evento.instrutor}
               </p>
             )}
             {evento?.local && (
-              <p className="text-xs text-slate-500">
-                <span className="font-medium text-slate-600">Local:</span> {evento.local}
+              <p className="text-xs text-gray-500">
+                <span className="font-semibold text-gray-700">Local:</span> {evento.local}
               </p>
             )}
             {evento?.data_evento && (
-              <p className="text-xs text-slate-500">
-                <span className="font-medium text-slate-600">Data:</span>{' '}
+              <p className="text-xs text-gray-500">
+                <span className="font-semibold text-gray-700">Data:</span>{' '}
                 {new Date(evento.data_evento).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
               </p>
             )}
@@ -255,32 +253,32 @@ export default function PresencaPublica() {
       </div>
 
       {/* Form */}
-      <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm space-y-4">
+      <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-4">
         <div>
-          <p className="text-sm font-semibold text-slate-700 mb-3">Confirme sua presença</p>
+          <p className="text-sm font-bold text-gray-900 mb-3">Confirme sua presença</p>
 
           {!selected ? (
             <>
-              <label className="block text-xs font-medium text-slate-500 mb-1.5">
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">
                 {evento?.tem_lista ? 'Busque seu nome na lista de participantes' : 'Busque seu nome'}
               </label>
               <div className="relative">
-                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  placeholder={evento?.tem_lista ? 'Digite seu nome...' : 'Digite seu nome...'}
-                  className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Digite seu nome..."
+                  className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                   autoFocus
                 />
                 {searching && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-slate-300 border-t-blue-500 rounded-full animate-spin" />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-gray-300 border-t-red-600 rounded-full animate-spin" />
                 )}
               </div>
 
               {search.trim().length >= 2 && results.length === 0 && !searching && (
-                <p className="text-xs text-slate-400 mt-2 text-center py-3">Nenhum colaborador encontrado</p>
+                <p className="text-xs text-gray-400 mt-2 text-center py-3">Nenhum colaborador encontrado</p>
               )}
 
               {results.length > 0 && (
@@ -289,14 +287,14 @@ export default function PresencaPublica() {
                     <li key={r.id}>
                       <button
                         onClick={() => { setSelected(r); setSearch(''); setResults([]) }}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-blue-50 transition-colors text-left"
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-red-50 transition-colors text-left"
                       >
-                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                          <User size={14} className="text-blue-600" />
+                        <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                          <User size={14} className="text-red-600" />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-slate-800 truncate">{r.nome}</p>
-                          <p className="text-xs text-slate-400 truncate">{[r.cargo, r.area].filter(Boolean).join(' · ')}</p>
+                          <p className="text-sm font-medium text-gray-900 truncate">{r.nome}</p>
+                          <p className="text-xs text-gray-400 truncate">{[r.cargo, r.area].filter(Boolean).join(' · ')}</p>
                         </div>
                       </button>
                     </li>
@@ -305,17 +303,17 @@ export default function PresencaPublica() {
               )}
             </>
           ) : (
-            <div className="flex items-center gap-3 bg-blue-50 rounded-xl px-3 py-3">
-              <div className="w-9 h-9 rounded-full bg-blue-200 flex items-center justify-center shrink-0">
-                <User size={16} className="text-blue-700" />
+            <div className="flex items-center gap-3 bg-red-50 rounded-xl px-3 py-3">
+              <div className="w-9 h-9 rounded-full bg-red-200 flex items-center justify-center shrink-0">
+                <User size={16} className="text-red-700" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-blue-800 truncate">{selected.nome}</p>
-                <p className="text-xs text-blue-500 truncate">{[selected.cargo, selected.area].filter(Boolean).join(' · ')}</p>
+                <p className="text-sm font-semibold text-red-900 truncate">{selected.nome}</p>
+                <p className="text-xs text-red-500 truncate">{[selected.cargo, selected.area].filter(Boolean).join(' · ')}</p>
               </div>
               <button
                 onClick={() => setSelected(null)}
-                className="p-1 rounded-lg hover:bg-blue-100 text-blue-400 hover:text-blue-600 transition-colors shrink-0"
+                className="p-1 rounded-lg hover:bg-red-100 text-red-400 hover:text-red-600 transition-colors shrink-0"
                 title="Trocar"
               >
                 <X size={15} />
@@ -327,14 +325,14 @@ export default function PresencaPublica() {
         {/* Instructor code field */}
         {evento?.tem_codigo && selected && (
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1.5">Código do instrutor</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">Código do instrutor</label>
             <input
               type="text"
               value={codigo}
               onChange={e => setCodigo(e.target.value)}
               placeholder="Digite o código exibido pelo instrutor"
               maxLength={10}
-              className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent tracking-widest text-center font-mono"
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent tracking-widest text-center font-mono"
             />
           </div>
         )}
@@ -349,7 +347,7 @@ export default function PresencaPublica() {
         <button
           onClick={handleSubmit}
           disabled={!selected || isSubmitting || (evento?.tem_codigo && !codigo)}
-          className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+          className="w-full py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
         >
           {isSubmitting ? (
             <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Registrando...</>
@@ -358,7 +356,7 @@ export default function PresencaPublica() {
           )}
         </button>
 
-        <p className="text-xs text-slate-400 text-center">
+        <p className="text-xs text-gray-400 text-center">
           Ao confirmar, sua presença será registrada no sistema.
         </p>
       </div>
