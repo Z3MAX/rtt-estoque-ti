@@ -17,7 +17,7 @@ exports.handler = async (event) => {
     const auth = requireAuth(event)
 
     const adminRoles = ['Administrador de RH', 'Administrador de TI', 'Administrador Master', 'Administrador de RH / Gestor']
-    const isInst = Array.isArray(auth.roles) && auth.roles.includes('instrutor')
+    const isInst = Array.isArray(auth.roles) && auth.roles.includes('Instrutor')
     if (!adminRoles.includes(auth.role) && !isInst) {
       return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão para fazer upload' }) }
     }

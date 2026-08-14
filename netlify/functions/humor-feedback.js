@@ -25,6 +25,9 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'POST') {
       const { humor, comentario } = JSON.parse(event.body || '{}')
       if (!humor) return { statusCode: 400, headers, body: JSON.stringify({ error: 'humor obrigatório' }) }
+      if (comentario && comentario.length > 2000) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Comentário muito longo (máx. 2000 caracteres)' }) }
+      }
 
       // Busca o nome do usuário
       const userRows = await sql`SELECT name FROM users WHERE id = ${auth.userId} LIMIT 1`
@@ -43,8 +46,8 @@ exports.handler = async (event) => {
         return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado' }) }
       }
       const params = event.queryStringParameters || {}
-      const limit = Math.min(parseInt(params.limit || '100'), 500)
-      const offset = parseInt(params.offset || '0')
+      const limit = Math.min(Math.max(1, parseInt(params.limit) || 100), 500)
+      const offset = Math.max(0, parseInt(params.offset) || 0)
       const humor = params.humor || null
 
       let rows

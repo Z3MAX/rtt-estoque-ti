@@ -1,5 +1,5 @@
 const { neon } = require('@neondatabase/serverless')
-const { makeHeaders, errorResponse } = require('./_auth')
+const { requireAuth, makeHeaders, errorResponse } = require('./_auth')
 
 exports.handler = async (event) => {
   const headers = makeHeaders(event)
@@ -27,8 +27,9 @@ exports.handler = async (event) => {
       return { statusCode: 200, headers, body: JSON.stringify({ valid: true, nome: user.name }) }
     }
 
-    // GET ?nome=xxx — certificado busca assinatura pelo nome do instrutor
+    // GET ?nome=xxx — certificado busca assinatura pelo nome do instrutor (requer autenticação)
     if (event.httpMethod === 'GET' && params.nome) {
+      requireAuth(event)
       const [user] = await sql`
         SELECT assinatura FROM users WHERE name = ${params.nome} AND active = true LIMIT 1
       `

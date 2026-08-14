@@ -21,6 +21,8 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'POST') {
       const { titulo, competencia, prazo, status, pct } = JSON.parse(event.body || '{}')
       if (!titulo) return { statusCode: 400, headers, body: JSON.stringify({ error: 'titulo obrigatório' }) }
+      if (titulo.length > 300) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Título muito longo (máx. 300 caracteres)' }) }
+      if (competencia && competencia.length > 200) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Competência muito longa (máx. 200 caracteres)' }) }
       const rows = await sql`
         INSERT INTO pdi_iniciativas (user_id, titulo, competencia, prazo, status, pct)
         VALUES (${userId}, ${titulo}, ${competencia ?? null}, ${prazo ?? null}, ${status ?? 'pendente'}, ${pct ?? 0})

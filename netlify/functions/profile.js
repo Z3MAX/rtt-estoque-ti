@@ -24,7 +24,10 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'PUT') {
       const { photo_url } = JSON.parse(event.body || '{}')
 
-      // Limita tamanho do base64 (~150KB após compressão client-side)
+      // Valida formato e tamanho
+      if (photo_url && !photo_url.startsWith('data:image/')) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Formato de imagem inválido' }) }
+      }
       if (photo_url && photo_url.length > 200_000) {
         return { statusCode: 413, headers, body: JSON.stringify({ error: 'Imagem muito grande' }) }
       }

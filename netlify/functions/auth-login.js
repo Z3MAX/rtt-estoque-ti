@@ -38,9 +38,6 @@ exports.handler = async (event) => {
     }
 
     // Busca por e-mail (sem conferir senha no SQL para evitar timing attacks)
-    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT`
-    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS roles TEXT[]`
-
     const rows = await sql`
       SELECT id, name, email, role, roles, area, active, must_change_password, password_hash, photo_url
       FROM users

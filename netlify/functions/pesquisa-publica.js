@@ -70,10 +70,12 @@ exports.handler = async (event) => {
         }) }
       }
 
+      // Generate token_anonimo server-side from ip_hash to prevent client spoofing of the unique constraint
+      const serverToken = crypto.createHash('sha256').update(`anon_token|${pesquisaId}|${ipHash}`).digest('hex')
       try {
         await sql`
           INSERT INTO pesquisa_respostas (pesquisa_id, respostas, anonima, token_anonimo, ip_hash)
-          VALUES (${pesquisaId}, ${JSON.stringify(respostas)}, true, ${token_anonimo}, ${ipHash})
+          VALUES (${pesquisaId}, ${JSON.stringify(respostas)}, true, ${serverToken}, ${ipHash})
         `
       } catch (e) {
         if (e.code === '23505') {

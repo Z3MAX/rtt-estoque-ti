@@ -202,6 +202,7 @@ exports.handler = async (event) => {
       if (!nome || !nome.trim()) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Nome é obrigatório' }) }
       }
+      if (bio && bio.length > 3000) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Bio muito longa (máx. 3000 caracteres)' }) }
       const rows = await sql`
         INSERT INTO colaboradores (nome, cargo, nivel, area, email, gestor_nome, data_nascimento, data_admissao, photo_url, bio)
         VALUES (${nome.trim()}, ${cargo || null}, ${nivel || null},

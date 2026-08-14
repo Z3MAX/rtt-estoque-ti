@@ -62,6 +62,7 @@ exports.handler = async (event) => {
 
       if (!pesquisa_id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'pesquisa_id obrigatório' }) }
       if (!Array.isArray(respostas)) return { statusCode: 400, headers, body: JSON.stringify({ error: 'respostas deve ser um array' }) }
+      if (respostas.length > 200) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Número de respostas excede o limite' }) }
 
       const existing = await sql`
         SELECT id FROM pesquisa_respostas WHERE pesquisa_id = ${pesquisa_id} AND user_id = ${auth.userId}

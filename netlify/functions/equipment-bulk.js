@@ -1,5 +1,5 @@
 const { neon } = require('@neondatabase/serverless')
-const { requireAuth, makeHeaders, errorResponse } = require('./_auth')
+const { requireAuth, isAdminRole, makeHeaders, errorResponse } = require('./_auth')
 
 const VALID_STATUSES = ['disponivel', 'em_uso', 'manutencao', 'inativo']
 const MAX_ITEMS = 500
@@ -15,7 +15,10 @@ exports.handler = async (event) => {
   }
 
   try {
-    requireAuth(event)
+    const authBulk = requireAuth(event)
+    if (!isAdminRole(authBulk.role)) {
+      return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
+    }
 
     let items
     try {

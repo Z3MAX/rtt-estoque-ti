@@ -57,9 +57,11 @@ exports.handler = async (event) => {
     await runMigrations(sql)
 
     if (event.httpMethod === 'GET') {
-      // Attendance list for a specific event
+      // Attendance list for a specific event — admin only
       if (params.id && params.action === 'presenca') {
-        const id = parseInt(params.id)
+        if (!isAdminRole(auth.role)) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
+        const id = parseInt(params.id) || 0
+        if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'id inválido' }) }
         const rows = await sql`
           SELECT id, colaborador_id, nome, cargo, area, created_at
           FROM presenca_registros WHERE treinamento_id = ${id}
@@ -68,9 +70,11 @@ exports.handler = async (event) => {
         return { statusCode: 200, headers, body: JSON.stringify(rows) }
       }
 
-      // Expected participants (uploaded via Excel)
+      // Expected participants (uploaded via Excel) — admin only
       if (params.id && params.action === 'convidados') {
-        const id = parseInt(params.id)
+        if (!isAdminRole(auth.role)) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
+        const id = parseInt(params.id) || 0
+        if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'id inválido' }) }
         const rows = await sql`
           SELECT id, nome, cargo, area FROM treinamento_convidados
           WHERE treinamento_id = ${id} ORDER BY nome ASC

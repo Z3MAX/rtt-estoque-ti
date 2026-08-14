@@ -1,5 +1,5 @@
 const { neon } = require('@neondatabase/serverless')
-const { requireAuth, makeHeaders, errorResponse } = require('./_auth')
+const { requireAuth, isAdminRole, makeHeaders, errorResponse } = require('./_auth')
 
 exports.handler = async (event) => {
   const headers = makeHeaders(event)
@@ -10,10 +10,14 @@ exports.handler = async (event) => {
 
   const sql = neon(process.env.DATABASE_URL)
   const params = event.queryStringParameters || {}
-  const colaboradorId = params.colaborador_id ? parseInt(params.colaborador_id) : null
+  const colaboradorId = params.colaborador_id ? (parseInt(params.colaborador_id) || null) : null
 
   try {
-    requireAuth(event)
+    const auth = requireAuth(event)
+    const isGestor = auth.role === 'Gestor'
+    if (!isAdminRole(auth.role) && !isGestor) {
+      return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado' }) }
+    }
 
     if (event.httpMethod === 'GET') {
       if (!colaboradorId) return { statusCode: 400, headers, body: JSON.stringify({ error: 'colaborador_id required' }) }

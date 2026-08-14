@@ -82,7 +82,10 @@ exports.handler = async (event) => {
         return { statusCode: 200, headers, body: JSON.stringify(rows) }
       }
 
-      // Admin list — includes total_respostas count
+      // Admin list — restricted to admins
+      if (!isAdminRole(auth.role)) {
+        return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
+      }
       const rows = await sql`
         SELECT p.*,
                COALESCE(rc.total, 0)::int AS total_respostas
@@ -99,6 +102,9 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'POST') {
+      if (!isAdminRole(auth.role)) {
+        return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
+      }
       const body = JSON.parse(event.body || '{}')
       const { nome, objetivo, tipo, situacao, status, anonima, ocultar_min,
               data_inicio, data_fim, frequencia_pulso, perguntas_por_pulso,
