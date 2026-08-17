@@ -4,7 +4,7 @@ import {
   ClipboardList, Plus, Search, Filter, X, Pencil, BarChart2, Link2,
   ChevronLeft, ChevronDown, AlertCircle, Info, Trash2, Users, Calendar, Clock,
   Loader2, ChevronUp, GripVertical, CheckSquare, AlignLeft, Hash, Send,
-  CheckCircle2, ArrowUp, ArrowDown, Eye, MessageSquare, Download,
+  CheckCircle2, ArrowUp, ArrowDown, Eye, MessageSquare, Download, StopCircle,
 } from 'lucide-react'
 import { api } from '../../../lib/api'
 
@@ -1261,6 +1261,16 @@ export default function PesquisasPage() {
     }
   }
 
+  async function handleEncerrar(p: Pesquisa) {
+    if (!confirm(`Encerrar "${p.nome}"? Não será mais possível receber respostas.`)) return
+    try {
+      await api.pesquisas.update(p.id, { situacao: 'FINALIZADA' })
+      carregar()
+    } catch (e: any) {
+      alert(e.message || 'Erro ao encerrar pesquisa')
+    }
+  }
+
   function handleCopyLink(p: Pesquisa) {
     const url = p.anonima && p.link_publico
       ? `${window.location.origin}/p/${p.link_publico}`
@@ -1394,6 +1404,12 @@ export default function PesquisasPage() {
                         className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${copiedId === p.id ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-200'}`}>
                         <Link2 size={14} />
                       </button>
+                      {p.situacao === 'LIBERADA' && (
+                        <button title="Encerrar pesquisa" onClick={() => handleEncerrar(p)}
+                          className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:text-amber-500 transition-colors">
+                          <StopCircle size={14} />
+                        </button>
+                      )}
                       <button title="Excluir" onClick={() => handleDelete(p)}
                         className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-colors">
                         <Trash2 size={14} />
