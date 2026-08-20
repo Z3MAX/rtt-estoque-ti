@@ -43,6 +43,8 @@ exports.handler = async (event) => {
     `
     await sql`ALTER TABLE pesquisas ADD COLUMN IF NOT EXISTS perguntas JSONB DEFAULT '[]'`
     await sql`ALTER TABLE pesquisas ADD COLUMN IF NOT EXISTS link_publico UUID`
+    await sql`ALTER TABLE pesquisas ADD COLUMN IF NOT EXISTS pede_local_trabalho BOOLEAN DEFAULT false`
+    await sql`ALTER TABLE pesquisas ADD COLUMN IF NOT EXISTS locais_trabalho JSONB DEFAULT '[]'`
     await sql`
       CREATE TABLE IF NOT EXISTS pesquisa_respostas (
         id             SERIAL PRIMARY KEY,
@@ -60,8 +62,9 @@ exports.handler = async (event) => {
       if (params.id) {
         const id = parseInt(params.id)
         const rows = await sql`
-          SELECT id, nome, objetivo, tipo, situacao, status, anonima, data_inicio, data_fim,
-                 colaborador_ids, perguntas, created_at
+          SELECT id, nome, objetivo, tipo, situacao, status, anonima, ocultar_min,
+                 data_inicio, data_fim, colaborador_ids, perguntas,
+                 pede_local_trabalho, locais_trabalho, created_at
           FROM pesquisas WHERE id = ${id} AND ativo = true
         `
         if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Não encontrada' }) }
@@ -110,7 +113,8 @@ exports.handler = async (event) => {
               data_inicio, data_fim, frequencia_pulso, perguntas_por_pulso,
               questionario, email_auto, dias_aviso, relatorio_permissao,
               relatorio_selecionados, notif_respondido, autenticacao_codigo,
-              vinculos_desligamento, colaborador_ids, perguntas } = body
+              vinculos_desligamento, colaborador_ids, perguntas,
+              pede_local_trabalho, locais_trabalho } = body
       if (!nome) return { statusCode: 400, headers, body: JSON.stringify({ error: 'nome obrigatório' }) }
       if (!tipo) return { statusCode: 400, headers, body: JSON.stringify({ error: 'tipo obrigatório' }) }
       const rows = await sql`
@@ -119,7 +123,8 @@ exports.handler = async (event) => {
           data_inicio, data_fim, frequencia_pulso, perguntas_por_pulso,
           questionario, email_auto, dias_aviso, relatorio_permissao,
           relatorio_selecionados, notif_respondido, autenticacao_codigo,
-          vinculos_desligamento, colaborador_ids, perguntas, created_by, link_publico
+          vinculos_desligamento, colaborador_ids, perguntas, created_by, link_publico,
+          pede_local_trabalho, locais_trabalho
         ) VALUES (
           ${nome}, ${objetivo ?? null}, ${tipo}, ${situacao ?? 'RASCUNHO'}, ${status ?? 'ATIVA'},
           ${anonima ?? false}, ${ocultar_min ?? false},
@@ -130,7 +135,8 @@ exports.handler = async (event) => {
           ${notif_respondido ?? false}, ${autenticacao_codigo ?? true},
           ${JSON.stringify(vinculos_desligamento ?? [])}, ${JSON.stringify(colaborador_ids ?? [])},
           ${JSON.stringify(perguntas ?? [])}, ${auth.userId},
-          CASE WHEN ${anonima ?? false} THEN gen_random_uuid() ELSE NULL END
+          CASE WHEN ${anonima ?? false} THEN gen_random_uuid() ELSE NULL END,
+          ${pede_local_trabalho ?? false}, ${JSON.stringify(locais_trabalho ?? [])}
         )
         RETURNING *
       `
@@ -170,6 +176,8 @@ exports.handler = async (event) => {
           colaborador_ids        = COALESCE(${body.colaborador_ids != null ? JSON.stringify(body.colaborador_ids) : null}::jsonb, colaborador_ids),
           perguntas              = COALESCE(${body.perguntas != null ? JSON.stringify(body.perguntas) : null}::jsonb, perguntas),
           link_publico           = CASE WHEN ${body.anonima ?? false} AND link_publico IS NULL THEN gen_random_uuid() ELSE link_publico END,
+          pede_local_trabalho    = COALESCE(${body.pede_local_trabalho ?? null}, pede_local_trabalho),
+          locais_trabalho        = COALESCE(${body.locais_trabalho != null ? JSON.stringify(body.locais_trabalho) : null}::jsonb, locais_trabalho),
           updated_at             = NOW()
         WHERE id = ${id}
         RETURNING *

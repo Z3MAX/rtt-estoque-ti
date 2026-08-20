@@ -487,9 +487,9 @@ export const api = {
       if (MOCK) { await delay(200); return [] as number[] }
       return request<number[]>(`${BASE}/pesquisa-respostas?ja_respondi=1`)
     },
-    submit: async (pesquisaId: number, respostas: any[]) => {
+    submit: async (pesquisaId: number, respostas: any[], localTrabalho?: string) => {
       if (MOCK) { await delay(400); return { success: true } }
-      return request(`${BASE}/pesquisa-respostas`, { method: 'POST', body: JSON.stringify({ pesquisa_id: pesquisaId, respostas }) })
+      return request(`${BASE}/pesquisa-respostas`, { method: 'POST', body: JSON.stringify({ pesquisa_id: pesquisaId, respostas, local_de_trabalho: localTrabalho || null }) })
     },
   },
 

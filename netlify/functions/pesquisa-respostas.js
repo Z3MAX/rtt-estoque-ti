@@ -28,6 +28,7 @@ exports.handler = async (event) => {
     try {
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS colaborador_id INTEGER`
     } catch (_) {}
+    await sql`ALTER TABLE pesquisa_respostas ADD COLUMN IF NOT EXISTS local_de_trabalho TEXT`
 
     const auth = requireAuth(event)
     const isAdmin = isAdminRole(auth.role)
@@ -58,11 +59,12 @@ exports.handler = async (event) => {
 
     if (event.httpMethod === 'POST') {
       const body = JSON.parse(event.body || '{}')
-      const { pesquisa_id, respostas } = body
+      const { pesquisa_id, respostas, local_de_trabalho } = body
 
       if (!pesquisa_id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'pesquisa_id obrigatório' }) }
       if (!Array.isArray(respostas)) return { statusCode: 400, headers, body: JSON.stringify({ error: 'respostas deve ser um array' }) }
       if (respostas.length > 200) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Número de respostas excede o limite' }) }
+      const localStr = typeof local_de_trabalho === 'string' ? local_de_trabalho.slice(0, 200) : null
 
       const existing = await sql`
         SELECT id FROM pesquisa_respostas WHERE pesquisa_id = ${pesquisa_id} AND user_id = ${auth.userId}
@@ -77,8 +79,8 @@ exports.handler = async (event) => {
       const isAnonima = survey[0].anonima
 
       const rows = await sql`
-        INSERT INTO pesquisa_respostas (pesquisa_id, colaborador_id, user_id, respostas, anonima)
-        VALUES (${pesquisa_id}, ${isAnonima ? null : colaboradorId}, ${auth.userId}, ${JSON.stringify(respostas)}, ${isAnonima})
+        INSERT INTO pesquisa_respostas (pesquisa_id, colaborador_id, user_id, respostas, anonima, local_de_trabalho)
+        VALUES (${pesquisa_id}, ${isAnonima ? null : colaboradorId}, ${auth.userId}, ${JSON.stringify(respostas)}, ${isAnonima}, ${localStr})
         RETURNING id, created_at
       `
       return { statusCode: 201, headers, body: JSON.stringify({ success: true, id: rows[0].id }) }

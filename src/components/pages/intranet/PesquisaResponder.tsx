@@ -11,6 +11,7 @@ interface Pergunta {
   titulo: string
   tipo: TipoPergunta
   obrigatoria: boolean
+  categoria?: string
   opcoes?: OpcaoPergunta[]
   escala_min?: number
   escala_max?: number
@@ -26,6 +27,8 @@ interface Pesquisa {
   situacao: string
   anonima: boolean
   perguntas?: Pergunta[]
+  pede_local_trabalho?: boolean
+  locais_trabalho?: string[]
 }
 
 type Resposta =
@@ -229,6 +232,7 @@ export default function PesquisaResponder() {
   const [saving, setSaving]       = useState(false)
   const [concluido, setConcluido] = useState(false)
   const [jaRespondeu, setJaRespondeu] = useState(false)
+  const [localTrabalho, setLocalTrabalho] = useState('')
 
   useEffect(() => {
     if (!id) { setError('ID inválido'); setLoading(false); return }
@@ -254,7 +258,14 @@ export default function PesquisaResponder() {
     if (!pesquisa) return
     const perguntas = pesquisa.perguntas ?? []
 
-    // Validação
+    // Validação local de trabalho
+    if (pesquisa.pede_local_trabalho && !localTrabalho) {
+      setError('Por favor, selecione seu local de trabalho antes de continuar.')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+
+    // Validação perguntas
     for (let i = 0; i < perguntas.length; i++) {
       if (perguntas[i].obrigatoria && !isRespondida(respostas[i])) {
         setError(`Por favor, responda a pergunta ${i + 1}: "${perguntas[i].titulo || 'sem título'}"`)
@@ -269,9 +280,10 @@ export default function PesquisaResponder() {
         pergunta_id: p.id,
         titulo: p.titulo,
         tipo: p.tipo,
+        categoria: p.categoria || null,
         valor: respostas[i] ? (respostas[i] as any).valor : null,
       }))
-      await api.pesquisaRespostas.submit(pesquisa.id, payload)
+      await api.pesquisaRespostas.submit(pesquisa.id, payload, localTrabalho || undefined)
       setConcluido(true)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (e: any) {
@@ -285,6 +297,18 @@ export default function PesquisaResponder() {
   const obrigatorias = perguntas.filter(p => p.obrigatoria).length
   const respondidas  = respostas.filter((r, i) => perguntas[i] && isRespondida(r)).length
   const progress     = perguntas.length > 0 ? Math.round((respondidas / perguntas.length) * 100) : 0
+
+  // Agrupa perguntas por categoria mantendo os índices originais para respostas[]
+  const grupos: { categoria: string; items: { pergunta: Pergunta; index: number }[] }[] = []
+  perguntas.forEach((p, i) => {
+    const cat = p.categoria?.trim() || ''
+    const last = grupos[grupos.length - 1]
+    if (last && last.categoria === cat) {
+      last.items.push({ pergunta: p, index: i })
+    } else {
+      grupos.push({ categoria: cat, items: [{ pergunta: p, index: i }] })
+    }
+  })
 
   if (loading) return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
@@ -405,30 +429,62 @@ export default function PesquisaResponder() {
           </div>
         )}
 
-        {/* Perguntas */}
+        {/* Local de trabalho */}
+        {pesquisa?.pede_local_trabalho && (pesquisa.locais_trabalho?.length ?? 0) > 0 && (
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6">
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3">
+              Local de trabalho <span className="text-red-500">*</span>
+            </p>
+            <div className="relative">
+              <select value={localTrabalho} onChange={e => setLocalTrabalho(e.target.value)}
+                className="w-full appearance-none border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-3 text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 transition">
+                <option value="">Selecione seu local de trabalho</option>
+                {pesquisa.locais_trabalho!.map(l => <option key={l} value={l}>{l}</option>)}
+              </select>
+              <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 16 16">
+                <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+          </div>
+        )}
+
+        {/* Perguntas agrupadas por categoria */}
         {perguntas.length === 0 ? (
           <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-8 text-center">
             <ClipboardList size={32} className="mx-auto mb-3 text-slate-200 dark:text-slate-600" />
             <p className="text-sm text-slate-400">Esta pesquisa não possui perguntas.</p>
           </div>
         ) : (
-          perguntas.map((p, i) => (
-            <div key={p.id} id={`pergunta-${p.id}`}
-              className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6">
-              <div className="flex items-start gap-3">
-                <span className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                  {i + 1}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 leading-relaxed">
-                    {p.titulo || <span className="text-slate-400 italic">Pergunta sem título</span>}
-                    {p.obrigatoria && <span className="text-red-500 ml-1">*</span>}
-                  </p>
-                  {respostas[i] && (
-                    <CampoResposta pergunta={p} resposta={respostas[i]} onChange={r => handleChange(i, r)} />
-                  )}
+          grupos.map((grupo, gi) => (
+            <div key={gi} className="space-y-3">
+              {grupo.categoria && (
+                <div className="flex items-center gap-3">
+                  <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 px-3 py-1 bg-slate-100 dark:bg-slate-700 rounded-full">
+                    {grupo.categoria}
+                  </span>
+                  <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
                 </div>
-              </div>
+              )}
+              {grupo.items.map(({ pergunta: p, index: i }) => (
+                <div key={p.id} id={`pergunta-${p.id}`}
+                  className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6">
+                  <div className="flex items-start gap-3">
+                    <span className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                      {i + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 leading-relaxed">
+                        {p.titulo || <span className="text-slate-400 italic">Pergunta sem título</span>}
+                        {p.obrigatoria && <span className="text-red-500 ml-1">*</span>}
+                      </p>
+                      {respostas[i] && (
+                        <CampoResposta pergunta={p} resposta={respostas[i]} onChange={r => handleChange(i, r)} />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ))
         )}
