@@ -953,6 +953,12 @@ function NovaPesquisaForm({ onBack, pesquisaInicial }: { onBack: (recarregar?: b
               <Toggle on={form.anonima} onToggle={() => set('anonima', !form.anonima)} />
               <span className="text-xs text-slate-600 dark:text-slate-400">Habilitar pesquisa anônima</span>
             </label>
+            {form.anonima && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
+                <Info size={12} className="shrink-0 mt-0.5" />
+                Pesquisas anônimas só podem ser respondidas pelo link público — não aparecem em "Minha Visão" dos colaboradores. Copie o link na listagem depois de publicar.
+              </p>
+            )}
           </div>
         )}
 
@@ -964,6 +970,10 @@ function NovaPesquisaForm({ onBack, pesquisaInicial }: { onBack: (recarregar?: b
               {form.ativa ? 'Ativa' : 'Inativa'}
             </span>
           </label>
+          <p className="text-[11px] text-slate-400 flex items-start gap-1.5 pt-1">
+            <Info size={12} className="shrink-0 mt-0.5" />
+            Inativa pausa a pesquisa e bloqueia novas respostas, mesmo já publicada — diferente de "Encerrar" (na listagem), que fecha a pesquisa em definitivo.
+          </p>
         </div>
       </section>
 
