@@ -241,7 +241,7 @@ function SelecaoPublico({ tipo, selectedIds, onChangeIds }: {
         <div className="flex gap-3 bg-slate-50 dark:bg-slate-700/40 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
           <Info size={15} className="text-slate-500 shrink-0 mt-0.5" />
           <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-            O público é atualizado automaticamente sempre que um usuário é inserido ou removido de algum time que faz parte do público da pesquisa.
+            O público desta pesquisa de pulso é a lista de colaboradores selecionada abaixo no momento da publicação.
           </p>
         </div>
       )}
@@ -253,6 +253,12 @@ function SelecaoPublico({ tipo, selectedIds, onChangeIds }: {
             <span className="bg-primary-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{selectedIds.length}</span>
           )}
         </div>
+        {colaboradores.length > 0 && selectedIds.length < colaboradores.length && (
+          <button onClick={() => onChangeIds(colaboradores.map(c => c.id))}
+            className="text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 transition-colors">
+            Selecionar todos ({colaboradores.length})
+          </button>
+        )}
         {selectedIds.length > 0 && (
           <span className="flex items-center gap-1.5 text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-3 py-1.5 rounded-full">
             {selectedIds.length} selecionado{selectedIds.length !== 1 ? 's' : ''}

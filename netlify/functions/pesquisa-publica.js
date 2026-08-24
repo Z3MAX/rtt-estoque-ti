@@ -27,14 +27,14 @@ exports.handler = async (event) => {
       if (!token) return { statusCode: 400, headers, body: JSON.stringify({ error: 'token obrigatório' }) }
 
       const rows = await sql`
-        SELECT id, nome, objetivo, tipo, situacao, anonima, perguntas, pede_local_trabalho, locais_trabalho
+        SELECT id, nome, objetivo, tipo, situacao, status, anonima, perguntas, pede_local_trabalho, locais_trabalho
         FROM pesquisas
         WHERE link_publico = ${token}::uuid AND anonima = true AND ativo = true
       `
       if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Pesquisa não encontrada' }) }
 
       const p = rows[0]
-      if (p.situacao !== 'LIBERADA') {
+      if (p.situacao !== 'LIBERADA' || p.status !== 'ATIVA') {
         return { statusCode: 403, headers, body: JSON.stringify({ error: 'Esta pesquisa não está disponível no momento.' }) }
       }
 
@@ -42,16 +42,15 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'POST') {
-      const { token, token_anonimo, respostas, local_de_trabalho } = JSON.parse(event.body || '{}')
+      const { token, respostas, local_de_trabalho } = JSON.parse(event.body || '{}')
       if (!token) return { statusCode: 400, headers, body: JSON.stringify({ error: 'token obrigatório' }) }
-      if (!token_anonimo) return { statusCode: 400, headers, body: JSON.stringify({ error: 'token_anonimo obrigatório' }) }
       if (!Array.isArray(respostas)) return { statusCode: 400, headers, body: JSON.stringify({ error: 'respostas inválido' }) }
       if (respostas.length > 200) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Número de respostas excede o limite' }) }
       const localStr = typeof local_de_trabalho === 'string' ? local_de_trabalho.slice(0, 200) : null
 
       const rows = await sql`
         SELECT id, pede_local_trabalho FROM pesquisas
-        WHERE link_publico = ${token}::uuid AND anonima = true AND ativo = true AND situacao = 'LIBERADA'
+        WHERE link_publico = ${token}::uuid AND anonima = true AND ativo = true AND situacao = 'LIBERADA' AND status = 'ATIVA'
       `
       if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Pesquisa não disponível' }) }
       if (rows[0].pede_local_trabalho && !localStr) {

@@ -2,22 +2,9 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { ClipboardList, CheckCircle2, AlertCircle, Loader2, ShieldCheck } from 'lucide-react'
 import { api } from '../../lib/api'
-
-type TipoPergunta = 'multipla_escolha' | 'checkbox' | 'escala' | 'texto' | 'sim_nao' | 'nps'
-
-interface OpcaoPergunta { id: number; texto: string }
-interface Pergunta {
-  id: number
-  titulo: string
-  tipo: TipoPergunta
-  obrigatoria: boolean
-  categoria?: string
-  opcoes?: OpcaoPergunta[]
-  escala_min?: number
-  escala_max?: number
-  escala_label_min?: string
-  escala_label_max?: string
-}
+import {
+  type Pergunta, type Resposta, initResposta, isRespondida, agruparPorCategoria, CampoResposta,
+} from '../../lib/pesquisaCampos'
 
 interface Pesquisa {
   id: number
@@ -27,168 +14,6 @@ interface Pesquisa {
   perguntas: Pergunta[]
   pede_local_trabalho?: boolean
   locais_trabalho?: string[]
-}
-
-type Resposta =
-  | { tipo: 'multipla_escolha'; valor: string }
-  | { tipo: 'checkbox'; valor: string[] }
-  | { tipo: 'escala'; valor: number | null }
-  | { tipo: 'texto'; valor: string }
-  | { tipo: 'sim_nao'; valor: 'Sim' | 'Não' | null }
-  | { tipo: 'nps'; valor: number | null }
-
-function initResposta(p: Pergunta): Resposta {
-  switch (p.tipo) {
-    case 'multipla_escolha': return { tipo: 'multipla_escolha', valor: '' }
-    case 'checkbox':         return { tipo: 'checkbox', valor: [] }
-    case 'escala':           return { tipo: 'escala', valor: null }
-    case 'texto':            return { tipo: 'texto', valor: '' }
-    case 'sim_nao':          return { tipo: 'sim_nao', valor: null }
-    case 'nps':              return { tipo: 'nps', valor: null }
-  }
-}
-
-function isRespondida(r: Resposta): boolean {
-  switch (r.tipo) {
-    case 'multipla_escolha': return r.valor !== ''
-    case 'checkbox':         return r.valor.length > 0
-    case 'escala':           return r.valor !== null
-    case 'texto':            return r.valor.trim() !== ''
-    case 'sim_nao':          return r.valor !== null
-    case 'nps':              return r.valor !== null
-  }
-}
-
-function gerarTokenAnonimo(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-    const r = Math.random() * 16 | 0
-    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16)
-  })
-}
-
-/* ─── Campo de resposta por tipo (mesmo visual do portal autenticado) ─── */
-function CampoResposta({ pergunta, resposta, onChange }: {
-  pergunta: Pergunta; resposta: Resposta; onChange: (r: Resposta) => void
-}) {
-  const inputCls = 'w-full border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-3 text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 transition resize-none'
-
-  if (resposta.tipo === 'multipla_escolha') {
-    return (
-      <div className="space-y-2.5 mt-4">
-        {(pergunta.opcoes ?? []).map(op => {
-          const checked = resposta.valor === op.texto
-          return (
-            <label key={op.id} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${checked ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'}`}>
-              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${checked ? 'border-primary-500 bg-primary-500' : 'border-slate-300 dark:border-slate-500'}`}>
-                {checked && <div className="w-2 h-2 rounded-full bg-white" />}
-              </div>
-              <span className="text-sm text-slate-700 dark:text-slate-300">{op.texto}</span>
-              <input type="radio" className="sr-only" checked={checked} onChange={() => onChange({ tipo: 'multipla_escolha', valor: op.texto })} />
-            </label>
-          )
-        })}
-      </div>
-    )
-  }
-
-  if (resposta.tipo === 'checkbox') {
-    return (
-      <div className="space-y-2.5 mt-4">
-        {(pergunta.opcoes ?? []).map(op => {
-          const checked = resposta.valor.includes(op.texto)
-          return (
-            <label key={op.id} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${checked ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'}`}>
-              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${checked ? 'border-primary-500 bg-primary-500' : 'border-slate-300 dark:border-slate-500'}`}>
-                {checked && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-              </div>
-              <span className="text-sm text-slate-700 dark:text-slate-300">{op.texto}</span>
-              <input type="checkbox" className="sr-only" checked={checked} onChange={() => {
-                const next = checked ? resposta.valor.filter(v => v !== op.texto) : [...resposta.valor, op.texto]
-                onChange({ tipo: 'checkbox', valor: next })
-              }} />
-            </label>
-          )
-        })}
-      </div>
-    )
-  }
-
-  if (resposta.tipo === 'escala') {
-    const min = pergunta.escala_min ?? 1
-    const max = pergunta.escala_max ?? 5
-    const nums = Array.from({ length: max - min + 1 }, (_, i) => i + min)
-    return (
-      <div className="mt-4 space-y-3">
-        <div className="flex gap-2 flex-wrap">
-          {nums.map(n => (
-            <button key={n} type="button" onClick={() => onChange({ tipo: 'escala', valor: n })}
-              className={`w-10 h-10 rounded-xl text-sm font-semibold border-2 transition-all ${resposta.valor === n ? 'border-primary-500 bg-primary-500 text-white shadow-md shadow-primary-500/30' : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20'}`}>
-              {n}
-            </button>
-          ))}
-        </div>
-        {(pergunta.escala_label_min || pergunta.escala_label_max) && (
-          <div className="flex justify-between text-xs text-slate-400">
-            <span>{pergunta.escala_label_min}</span>
-            <span>{pergunta.escala_label_max}</span>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  if (resposta.tipo === 'texto') {
-    return (
-      <div className="mt-4">
-        <textarea rows={4} value={resposta.valor} onChange={e => onChange({ tipo: 'texto', valor: e.target.value })}
-          placeholder="Escreva sua resposta aqui..." className={inputCls} />
-      </div>
-    )
-  }
-
-  if (resposta.tipo === 'sim_nao') {
-    return (
-      <div className="flex gap-3 mt-4">
-        {(['Sim', 'Não'] as const).map(op => (
-          <button key={op} type="button" onClick={() => onChange({ tipo: 'sim_nao', valor: op })}
-            className={`flex-1 py-3 rounded-xl text-sm font-semibold border-2 transition-all ${
-              resposta.valor === op
-                ? op === 'Sim' ? 'border-emerald-500 bg-emerald-500 text-white shadow-md shadow-emerald-500/30' : 'border-red-500 bg-red-500 text-white shadow-md shadow-red-500/30'
-                : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500'
-            }`}>
-            {op}
-          </button>
-        ))}
-      </div>
-    )
-  }
-
-  // nps
-  const nums = Array.from({ length: 11 }, (_, i) => i)
-  return (
-    <div className="mt-4 space-y-3">
-      <div className="flex gap-1.5 flex-wrap">
-        {nums.map(n => {
-          const color = n <= 6 ? 'border-red-300 dark:border-red-700 hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
-            : n <= 8 ? 'border-amber-300 dark:border-amber-700 hover:border-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20'
-            : 'border-emerald-300 dark:border-emerald-700 hover:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
-          const activeColor = n <= 6 ? 'border-red-500 bg-red-500 text-white shadow-md shadow-red-500/20'
-            : n <= 8 ? 'border-amber-500 bg-amber-500 text-white shadow-md shadow-amber-500/20'
-            : 'border-emerald-500 bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
-          return (
-            <button key={n} type="button" onClick={() => onChange({ tipo: 'nps', valor: n })}
-              className={`w-9 h-9 rounded-xl text-sm font-semibold border-2 transition-all ${resposta.valor === n ? activeColor : `border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400 ${color}`}`}>
-              {n}
-            </button>
-          )
-        })}
-      </div>
-      <div className="flex justify-between text-xs text-slate-400">
-        <span>Pouco provável</span>
-        <span>Muito provável</span>
-      </div>
-    </div>
-  )
 }
 
 export default function PesquisaPublica() {
@@ -248,19 +73,11 @@ export default function PesquisaPublica() {
     setErros([])
     setErrorMsg('')
 
-    // Get or create anonymous token for this device+survey
-    const storageKey = `pesq_tok_${token}`
-    let tokenAnonimo = localStorage.getItem(storageKey)
-    if (!tokenAnonimo) {
-      tokenAnonimo = gerarTokenAnonimo()
-      localStorage.setItem(storageKey, tokenAnonimo)
-    }
-
     const payload = perguntas.map((p, i) => ({ pergunta_id: p.id, titulo: p.titulo, valor: respostas[i] ? (respostas[i] as any).valor : null }))
 
     setSubmitting(true)
     try {
-      await api.pesquisaPublica.submit({ token, token_anonimo: tokenAnonimo, respostas: payload, local_de_trabalho: localTrabalho || undefined })
+      await api.pesquisaPublica.submit({ token, respostas: payload, local_de_trabalho: localTrabalho || undefined })
       localStorage.setItem(`pesq_pub_${token}`, new Date().toISOString())
       setStatus('done')
     } catch (err: any) {
@@ -339,16 +156,7 @@ export default function PesquisaPublica() {
   const progress     = perguntas.length > 0 ? Math.round((respondidas / perguntas.length) * 100) : 0
 
   // Agrupa perguntas por categoria mantendo os índices originais para respostas[]
-  const grupos: { categoria: string; items: { pergunta: Pergunta; index: number }[] }[] = []
-  perguntas.forEach((p, i) => {
-    const cat = p.categoria?.trim() || ''
-    const last = grupos[grupos.length - 1]
-    if (last && last.categoria === cat) {
-      last.items.push({ pergunta: p, index: i })
-    } else {
-      grupos.push({ categoria: cat, items: [{ pergunta: p, index: i }] })
-    }
-  })
+  const grupos = agruparPorCategoria(perguntas)
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 py-8 px-4">

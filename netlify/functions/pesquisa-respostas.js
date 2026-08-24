@@ -66,21 +66,32 @@ exports.handler = async (event) => {
       if (respostas.length > 200) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Número de respostas excede o limite' }) }
       const localStr = typeof local_de_trabalho === 'string' ? local_de_trabalho.slice(0, 200) : null
 
+      // Só aceita respostas autenticadas para pesquisas publicadas, ativas e
+      // não-anônimas — pesquisas anônimas só podem ser respondidas pelo link
+      // público (pesquisa-publica.js), que nunca grava user_id.
+      const survey = await sql`
+        SELECT anonima, colaborador_ids FROM pesquisas
+        WHERE id = ${pesquisa_id} AND ativo = true AND situacao = 'LIBERADA' AND status = 'ATIVA'
+      `
+      if (survey.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Pesquisa não encontrada ou não disponível para resposta' }) }
+      if (survey[0].anonima) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Esta pesquisa é anônima e só pode ser respondida pelo link público' }) }
+
+      const userRow = await sql`SELECT colaborador_id FROM users WHERE id = ${auth.userId} LIMIT 1`
+      const colaboradorId = userRow[0]?.colaborador_id ?? null
+
+      const publico = survey[0].colaborador_ids ?? []
+      if (publico.length > 0 && !publico.includes(colaboradorId)) {
+        return { statusCode: 403, headers, body: JSON.stringify({ error: 'Você não faz parte do público desta pesquisa' }) }
+      }
+
       const existing = await sql`
         SELECT id FROM pesquisa_respostas WHERE pesquisa_id = ${pesquisa_id} AND user_id = ${auth.userId}
       `
       if (existing.length > 0) return { statusCode: 409, headers, body: JSON.stringify({ error: 'Você já respondeu esta pesquisa' }) }
 
-      const survey = await sql`SELECT anonima FROM pesquisas WHERE id = ${pesquisa_id} AND ativo = true`
-      if (survey.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Pesquisa não encontrada' }) }
-
-      const userRow = await sql`SELECT colaborador_id FROM users WHERE id = ${auth.userId} LIMIT 1`
-      const colaboradorId = userRow[0]?.colaborador_id ?? null
-      const isAnonima = survey[0].anonima
-
       const rows = await sql`
         INSERT INTO pesquisa_respostas (pesquisa_id, colaborador_id, user_id, respostas, anonima, local_de_trabalho)
-        VALUES (${pesquisa_id}, ${isAnonima ? null : colaboradorId}, ${auth.userId}, ${JSON.stringify(respostas)}, ${isAnonima}, ${localStr})
+        VALUES (${pesquisa_id}, ${colaboradorId}, ${auth.userId}, ${JSON.stringify(respostas)}, false, ${localStr})
         RETURNING id, created_at
       `
       return { statusCode: 201, headers, body: JSON.stringify({ success: true, id: rows[0].id }) }
