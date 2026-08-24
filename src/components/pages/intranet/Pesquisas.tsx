@@ -220,6 +220,7 @@ function SelecaoPublico({ tipo, selectedIds, onChangeIds }: {
   const [colaboradores, setColaboradores] = useState<ColaboradorBasico[]>([])
   const [busca, setBusca] = useState('')
   const isPulso = tipo === 'Pesquisa de pulso'
+  const isDesligamento = tipo === 'Desligamento'
 
   useEffect(() => {
     api.colaboradores.list().then(list => setColaboradores(list as ColaboradorBasico[])).catch(() => {})
@@ -242,6 +243,14 @@ function SelecaoPublico({ tipo, selectedIds, onChangeIds }: {
           <Info size={15} className="text-slate-500 shrink-0 mt-0.5" />
           <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
             O público desta pesquisa de pulso é a lista de colaboradores selecionada abaixo no momento da publicação.
+          </p>
+        </div>
+      )}
+      {isDesligamento && (
+        <div className="flex gap-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 rounded-xl p-4">
+          <Info size={15} className="text-amber-500 shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
+            Selecione abaixo apenas o(s) colaborador(es) desligado(s) que devem responder esta pesquisa. Se nenhum for selecionado, ela será publicada para <strong>toda a empresa</strong>.
           </p>
         </div>
       )}
@@ -768,7 +777,7 @@ function NovaPesquisaForm({ onBack, pesquisaInicial }: { onBack: (recarregar?: b
   }
 
   const tipo = form.tipo
-  const showPublico    = tipo !== '' && tipo !== 'Desligamento'
+  const showPublico    = tipo !== ''
   const hasDateFields  = tipo === 'Pesquisa Padrão' || tipo === 'Pesquisa Temporal'
   const hasPulsoFields = tipo === 'Pesquisa de pulso'
   const hasDesligamento = tipo === 'Desligamento'
