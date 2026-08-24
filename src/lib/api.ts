@@ -497,7 +497,7 @@ export const api = {
     get: async (token: string) => {
       return request<any>(`${BASE}/pesquisa-publica?token=${encodeURIComponent(token)}`)
     },
-    submit: async (data: { token: string; token_anonimo: string; respostas: any[] }) => {
+    submit: async (data: { token: string; token_anonimo: string; respostas: any[]; local_de_trabalho?: string }) => {
       return request(`${BASE}/pesquisa-publica`, { method: 'POST', body: JSON.stringify(data) })
     },
   },

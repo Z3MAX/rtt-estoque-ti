@@ -13,8 +13,11 @@ exports.handler = async (event) => {
   try {
     // Migrations
     await sql`ALTER TABLE pesquisas ADD COLUMN IF NOT EXISTS link_publico UUID`
+    await sql`ALTER TABLE pesquisas ADD COLUMN IF NOT EXISTS pede_local_trabalho BOOLEAN DEFAULT false`
+    await sql`ALTER TABLE pesquisas ADD COLUMN IF NOT EXISTS locais_trabalho JSONB DEFAULT '[]'`
     await sql`ALTER TABLE pesquisa_respostas ADD COLUMN IF NOT EXISTS token_anonimo TEXT`
     await sql`ALTER TABLE pesquisa_respostas ADD COLUMN IF NOT EXISTS ip_hash TEXT`
+    await sql`ALTER TABLE pesquisa_respostas ADD COLUMN IF NOT EXISTS local_de_trabalho TEXT`
     try {
       await sql`CREATE UNIQUE INDEX IF NOT EXISTS pr_token_anon_uniq ON pesquisa_respostas(pesquisa_id, token_anonimo) WHERE token_anonimo IS NOT NULL`
     } catch (_) {}
@@ -24,7 +27,7 @@ exports.handler = async (event) => {
       if (!token) return { statusCode: 400, headers, body: JSON.stringify({ error: 'token obrigatório' }) }
 
       const rows = await sql`
-        SELECT id, nome, objetivo, tipo, situacao, anonima, perguntas
+        SELECT id, nome, objetivo, tipo, situacao, anonima, perguntas, pede_local_trabalho, locais_trabalho
         FROM pesquisas
         WHERE link_publico = ${token}::uuid AND anonima = true AND ativo = true
       `
@@ -39,17 +42,21 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'POST') {
-      const { token, token_anonimo, respostas } = JSON.parse(event.body || '{}')
+      const { token, token_anonimo, respostas, local_de_trabalho } = JSON.parse(event.body || '{}')
       if (!token) return { statusCode: 400, headers, body: JSON.stringify({ error: 'token obrigatório' }) }
       if (!token_anonimo) return { statusCode: 400, headers, body: JSON.stringify({ error: 'token_anonimo obrigatório' }) }
       if (!Array.isArray(respostas)) return { statusCode: 400, headers, body: JSON.stringify({ error: 'respostas inválido' }) }
       if (respostas.length > 200) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Número de respostas excede o limite' }) }
+      const localStr = typeof local_de_trabalho === 'string' ? local_de_trabalho.slice(0, 200) : null
 
       const rows = await sql`
-        SELECT id FROM pesquisas
+        SELECT id, pede_local_trabalho FROM pesquisas
         WHERE link_publico = ${token}::uuid AND anonima = true AND ativo = true AND situacao = 'LIBERADA'
       `
       if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Pesquisa não disponível' }) }
+      if (rows[0].pede_local_trabalho && !localStr) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Selecione seu local de trabalho' }) }
+      }
 
       const pesquisaId = rows[0].id
 
@@ -75,8 +82,8 @@ exports.handler = async (event) => {
       const serverToken = crypto.createHash('sha256').update(`anon_token|${pesquisaId}|${ipHash}`).digest('hex')
       try {
         await sql`
-          INSERT INTO pesquisa_respostas (pesquisa_id, respostas, anonima, token_anonimo, ip_hash)
-          VALUES (${pesquisaId}, ${JSON.stringify(respostas)}, true, ${serverToken}, ${ipHash})
+          INSERT INTO pesquisa_respostas (pesquisa_id, respostas, anonima, token_anonimo, ip_hash, local_de_trabalho)
+          VALUES (${pesquisaId}, ${JSON.stringify(respostas)}, true, ${serverToken}, ${ipHash}, ${localStr})
         `
       } catch (e) {
         if (e.code === '23505') {
