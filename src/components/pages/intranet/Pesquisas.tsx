@@ -8,6 +8,41 @@ import {
 } from 'lucide-react'
 import { api } from '../../../lib/api'
 
+/* ─── Lista padrão de locais de trabalho (RTT) ─── */
+const LOCAIS_PADRAO_RTT = [
+  'ADMINISTRAÇÃO CORPORATIVO (DIRETORIA VALTEIR LACERDA)',
+  'SERVIÇOS CORPORATIVO (DIRETORIA RODRIGO FREISLEBEN)',
+  'FINANÇAS (DIRETORIA ALEXANDRE FERNANDES)',
+  'RH (DIRETORIA CAROLINE PEDRAZANI)',
+  'SERVIÇOS - SPOT TRANSPORTADORES',
+  'SERVIÇOS - 3R PETROLEUM 158',
+  'SERVIÇOS - BRAVA 214',
+  'SERVIÇOS - CSN (MG)',
+  'SERVIÇOS - CSN (RJ)',
+  'SERVIÇOS - PETROBRAS EDISEN 190',
+  'SERVIÇOS - HYDRO ALUNORTE',
+  'SERVIÇOS - NEXA',
+  'SERVIÇOS - PETROBRAS OFFSHORE 195',
+  'SERVIÇOS - PETROBRAS REFAP TANQUES',
+  'SERVIÇOS - PETROBRAS EDISE 187',
+  'SERVIÇOS - PETROBRAS OFFSHORE 167',
+  'SERVIÇOS - PETROBRAS ONSHORE 167',
+  'SERVIÇOS - PETROBRAS PLANEJ E CONTROLE 170',
+  'SERVIÇOS - PETROBRAS PROCES. DE GASES 181',
+  'SERVIÇOS - PETROBRAS REDUC 172',
+  'SERVIÇOS - PETROBRAS REFAP MANUTENCAO',
+  'SERVIÇOS - PETROBRAS REVAP',
+  'SERVIÇOS - SPOT NORTE',
+  'SERVIÇOS - TRANSPETRO 188',
+  'SERVIÇOS - TRANSPETRO 194',
+  'SERVIÇOS - TRANSPETRO SUAPE',
+  'SERVIÇOS - ULTRACARGO ITAQUI',
+  'SERVIÇOS - ULTRACARGO SUAPE',
+  'SERVIÇOS - VALE PORTO NORTE',
+  'SERVIÇOS - VALE S11D',
+  'SERVIÇOS - VLI',
+]
+
 /* ─── Types ─── */
 type Situacao = 'LIBERADA' | 'FINALIZADA' | 'RASCUNHO'
 type Status   = 'ATIVA'    | 'INATIVA'
@@ -677,6 +712,11 @@ function NovaPesquisaForm({ onBack, pesquisaInicial }: { onBack: (recarregar?: b
     setNovoLocal('')
   }
 
+  function usarListaPadrao() {
+    const novos = LOCAIS_PADRAO_RTT.filter(l => !form.locaisTrabalho.includes(l))
+    set('locaisTrabalho', [...form.locaisTrabalho, ...novos])
+  }
+
   function addVinculo()             { if (vinculos.length < 5) setVinculos(v => [...v, { questionario: '', categoria: '' }]) }
   function removeVinculo(i: number) { setVinculos(v => v.filter((_, idx) => idx !== i)) }
   function setVinculo(i: number, field: keyof VinculoDesligamento, val: string) {
@@ -799,6 +839,10 @@ function NovaPesquisaForm({ onBack, pesquisaInicial }: { onBack: (recarregar?: b
                   <Plus size={13} /> Adicionar
                 </button>
               </div>
+              <button onClick={usarListaPadrao}
+                className="text-[11px] font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 flex items-center gap-1">
+                <Plus size={11} /> Usar lista padrão RTT (setores/contratos)
+              </button>
               {form.locaisTrabalho.length === 0 && (
                 <p className="text-[11px] text-slate-400">Nenhum local adicionado ainda. Você pode adicionar depois.</p>
               )}
