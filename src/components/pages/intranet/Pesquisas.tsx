@@ -727,11 +727,6 @@ function NovaPesquisaForm({ onBack, pesquisaInicial }: { onBack: (recarregar?: b
     setNovoLocal('')
   }
 
-  function usarListaPadrao() {
-    const novos = LOCAIS_PADRAO_RTT.filter(l => !form.locaisTrabalho.includes(l))
-    set('locaisTrabalho', [...form.locaisTrabalho, ...novos])
-  }
-
   function addVinculo()             { if (vinculos.length < 5) setVinculos(v => [...v, { questionario: '', categoria: '' }]) }
   function removeVinculo(i: number) { setVinculos(v => v.filter((_, idx) => idx !== i)) }
   function setVinculo(i: number, field: keyof VinculoDesligamento, val: string) {
@@ -829,7 +824,11 @@ function NovaPesquisaForm({ onBack, pesquisaInicial }: { onBack: (recarregar?: b
               <p className="text-xs font-medium text-slate-700 dark:text-slate-300">Pedir local de trabalho</p>
               <p className="text-[11px] text-slate-400 mt-0.5">Respondente deverá selecionar seu local antes de responder</p>
             </div>
-            <Toggle on={form.pedirLocal} onToggle={() => set('pedirLocal', !form.pedirLocal)} />
+            <Toggle on={form.pedirLocal} onToggle={() => {
+              const ligar = !form.pedirLocal
+              set('pedirLocal', ligar)
+              if (ligar && form.locaisTrabalho.length === 0) set('locaisTrabalho', LOCAIS_PADRAO_RTT)
+            }} />
           </div>
           {form.pedirLocal && (
             <div className="space-y-2 pt-1">
@@ -854,10 +853,6 @@ function NovaPesquisaForm({ onBack, pesquisaInicial }: { onBack: (recarregar?: b
                   <Plus size={13} /> Adicionar
                 </button>
               </div>
-              <button onClick={usarListaPadrao}
-                className="text-[11px] font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 flex items-center gap-1">
-                <Plus size={11} /> Usar lista padrão RTT (setores/contratos)
-              </button>
               {form.locaisTrabalho.length === 0 && (
                 <p className="text-[11px] text-slate-400">Nenhum local adicionado ainda. Você pode adicionar depois.</p>
               )}
