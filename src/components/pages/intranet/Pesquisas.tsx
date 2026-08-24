@@ -1012,9 +1012,30 @@ function NovaPesquisaForm({ onBack, pesquisaInicial }: { onBack: (recarregar?: b
   )
 }
 
+/** Agrupa TODAS as perguntas da mesma categoria (não só as consecutivas),
+ *  ignorando caixa/espaços, na ordem de primeira aparição. */
+function agruparPerguntasPorCategoria(perguntas: Pergunta[]): { categoria: string; perguntas: Pergunta[] }[] {
+  const grupos: { categoria: string; chave: string; perguntas: Pergunta[] }[] = []
+  const indice = new Map<string, number>()
+  perguntas.forEach(p => {
+    const categoria = p.categoria?.trim() || ''
+    const chave = categoria.toLowerCase()
+    if (!indice.has(chave)) {
+      indice.set(chave, grupos.length)
+      grupos.push({ categoria, chave, perguntas: [p] })
+    } else {
+      grupos[indice.get(chave)!].perguntas.push(p)
+    }
+  })
+  return grupos.map(({ categoria, perguntas }) => ({ categoria, perguntas }))
+}
+
 async function exportarResultadosXLSX(pesquisa: Pesquisa, respostas: any[]) {
   if (!respostas.length) return
   const perguntas = pesquisa.perguntas ?? []
+  const grupos = agruparPerguntasPorCategoria(perguntas)
+  const perguntasOrdenadas = grupos.flatMap(g => g.perguntas)
+  const temCategorias = grupos.some(g => g.categoria)
   const wb = new ExcelJS.Workbook()
   wb.creator = 'RTT Sistema'
 
@@ -1028,15 +1049,31 @@ async function exportarResultadosXLSX(pesquisa: Pesquisa, respostas: any[]) {
     })
   }
 
-  // Sheet 1: Respostas brutas
-  const ws1 = wb.addWorksheet('Respostas', { views: [{ state: 'frozen', ySplit: 1 }] })
-  const cols = ['#', 'Data', ...(pesquisa.anonima ? [] : ['Colaborador', 'Cargo']), ...perguntas.map(p => p.titulo || `Pergunta ${p.id}`)]
+  // Sheet 1: Respostas brutas — perguntas agrupadas por categoria (colunas)
+  const ws1 = wb.addWorksheet('Respostas')
+  const baseCols = ['#', 'Data', ...(pesquisa.anonima ? [] : ['Colaborador', 'Cargo'])]
+  const cols = [...baseCols, ...perguntasOrdenadas.map(p => p.titulo || `Pergunta ${p.id}`)]
+
+  let headerRows = 1
+  if (temCategorias) {
+    const catRow = ws1.addRow([...baseCols.map(() => ''), ...perguntasOrdenadas.map(p => p.categoria?.trim() || 'Sem categoria')])
+    headerStyle(ws1, catRow)
+    let colCursor = baseCols.length + 1
+    for (const g of grupos) {
+      const span = g.perguntas.length
+      if (span > 1) ws1.mergeCells(1, colCursor, 1, colCursor + span - 1)
+      colCursor += span
+    }
+    headerRows = 2
+  }
   headerStyle(ws1, ws1.addRow(cols))
+  ws1.views = [{ state: 'frozen', ySplit: headerRows }]
+
   respostas.forEach((r, i) => {
     const data = new Date(r.created_at).toLocaleDateString('pt-BR')
     const base = [i + 1, data, ...(pesquisa.anonima ? [] : [r.colaborador_nome ?? '—', r.colaborador_cargo ?? '—'])]
     const resArr: any[] = r.respostas ?? []
-    const vals = perguntas.map(p => {
+    const vals = perguntasOrdenadas.map(p => {
       const found = resArr.find((x: any) => x.pergunta_id === p.id)
       const v = found?.valor
       if (Array.isArray(v)) return v.join(', ')
@@ -1052,32 +1089,34 @@ async function exportarResultadosXLSX(pesquisa: Pesquisa, respostas: any[]) {
     })
   })
   ws1.columns = cols.map(c => ({ width: Math.min(40, Math.max(12, c.length + 2)) }))
-  ws1.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: cols.length } }
+  ws1.autoFilter = { from: { row: headerRows, column: 1 }, to: { row: headerRows, column: cols.length } }
 
-  // Sheet 2: Resumo agregado (only for choice/scale/nps/sim_nao questions)
+  // Sheet 2: Resumo agregado (only for choice/scale/nps/sim_nao questions) — com coluna Categoria
   const ws2 = wb.addWorksheet('Resumo')
-  ws2.addRow(['Pergunta', 'Tipo', 'Opção / Valor', 'Contagem', '% do total']).height = 22
+  ws2.addRow(['Categoria', 'Pergunta', 'Tipo', 'Opção / Valor', 'Contagem', '% do total']).height = 22
   headerStyle(ws2, ws2.getRow(1))
-  let row2 = 2
-  perguntas.forEach(p => {
-    const vals = respostas.flatMap(r => {
-      const found = (r.respostas ?? []).find((x: any) => x.pergunta_id === p.id)
-      const v = found?.valor
-      if (v === null || v === undefined || v === '') return []
-      return Array.isArray(v) ? v : [String(v)]
-    })
-    if (['texto'].includes(p.tipo)) return
-    const counts: Record<string, number> = {}
-    vals.forEach(v => { counts[v] = (counts[v] ?? 0) + 1 })
-    Object.entries(counts).sort((a, b) => b[1] - a[1]).forEach(([opt, cnt]) => {
-      const row = ws2.addRow([p.titulo, p.tipo.replace('_', ' '), opt, cnt, vals.length ? `${Math.round(cnt / vals.length * 100)}%` : '0%'])
-      row.height = 16
-      row.getCell(4).alignment = { horizontal: 'center' }
-      row.getCell(5).alignment = { horizontal: 'center' }
-      row2++
+  ws2.views = [{ state: 'frozen', ySplit: 1 }]
+  ws2.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 6 } }
+  grupos.forEach(g => {
+    g.perguntas.forEach(p => {
+      if (p.tipo === 'texto') return
+      const vals = respostas.flatMap(r => {
+        const found = (r.respostas ?? []).find((x: any) => x.pergunta_id === p.id)
+        const v = found?.valor
+        if (v === null || v === undefined || v === '') return []
+        return Array.isArray(v) ? v : [String(v)]
+      })
+      const counts: Record<string, number> = {}
+      vals.forEach(v => { counts[v] = (counts[v] ?? 0) + 1 })
+      Object.entries(counts).sort((a, b) => b[1] - a[1]).forEach(([opt, cnt]) => {
+        const row = ws2.addRow([g.categoria || 'Sem categoria', p.titulo, p.tipo.replace('_', ' '), opt, cnt, vals.length ? `${Math.round(cnt / vals.length * 100)}%` : '0%'])
+        row.height = 16
+        row.getCell(5).alignment = { horizontal: 'center' }
+        row.getCell(6).alignment = { horizontal: 'center' }
+      })
     })
   })
-  ws2.columns = [{ width: 40 }, { width: 16 }, { width: 30 }, { width: 12 }, { width: 12 }]
+  ws2.columns = [{ width: 20 }, { width: 40 }, { width: 16 }, { width: 30 }, { width: 12 }, { width: 12 }]
 
   const buffer = await wb.xlsx.writeBuffer()
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
@@ -1513,6 +1552,11 @@ export default function PesquisasPage() {
                       className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline text-left">{p.nome}</button>
                     {(p.perguntas?.length ?? 0) > 0 && (
                       <p className="text-[11px] text-slate-400 mt-0.5">{p.perguntas!.length} pergunta{p.perguntas!.length !== 1 ? 's' : ''}</p>
+                    )}
+                    {p.situacao === 'LIBERADA' && p.status === 'ATIVA' && !p.anonima && (p.colaborador_ids?.length ?? 0) === 0 && (
+                      <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium mt-0.5 flex items-center gap-1">
+                        <AlertCircle size={11} /> Sem público selecionado — ninguém vai ver essa pesquisa
+                      </p>
                     )}
                   </td>
                   <td className="px-4 py-3.5 text-slate-600 dark:text-slate-400 text-sm">{p.tipo}</td>

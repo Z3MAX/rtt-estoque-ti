@@ -59,8 +59,8 @@ exports.handler = async (event) => {
 
     if (event.httpMethod === 'GET') {
       // Single survey by ID (used by responder page) — só pesquisas publicadas,
-      // ativas, não-anônimas (essas só respondem pelo link público) e dentro
-      // do público-alvo selecionado pelo admin.
+      // ativas, não-anônimas (essas só respondem pelo link público) e cujo
+      // colaborador_ids inclua o usuário. Público vazio = ninguém vê.
       if (params.id) {
         const id = parseInt(params.id)
         const rows = await sql`
@@ -73,18 +73,16 @@ exports.handler = async (event) => {
         if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Não encontrada ou não disponível para resposta' }) }
 
         const publico = rows[0].colaborador_ids ?? []
-        if (publico.length > 0) {
-          const userRow = await sql`SELECT colaborador_id FROM users WHERE id = ${auth.userId} LIMIT 1`
-          const colaboradorId = userRow[0]?.colaborador_id ?? null
-          if (!publico.includes(colaboradorId)) {
-            return { statusCode: 403, headers, body: JSON.stringify({ error: 'Esta pesquisa não está disponível para você' }) }
-          }
+        const userRow = await sql`SELECT colaborador_id FROM users WHERE id = ${auth.userId} LIMIT 1`
+        const colaboradorId = userRow[0]?.colaborador_id ?? null
+        if (!publico.includes(colaboradorId)) {
+          return { statusCode: 403, headers, body: JSON.stringify({ error: 'Esta pesquisa não está disponível para você' }) }
         }
         return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
       }
 
       // Surveys pending for current user (MinhaVisão) — exclui anônimas (só
-      // respondem pelo link público) e respeita o público-alvo selecionado.
+      // respondem pelo link público). Público vazio = ninguém vê.
       if (params.minhas === '1') {
         const userRow = await sql`SELECT colaborador_id FROM users WHERE id = ${auth.userId} LIMIT 1`
         const colaboradorId = userRow[0]?.colaborador_id ?? null
@@ -92,10 +90,7 @@ exports.handler = async (event) => {
           SELECT id, nome, objetivo, tipo, situacao, data_inicio, data_fim, colaborador_ids, created_at
           FROM pesquisas
           WHERE ativo = true AND situacao = 'LIBERADA' AND status = 'ATIVA' AND anonima = false
-            AND (
-              jsonb_array_length(colaborador_ids) = 0
-              OR colaborador_ids @> ${JSON.stringify(colaboradorId)}::jsonb
-            )
+            AND colaborador_ids @> ${JSON.stringify(colaboradorId)}::jsonb
             AND id NOT IN (
               SELECT pesquisa_id FROM pesquisa_respostas WHERE user_id = ${auth.userId}
             )

@@ -80,7 +80,7 @@ exports.handler = async (event) => {
       const colaboradorId = userRow[0]?.colaborador_id ?? null
 
       const publico = survey[0].colaborador_ids ?? []
-      if (publico.length > 0 && !publico.includes(colaboradorId)) {
+      if (!publico.includes(colaboradorId)) {
         return { statusCode: 403, headers, body: JSON.stringify({ error: 'Você não faz parte do público desta pesquisa' }) }
       }
 
