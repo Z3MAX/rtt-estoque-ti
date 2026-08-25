@@ -360,32 +360,32 @@ async function sendSignatureRequestEmail({ name, email, signUrl }) {
 /**
  * Notifica um colaborador que há uma pesquisa aguardando resposta.
  */
-async function sendPesquisaNotificationEmail({ name, email, pesquisaNome, pesquisaObjetivo, pesquisaTipo, url }) {
+async function sendPesquisaNotificationEmail({ name, email, pesquisaNome, url }) {
   const siteUrl = process.env.SITE_URL || ''
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 20px">
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:'Segoe UI',Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px">
     <tr><td align="center">
-      <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%">
-        <tr><td style="background:linear-gradient(135deg,#0f172a 0%,#7f0008 100%);border-radius:16px 16px 0 0;padding:32px 40px;text-align:center">
-          <p style="margin:0;color:#fff;font-size:22px;font-weight:700">Rema Tip Top</p>
-          <p style="margin:4px 0 0;color:#94a3b8;font-size:12px">Gestão de Talentos e Avaliações</p>
-          <p style="margin:20px 0 0;color:#fff;font-size:22px;font-weight:700">📋 Nova pesquisa para você</p>
+      <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;border-radius:16px;overflow:hidden">
+        <!-- Red header with logo -->
+        <tr><td style="background:#e30613;padding:28px 40px;text-align:center">
+          ${siteUrl ? `
+          <table cellpadding="0" cellspacing="0" style="margin:0 auto;background:#fff;border-radius:12px">
+            <tr><td style="padding:12px 28px"><img src="${esc(siteUrl)}/rema-logo.png" alt="Rema Tip Top" height="40" style="display:block;height:40px;width:auto"></td></tr>
+          </table>` : `<p style="margin:0;color:#fff;font-size:22px;font-weight:700">Rema Tip Top</p>`}
         </td></tr>
+        <!-- Black sub-header -->
+        <tr><td style="background:#000;padding:12px 40px;text-align:center">
+          <p style="margin:0;color:#fff;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase">📋 Nova pesquisa para você</p>
+        </td></tr>
+        <!-- Body -->
         <tr><td style="background:#fff;padding:36px 40px">
-          <p style="margin:0 0 20px;color:#0f172a;font-size:20px;font-weight:700">Olá, ${esc(name)} 👋</p>
-          <p style="margin:0 0 24px;color:#475569;font-size:14px;line-height:1.6">
-            Você foi selecionado(a) para responder a uma pesquisa${pesquisaTipo ? ` do tipo <strong>${esc(pesquisaTipo)}</strong>` : ''}. Sua participação é importante — leva só alguns minutos.
+          <p style="margin:0 0 20px;color:#000;font-size:20px;font-weight:700">Olá, ${esc(name)} 👋</p>
+          <p style="margin:0 0 28px;color:#333;font-size:14px;line-height:1.6">
+            Você foi selecionado(a) para responder à pesquisa <strong>${esc(pesquisaNome)}</strong>. Sua participação é importante — leva só alguns minutos.
           </p>
-          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:24px">
-            <tr><td style="padding:16px 24px">
-              <p style="margin:0 0 6px;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em">Pesquisa</p>
-              <p style="margin:0;color:#0f172a;font-size:15px;font-weight:600">${esc(pesquisaNome)}</p>
-              ${pesquisaObjetivo ? `<p style="margin:8px 0 0;color:#475569;font-size:13px;line-height:1.5">${esc(pesquisaObjetivo)}</p>` : ''}
-            </td></tr>
-          </table>
           <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px">
             <tr><td align="center">
               <a href="${esc(url)}" style="display:inline-block;background:#e30613;color:#fff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:12px">
@@ -393,13 +393,14 @@ async function sendPesquisaNotificationEmail({ name, email, pesquisaNome, pesqui
               </a>
             </td></tr>
           </table>
-          <p style="margin:0;color:#94a3b8;font-size:12px;line-height:1.6;text-align:center">
+          <p style="margin:0;color:#888;font-size:12px;line-height:1.6;text-align:center">
             Caso o botão não funcione, faça login normalmente na plataforma — a pesquisa vai aparecer em "Minha Visão".
           </p>
         </td></tr>
-        <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;border-radius:0 0 16px 16px;padding:20px 40px;text-align:center">
-          <p style="margin:0;color:#94a3b8;font-size:12px">© 2025 Rema Tip Top · Todos os direitos reservados</p>
-          ${siteUrl ? `<p style="margin:6px 0 0;color:#cbd5e1;font-size:11px"><a href="${esc(siteUrl)}" style="color:#cbd5e1">${esc(siteUrl)}</a></p>` : ''}
+        <!-- Footer -->
+        <tr><td style="background:#000;padding:18px 40px;text-align:center">
+          <p style="margin:0;color:#aaa;font-size:11px">© 2025 Rema Tip Top · Todos os direitos reservados</p>
+          ${siteUrl ? `<p style="margin:6px 0 0;color:#666;font-size:11px"><a href="${esc(siteUrl)}" style="color:#aaa;text-decoration:none">${esc(siteUrl)}</a></p>` : ''}
         </td></tr>
       </table>
     </td></tr>

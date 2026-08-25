@@ -23,7 +23,7 @@ async function notificarPublico(sql, pesquisa, idsParaNotificar) {
   for (const c of colabs) {
     const r = await sendPesquisaNotificationEmail({
       name: c.nome, email: c.email,
-      pesquisaNome: pesquisa.nome, pesquisaObjetivo: pesquisa.objetivo, pesquisaTipo: pesquisa.tipo,
+      pesquisaNome: pesquisa.nome,
       url,
     })
     if (r?.sent) enviados++
