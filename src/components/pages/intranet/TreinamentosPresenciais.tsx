@@ -3,6 +3,7 @@ import {
   Plus, QrCode, Users, Edit2, Trash2, Download, Copy, Check,
   Calendar, MapPin, User, Key, Play, Square, AlertCircle, RefreshCw,
   Printer, X, CheckCircle2, Clock, XCircle, ChevronDown, Upload,
+  ChevronLeft, FileText, FileSpreadsheet, Presentation, Image as ImageIcon, File as FileIcon, FolderOpen,
 } from 'lucide-react'
 import QRCode from 'qrcode'
 import ExcelJS from 'exceljs'
@@ -419,6 +420,206 @@ function PresencaModal({ evento, onClose }: { evento: TreinamentoPresencial; onC
   )
 }
 
+// ─── Conteúdo / Materiais ────────────────────────────────────────────────────
+
+interface Material {
+  id: number
+  nome_arquivo: string
+  tipo: string
+  tamanho_bytes: number
+  enviado_por_nome?: string
+  created_at: string
+}
+
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+function iconeParaTipo(tipo: string) {
+  if (['xls', 'xlsx', 'csv', 'ods'].includes(tipo)) return FileSpreadsheet
+  if (['ppt', 'pptx', 'odp'].includes(tipo)) return Presentation
+  if (['png', 'jpg', 'jpeg', 'gif'].includes(tipo)) return ImageIcon
+  if (['pdf', 'doc', 'docx', 'odt', 'txt'].includes(tipo)) return FileText
+  return FileIcon
+}
+
+function ConteudoTreinamento({
+  evento, canAdmin, onBack,
+}: {
+  evento: TreinamentoPresencial
+  canAdmin: boolean
+  onBack: () => void
+}) {
+  const [materiais, setMateriais] = useState<Material[]>([])
+  const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState('')
+  const [confirmDeleteMat, setConfirmDeleteMat] = useState<Material | null>(null)
+  const [downloadingId, setDownloadingId] = useState<number | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const rows = await api.treinamentoMateriais.list(evento.id)
+      setMateriais(rows as Material[])
+    } catch { setMateriais([]) }
+    finally { setLoading(false) }
+  }, [evento.id])
+
+  useEffect(() => { load() }, [load])
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setError('')
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError(`Arquivo muito grande (máx. ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)}MB)`)
+      return
+    }
+    setUploading(true)
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result))
+        reader.onerror = () => reject(new Error('Erro ao ler o arquivo'))
+        reader.readAsDataURL(file)
+      })
+      const novo = await api.treinamentoMateriais.upload({
+        treinamento_id: evento.id,
+        nome_arquivo: file.name,
+        mime_type: file.type || 'application/octet-stream',
+        data: base64,
+      })
+      setMateriais(prev => [novo as Material, ...prev])
+    } catch (err: any) {
+      setError(err.message || 'Erro ao enviar arquivo')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function handleDownload(m: Material) {
+    setDownloadingId(m.id)
+    setError('')
+    try {
+      await api.treinamentoMateriais.download(m.id, m.nome_arquivo)
+    } catch {
+      setError('Erro ao baixar arquivo')
+    } finally {
+      setDownloadingId(null)
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirmDeleteMat) return
+    await api.treinamentoMateriais.delete(confirmDeleteMat.id)
+    setMateriais(prev => prev.filter(m => m.id !== confirmDeleteMat.id))
+    setConfirmDeleteMat(null)
+  }
+
+  return (
+    <div className="space-y-4">
+      <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 transition-colors">
+        <ChevronLeft size={16} />Voltar
+      </button>
+
+      <div>
+        <h2 className="font-bold text-slate-800 text-lg">{evento.titulo}</h2>
+        <p className="text-sm text-slate-400">Materiais e conteúdo do treinamento</p>
+      </div>
+
+      {canAdmin && (
+        <label className={`flex items-center gap-3 w-full px-4 py-4 border-2 border-dashed rounded-xl cursor-pointer transition-colors group ${uploading ? 'opacity-60 pointer-events-none border-slate-200' : 'border-slate-200 hover:border-red-400 hover:bg-red-50/50'}`}>
+          {uploading ? (
+            <div className="w-5 h-5 border-2 border-slate-200 border-t-red-600 rounded-full animate-spin shrink-0" />
+          ) : (
+            <Upload size={18} className="text-slate-300 group-hover:text-red-400 transition-colors shrink-0" />
+          )}
+          <div>
+            <span className="text-sm text-slate-500 group-hover:text-red-600 transition-colors font-medium">
+              {uploading ? 'Enviando...' : 'Enviar material (PDF, PowerPoint, Excel, Word, imagem...)'}
+            </span>
+            <p className="text-[11px] text-slate-400 mt-0.5">Tamanho máximo por arquivo: {Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)}MB</p>
+          </div>
+          <input
+            type="file"
+            accept=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg,.gif,.zip,.odp,.ods,.odt"
+            className="hidden"
+            onChange={handleUpload}
+            disabled={uploading}
+          />
+        </label>
+      )}
+
+      {error && (
+        <div className="flex items-center gap-2 bg-red-50 text-red-600 text-xs px-3 py-2 rounded-xl">
+          <AlertCircle size={13} />{error}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center h-32 text-slate-400 gap-2 text-sm">
+          <RefreshCw size={16} className="animate-spin" />Carregando...
+        </div>
+      ) : materiais.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+          <FolderOpen size={32} className="mb-3 opacity-40" />
+          <p className="text-sm font-medium">Nenhum material enviado ainda</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {materiais.map(m => {
+            const Icon = iconeParaTipo(m.tipo)
+            return (
+              <div key={m.id} className="flex items-center gap-3 bg-white rounded-xl border border-slate-100 shadow-sm px-4 py-3">
+                <div className="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center shrink-0">
+                  <Icon size={16} className="text-slate-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-800 truncate">{m.nome_arquivo}</p>
+                  <p className="text-xs text-slate-400">
+                    {formatBytes(m.tamanho_bytes)}{m.enviado_por_nome ? ` · ${m.enviado_por_nome}` : ''} · {fmtDate(m.created_at)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleDownload(m)}
+                  disabled={downloadingId === m.id}
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600 text-xs font-medium rounded-xl hover:bg-slate-50 disabled:opacity-60 transition-colors"
+                  title="Baixar"
+                >
+                  {downloadingId === m.id ? <div className="w-3 h-3 border border-slate-300 border-t-slate-600 rounded-full animate-spin" /> : <Download size={13} />}
+                </button>
+                {canAdmin && (
+                  <button
+                    onClick={() => setConfirmDeleteMat(m)}
+                    className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 border border-red-100 text-red-500 text-xs font-medium rounded-xl hover:bg-red-50 transition-colors"
+                    title="Excluir"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {confirmDeleteMat && (
+        <DeleteConfirm
+          titulo={confirmDeleteMat.nome_arquivo}
+          onConfirm={handleDelete}
+          onCancel={() => setConfirmDeleteMat(null)}
+        />
+      )}
+    </div>
+  )
+}
+
 // ─── Delete Confirm ──────────────────────────────────────────────────────────
 
 function DeleteConfirm({ titulo, onConfirm, onCancel }: { titulo: string; onConfirm: () => void; onCancel: () => void }) {
@@ -451,6 +652,7 @@ export default function TreinamentosPresenciais() {
   const [modalEdit, setModalEdit] = useState<TreinamentoPresencial | null>(null)
   const [modalQR, setModalQR] = useState<TreinamentoPresencial | null>(null)
   const [modalPresenca, setModalPresenca] = useState<TreinamentoPresencial | null>(null)
+  const [conteudoTreinamento, setConteudoTreinamento] = useState<TreinamentoPresencial | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<TreinamentoPresencial | null>(null)
   const [statusLoading, setStatusLoading] = useState<number | null>(null)
   const [toast, setToast] = useState('')
@@ -514,6 +716,16 @@ export default function TreinamentosPresenciais() {
     setEventos(prev => prev.filter(e => e.id !== confirmDelete.id))
     setConfirmDelete(null)
     showToast('Treinamento excluído.')
+  }
+
+  if (conteudoTreinamento) {
+    return (
+      <ConteudoTreinamento
+        evento={conteudoTreinamento}
+        canAdmin={canAdmin}
+        onBack={() => setConteudoTreinamento(null)}
+      />
+    )
   }
 
   return (
@@ -618,6 +830,13 @@ export default function TreinamentosPresenciais() {
                     className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600 text-xs font-medium rounded-xl hover:bg-slate-50 transition-colors"
                   >
                     <Users size={13} />Presenças
+                  </button>
+
+                  <button
+                    onClick={() => setConteudoTreinamento(ev)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600 text-xs font-medium rounded-xl hover:bg-slate-50 transition-colors"
+                  >
+                    <FolderOpen size={13} />Conteúdo
                   </button>
 
                   {canAdmin && (

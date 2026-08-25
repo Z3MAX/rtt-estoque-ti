@@ -577,6 +577,26 @@ export const api = {
     presenca: async (id: number) => request<any[]>(`${BASE}/treinamentos-presenciais?id=${id}&action=presenca`),
   },
 
+  treinamentoMateriais: {
+    list: async (treinamentoId: number) => request<any[]>(`${BASE}/treinamento-materiais?treinamento_id=${treinamentoId}`),
+    upload: async (data: { treinamento_id: number; nome_arquivo: string; mime_type: string; data: string }) =>
+      request<any>(`${BASE}/treinamento-materiais`, { method: 'POST', body: JSON.stringify(data) }),
+    delete: async (id: number) => request(`${BASE}/treinamento-materiais?id=${id}`, { method: 'DELETE' }),
+    download: async (id: number, nomeArquivo: string) => {
+      const token = localStorage.getItem('osiris_token')
+      const res = await fetch(`${BASE}/treinamento-materiais?download=1&id=${id}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (!res.ok) throw new Error('Erro ao baixar arquivo')
+      const blob = await res.blob()
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = nomeArquivo
+      a.click()
+      URL.revokeObjectURL(a.href)
+    },
+  },
+
   presencaPublica: {
     get: async (token: string) => request<any>(`${BASE}/presenca-publica?token=${encodeURIComponent(token)}`),
     buscar: async (q: string) => request<any[]>(`${BASE}/presenca-publica?action=buscar&q=${encodeURIComponent(q)}`),
