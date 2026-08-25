@@ -1,5 +1,32 @@
 const { neon } = require('@neondatabase/serverless')
 const { requireAuth, isAdminRole, makeHeaders } = require('./_auth')
+const { sendPesquisaNotificationEmail } = require('./_email')
+
+/** Notifica por e-mail os colaboradores em `idsParaNotificar` que há uma
+ *  pesquisa aguardando resposta. Pesquisas anônimas nunca notificam
+ *  individualmente (só respondem pelo link público). */
+async function notificarPublico(sql, pesquisa, idsParaNotificar) {
+  if (pesquisa.anonima) return
+  const publico = idsParaNotificar ?? []
+  if (publico.length === 0) return
+
+  const colabs = await sql`
+    SELECT nome, email FROM colaboradores
+    WHERE id = ANY(${publico}::int[]) AND ativo = true AND email IS NOT NULL AND email <> ''
+  `
+  if (colabs.length === 0) return
+
+  const url = `${process.env.SITE_URL || ''}/intranet/pesquisas/${pesquisa.id}/responder`
+  const BATCH = 8
+  for (let i = 0; i < colabs.length; i += BATCH) {
+    const lote = colabs.slice(i, i + BATCH)
+    await Promise.allSettled(lote.map(c => sendPesquisaNotificationEmail({
+      name: c.nome, email: c.email,
+      pesquisaNome: pesquisa.nome, pesquisaObjetivo: pesquisa.objetivo, pesquisaTipo: pesquisa.tipo,
+      url,
+    })))
+  }
+}
 
 exports.handler = async (event) => {
   const headers = makeHeaders(event)
@@ -154,17 +181,24 @@ exports.handler = async (event) => {
         )
         RETURNING *
       `
+      if (rows[0].situacao === 'LIBERADA') {
+        // Aguarda o envio (funções Netlify não garantem trabalho em segundo
+        // plano após a resposta) mas nunca falha a publicação por causa de e-mail.
+        try { await notificarPublico(sql, rows[0], rows[0].colaborador_ids ?? []) } catch (e) { console.error('[pesquisas] falha ao notificar público:', e.message) }
+      }
       return { statusCode: 201, headers, body: JSON.stringify(rows[0]) }
     }
 
     if (event.httpMethod === 'PUT') {
       const id = parseInt(params.id)
       if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'id obrigatório' }) }
-      const existing = await sql`SELECT created_by FROM pesquisas WHERE id = ${id} AND ativo = true`
+      const existing = await sql`SELECT created_by, situacao, colaborador_ids FROM pesquisas WHERE id = ${id} AND ativo = true`
       if (existing.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Não encontrado' }) }
       if (!isAdminRole(auth.role) && existing[0].created_by !== auth.userId) {
         return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
       }
+      const situacaoAntes = existing[0].situacao
+      const idsAntes = existing[0].colaborador_ids ?? []
       const body = JSON.parse(event.body || '{}')
       const rows = await sql`
         UPDATE pesquisas SET
@@ -196,6 +230,17 @@ exports.handler = async (event) => {
         WHERE id = ${id}
         RETURNING *
       `
+      if (rows[0].situacao === 'LIBERADA') {
+        const idsDepois = rows[0].colaborador_ids ?? []
+        // Se já estava liberada, notifica só quem foi adicionado agora;
+        // se está sendo liberada pela primeira vez, notifica todo o público atual.
+        const idsParaNotificar = situacaoAntes === 'LIBERADA'
+          ? idsDepois.filter(cid => !idsAntes.includes(cid))
+          : idsDepois
+        if (idsParaNotificar.length > 0) {
+          try { await notificarPublico(sql, rows[0], idsParaNotificar) } catch (e) { console.error('[pesquisas] falha ao notificar público:', e.message) }
+        }
+      }
       return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
     }
 
