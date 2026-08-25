@@ -30,6 +30,7 @@ exports.handler = async (event) => {
     await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS data_admissao DATE`
     await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS photo_url TEXT`
     await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS bio TEXT`
+    await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS gestor_email TEXT`
 
     if (event.httpMethod === 'GET') {
       if (id) {
@@ -133,12 +134,13 @@ exports.handler = async (event) => {
         let updated = 0
         for (let i = 0; i < valid.length; i += BATCH) {
           const chunk = valid.slice(i, i + BATCH)
-          const nomes    = chunk.map(c => c.nome.trim())
-          const cargos   = chunk.map(c => c.cargo      || null)
-          const niveis   = chunk.map(c => c.nivel      || null)
-          const areas    = chunk.map(c => c.area       || null)
-          const emails   = chunk.map(c => c.email      || null)
-          const gestores = chunk.map(c => c.gestor_nome || null)
+          const nomes        = chunk.map(c => c.nome.trim())
+          const cargos       = chunk.map(c => c.cargo        || null)
+          const niveis       = chunk.map(c => c.nivel        || null)
+          const areas        = chunk.map(c => c.area         || null)
+          const emails       = chunk.map(c => c.email        || null)
+          const gestores     = chunk.map(c => c.gestor_nome  || null)
+          const gestorEmails = chunk.map(c => c.gestor_email || null)
 
           const result = await sql`
             WITH input AS (
@@ -148,18 +150,20 @@ exports.handler = async (event) => {
                 ${niveis}::text[],
                 ${areas}::text[],
                 ${emails}::text[],
-                ${gestores}::text[]
-              ) AS t(nome, cargo, nivel, area, email, gestor_nome)
+                ${gestores}::text[],
+                ${gestorEmails}::text[]
+              ) AS t(nome, cargo, nivel, area, email, gestor_nome, gestor_email)
             ),
             upd AS (
               UPDATE colaboradores c
-              SET cargo       = COALESCE(i.cargo,       c.cargo),
-                  nivel       = COALESCE(i.nivel,       c.nivel),
-                  area        = COALESCE(i.area,        c.area),
-                  email       = COALESCE(i.email,       c.email),
-                  gestor_nome = COALESCE(i.gestor_nome, c.gestor_nome),
-                  ativo       = true,
-                  updated_at  = NOW()
+              SET cargo        = COALESCE(i.cargo,        c.cargo),
+                  nivel        = COALESCE(i.nivel,        c.nivel),
+                  area         = COALESCE(i.area,         c.area),
+                  email        = COALESCE(i.email,        c.email),
+                  gestor_nome  = COALESCE(i.gestor_nome,  c.gestor_nome),
+                  gestor_email = COALESCE(i.gestor_email, c.gestor_email),
+                  ativo        = true,
+                  updated_at   = NOW()
               FROM input i
               WHERE c.id = (
                 SELECT id FROM colaboradores x
@@ -179,8 +183,8 @@ exports.handler = async (event) => {
               )
             ),
             ins AS (
-              INSERT INTO colaboradores (nome, cargo, nivel, area, email, gestor_nome)
-              SELECT i.nome, i.cargo, i.nivel, i.area, i.email, i.gestor_nome
+              INSERT INTO colaboradores (nome, cargo, nivel, area, email, gestor_nome, gestor_email)
+              SELECT i.nome, i.cargo, i.nivel, i.area, i.email, i.gestor_nome, i.gestor_email
               FROM input i
               WHERE NOT EXISTS (
                 SELECT 1 FROM colaboradores c WHERE LOWER(TRIM(c.nome)) = LOWER(TRIM(i.nome))
@@ -198,15 +202,15 @@ exports.handler = async (event) => {
       }
 
       if (!isFullAdmin) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado' }) }
-      const { nome, cargo, nivel, area, email, gestor_nome, data_nascimento, data_admissao, photo_url, bio } = body
+      const { nome, cargo, nivel, area, email, gestor_nome, gestor_email, data_nascimento, data_admissao, photo_url, bio } = body
       if (!nome || !nome.trim()) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Nome é obrigatório' }) }
       }
       if (bio && bio.length > 3000) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Bio muito longa (máx. 3000 caracteres)' }) }
       const rows = await sql`
-        INSERT INTO colaboradores (nome, cargo, nivel, area, email, gestor_nome, data_nascimento, data_admissao, photo_url, bio)
+        INSERT INTO colaboradores (nome, cargo, nivel, area, email, gestor_nome, gestor_email, data_nascimento, data_admissao, photo_url, bio)
         VALUES (${nome.trim()}, ${cargo || null}, ${nivel || null},
-                ${area || null}, ${email || null}, ${gestor_nome || null},
+                ${area || null}, ${email || null}, ${gestor_nome || null}, ${gestor_email || null},
                 ${data_nascimento || null}, ${data_admissao || null},
                 ${photo_url || null}, ${bio || null})
         RETURNING *
@@ -225,9 +229,9 @@ exports.handler = async (event) => {
           return { statusCode: 403, headers, body: JSON.stringify({ error: 'Acesso negado: colaborador não é seu direto' }) }
       }
       const body = JSON.parse(event.body || '{}')
-      const { nome, cargo, nivel, area, email, gestor_nome, data_nascimento, data_admissao, photo_url, bio } = body
+      const { nome, cargo, nivel, area, email, gestor_nome, gestor_email, data_nascimento, data_admissao, photo_url, bio } = body
       if (bio && bio.length > 3000) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Bio muito longa (máx. 3000 caracteres)' }) }
-      const before = await sql`SELECT nome, cargo, nivel, area, email, gestor_nome FROM colaboradores WHERE id = ${id}`
+      const before = await sql`SELECT nome, cargo, nivel, area, email, gestor_nome, gestor_email FROM colaboradores WHERE id = ${id}`
       const rows = await sql`
         UPDATE colaboradores
         SET nome            = ${nome            ?? null},
@@ -236,6 +240,7 @@ exports.handler = async (event) => {
             area            = ${area            ?? null},
             email           = ${email           ?? null},
             gestor_nome     = ${gestor_nome     ?? null},
+            gestor_email    = ${gestor_email    ?? null},
             data_nascimento = ${data_nascimento ?? null},
             data_admissao   = ${data_admissao   ?? null},
             photo_url       = ${photo_url       ?? null},
@@ -245,7 +250,7 @@ exports.handler = async (event) => {
         RETURNING *
       `
       if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Não encontrado' }) }
-      const changes = computeDiff(before[0] || {}, rows[0], ['nome', 'cargo', 'nivel', 'area', 'email', 'gestor_nome'])
+      const changes = computeDiff(before[0] || {}, rows[0], ['nome', 'cargo', 'nivel', 'area', 'email', 'gestor_nome', 'gestor_email'])
       const userName = await getUserName(sql, authPayload.userId)
       await logAudit(sql, { entityType: 'colaborador', entityId: rows[0].id, entityName: rows[0].nome, action: 'updated', changes, userId: authPayload.userId, userName })
 

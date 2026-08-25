@@ -30,6 +30,7 @@ export interface Colaborador {
   area?: string
   email?: string
   gestor_nome?: string
+  gestor_email?: string
   data_nascimento?: string
   data_admissao?: string
   photo_url?: string

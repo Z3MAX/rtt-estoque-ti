@@ -106,6 +106,7 @@ function EditProfileModal({ colab, token, onClose, onSaved }: EditModalProps) {
     area: colab.area ?? '',
     email: colab.email ?? '',
     gestor_nome: colab.gestor_nome ?? '',
+    gestor_email: colab.gestor_email ?? '',
     bio: colab.bio ?? '',
     data_nascimento: toInputDate(colab.data_nascimento),
     data_admissao: toInputDate(colab.data_admissao),
@@ -141,6 +142,7 @@ function EditProfileModal({ colab, token, onClose, onSaved }: EditModalProps) {
         area: form.area || null,
         email: form.email || null,
         gestor_nome: form.gestor_nome || null,
+        gestor_email: form.gestor_email || null,
         bio: form.bio || null,
         data_nascimento: form.data_nascimento || null,
         data_admissao: form.data_admissao || null,
@@ -247,6 +249,10 @@ function EditProfileModal({ colab, token, onClose, onSaved }: EditModalProps) {
             <div>
               <label className={label}>Gestor direto</label>
               <input className={field} value={form.gestor_nome} onChange={e => setForm(f => ({ ...f, gestor_nome: e.target.value }))} placeholder="Nome do gestor" />
+            </div>
+            <div>
+              <label className={label}>E-mail do gestor</label>
+              <input className={field} type="email" value={form.gestor_email} onChange={e => setForm(f => ({ ...f, gestor_email: e.target.value }))} placeholder="gestor@empresa.com" />
             </div>
             <div>
               <label className={label}>E-mail</label>
@@ -406,6 +412,20 @@ function ProfileModal({ colab, canEdit, token, onClose, onEdited }: ProfileModal
                 <div>
                   <p className="text-[10px] text-slate-400 uppercase tracking-wide">Gestor</p>
                   <p className="text-slate-700 dark:text-slate-200 font-medium">{colab.gestor_nome}</p>
+                </div>
+              </div>
+            )}
+
+            {colab.gestor_email && (
+              <div className="flex items-center gap-3 text-sm">
+                <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0">
+                  <Mail size={15} className="text-slate-500 dark:text-slate-400" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wide">E-mail do gestor</p>
+                  <a href={`mailto:${colab.gestor_email}`} className="text-primary-600 dark:text-primary-400 font-medium hover:underline truncate block">
+                    {colab.gestor_email}
+                  </a>
                 </div>
               </div>
             )}

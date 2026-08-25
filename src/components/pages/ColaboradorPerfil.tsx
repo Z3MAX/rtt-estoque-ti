@@ -523,6 +523,7 @@ function EditModal({ colab, onSave, onClose }: EditModalProps) {
     area: colab.area ?? '',
     email: colab.email ?? '',
     gestor_nome: colab.gestor_nome ?? '',
+    gestor_email: colab.gestor_email ?? '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -582,9 +583,13 @@ function EditModal({ colab, onSave, onClose }: EditModalProps) {
               <label className="label">E-mail</label>
               <input className="input" type="email" value={form.email} onChange={set('email')} />
             </div>
-            <div className="col-span-2">
+            <div>
               <label className="label">Gestor responsável</label>
               <input className="input" value={form.gestor_nome} onChange={set('gestor_nome')} />
+            </div>
+            <div>
+              <label className="label">E-mail do gestor</label>
+              <input className="input" type="email" value={form.gestor_email} onChange={set('gestor_email')} />
             </div>
           </div>
           <div className="flex gap-3 pt-2">
@@ -738,18 +743,22 @@ export default function ColaboradorPerfil() {
               </button>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
               <div>
                 <p className="text-xs text-slate-400 uppercase tracking-wide font-medium mb-0.5">Área</p>
                 <p className="text-sm text-slate-700 dark:text-slate-300">{colab.area || '—'}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wide font-medium mb-0.5">E-mail do Gestor</p>
+                <p className="text-xs text-slate-400 uppercase tracking-wide font-medium mb-0.5">E-mail</p>
                 <p className="text-sm text-slate-700 dark:text-slate-300 truncate">{colab.email || '—'}</p>
               </div>
               <div>
                 <p className="text-xs text-slate-400 uppercase tracking-wide font-medium mb-0.5">Gestor</p>
                 <p className="text-sm text-slate-700 dark:text-slate-300">{colab.gestor_nome || '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 uppercase tracking-wide font-medium mb-0.5">E-mail do Gestor</p>
+                <p className="text-sm text-slate-700 dark:text-slate-300 truncate">{colab.gestor_email || '—'}</p>
               </div>
             </div>
           </div>

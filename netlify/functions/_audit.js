@@ -11,6 +11,7 @@ const FIELD_LABELS = {
   location_id: 'Local', assigned_to: 'Responsável', purchase_date: 'Data de Compra',
   purchase_price: 'Valor de Compra', notes: 'Observações',
   role: 'Perfil', email: 'E-mail', active: 'Ativo',
+  gestor_nome: 'Gestor', gestor_email: 'E-mail do Gestor',
 }
 
 function formatFieldValue(field, value) {

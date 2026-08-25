@@ -41,6 +41,7 @@ function ColabModal({ initial, onSave, onClose }: ColabModalProps) {
     area: initial?.area ?? '',
     email: initial?.email ?? '',
     gestor_nome: initial?.gestor_nome ?? '',
+    gestor_email: initial?.gestor_email ?? '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -105,9 +106,13 @@ function ColabModal({ initial, onSave, onClose }: ColabModalProps) {
               <label className="label">E-mail</label>
               <input className="input" type="email" value={form.email} onChange={set('email')} placeholder="email@rtt.com" />
             </div>
-            <div className="col-span-2">
+            <div>
               <label className="label">Gestor responsável</label>
               <input className="input" value={form.gestor_nome} onChange={set('gestor_nome')} placeholder="Nome do gestor avaliador" />
+            </div>
+            <div>
+              <label className="label">E-mail do gestor</label>
+              <input className="input" type="email" value={form.gestor_email} onChange={set('gestor_email')} placeholder="gestor@rtt.com" />
             </div>
           </div>
           <div className="flex gap-3 pt-2">
@@ -146,6 +151,9 @@ const COLUMN_MAP: Record<string, keyof Colaborador> = {
   // Gestor — inclui padrão "Gestor Imediato" do RH
   gestor: 'gestor_nome', gestornome: 'gestor_nome', manager: 'gestor_nome', gerente: 'gestor_nome',
   gestorimediato: 'gestor_nome', gestordireto: 'gestor_nome',
+  // E-mail do gestor
+  gestoremail: 'gestor_email', emailgestor: 'gestor_email', manageremail: 'gestor_email',
+  emaildogestor: 'gestor_email', emailgerente: 'gestor_email',
 }
 
 interface ImportModalProps { onImport: (data: Partial<Colaborador>[]) => Promise<void>; onClose: () => void }
