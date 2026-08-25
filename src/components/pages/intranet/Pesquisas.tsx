@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import ExcelJS from 'exceljs'
 import {
   ClipboardList, Plus, Search, Filter, X, Pencil, BarChart2, Link2,
@@ -222,8 +222,7 @@ function SelecaoPublico({ tipo, selectedIds, onChangeIds }: {
   const [filtroArea, setFiltroArea] = useState('')
   const [aba, setAba] = useState<'todos' | 'selecionados' | 'nao_selecionados'>('todos')
   const [pagina, setPagina] = useState(1)
-  const [toast, setToast] = useState<{ nome: string; adicionado: boolean } | null>(null)
-  const toastTimer = useRef<number | null>(null)
+  const [pendentes, setPendentes] = useState<number[]>([])
   const PAGE_SIZE = 20
   const isPulso = tipo === 'Pesquisa de pulso'
   const isDesligamento = tipo === 'Desligamento'
@@ -251,37 +250,37 @@ function SelecaoPublico({ tipo, selectedIds, onChangeIds }: {
     setPagina(1)
   }
 
-  function mostrarToast(nome: string, adicionado: boolean) {
-    setToast({ nome, adicionado })
-    if (toastTimer.current) window.clearTimeout(toastTimer.current)
-    toastTimer.current = window.setTimeout(() => setToast(null), 2200)
-  }
-
+  // Marcar um colaborador ainda não adicionado só coloca ele numa lista
+  // pendente — só entra de fato no público ao clicar em "Adicionar".
+  // Remover alguém que já está no público continua imediato.
   function toggle(id: number) {
-    const c = colaboradores.find(x => x.id === id)
-    const adicionado = !selectedIds.includes(id)
-    if (adicionado) onChangeIds([...selectedIds, id])
-    else onChangeIds(selectedIds.filter(x => x !== id))
-    if (c) mostrarToast(c.nome, adicionado)
+    if (selectedIds.includes(id)) {
+      onChangeIds(selectedIds.filter(x => x !== id))
+      return
+    }
+    setPendentes(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
 
-  function selecionarFiltrados() {
-    const novos = porBuscaEArea.map(c => c.id).filter(id => !selectedIds.includes(id))
-    onChangeIds([...selectedIds, ...novos])
-    if (novos.length > 0) mostrarToast(`${novos.length} colaborador${novos.length !== 1 ? 'es' : ''}`, true)
+  function marcarFiltrados() {
+    const novos = porBuscaEArea.map(c => c.id).filter(id => !selectedIds.includes(id) && !pendentes.includes(id))
+    setPendentes(prev => [...prev, ...novos])
+  }
+
+  function marcarTodos() {
+    const novos = colaboradores.map(c => c.id).filter(id => !selectedIds.includes(id) && !pendentes.includes(id))
+    setPendentes(prev => [...prev, ...novos])
+  }
+
+  function confirmarAdicao() {
+    onChangeIds([...selectedIds, ...pendentes])
+    setPendentes([])
   }
 
   const temFiltroAtivo = !!buscaLower || !!filtroArea
-  const todosFiltradosJaSelecionados = porBuscaEArea.length > 0 && porBuscaEArea.every(c => selectedIds.includes(c.id))
+  const todosFiltradosJaMarcados = porBuscaEArea.length > 0 && porBuscaEArea.every(c => selectedIds.includes(c.id) || pendentes.includes(c.id))
 
   return (
-    <section className="relative bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
-      {toast && (
-        <div className={`absolute top-4 right-4 z-10 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-white shadow-lg animate-fade-in ${toast.adicionado ? 'bg-emerald-600' : 'bg-slate-600'}`}>
-          <CheckCircle2 size={14} className="shrink-0" />
-          <span className="truncate max-w-[220px]">{toast.nome} {toast.adicionado ? 'adicionado' : 'removido'}</span>
-        </div>
-      )}
+    <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
       <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-100 dark:border-slate-700 pb-3">
         Seleção de público
       </h2>
@@ -309,16 +308,16 @@ function SelecaoPublico({ tipo, selectedIds, onChangeIds }: {
             <span className="bg-primary-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{selectedIds.length}</span>
           )}
         </div>
-        {colaboradores.length > 0 && selectedIds.length < colaboradores.length && (
-          <button onClick={() => onChangeIds(colaboradores.map(c => c.id))}
+        {colaboradores.length > 0 && selectedIds.length + pendentes.length < colaboradores.length && (
+          <button onClick={marcarTodos}
             className="text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 transition-colors">
-            Selecionar todos ({colaboradores.length})
+            Marcar todos ({colaboradores.length})
           </button>
         )}
-        {temFiltroAtivo && !todosFiltradosJaSelecionados && (
-          <button onClick={selecionarFiltrados}
+        {temFiltroAtivo && !todosFiltradosJaMarcados && (
+          <button onClick={marcarFiltrados}
             className="text-xs font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 transition-colors">
-            Selecionar filtrados ({porBuscaEArea.length})
+            Marcar filtrados ({porBuscaEArea.length})
           </button>
         )}
         {selectedIds.length > 0 && (
@@ -328,6 +327,22 @@ function SelecaoPublico({ tipo, selectedIds, onChangeIds }: {
           </span>
         )}
       </div>
+      {pendentes.length > 0 && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl animate-fade-in">
+          <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
+            {pendentes.length} colaborador{pendentes.length !== 1 ? 'es' : ''} marcado{pendentes.length !== 1 ? 's' : ''} — ainda não adicionado{pendentes.length !== 1 ? 's' : ''}
+          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            <button onClick={() => setPendentes([])} className="text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
+              Cancelar
+            </button>
+            <button onClick={confirmarAdicao}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-500 hover:bg-primary-600 text-white text-xs font-semibold transition-colors">
+              <Plus size={13} /> Adicionar
+            </button>
+          </div>
+        </div>
+      )}
       <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-100 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-700/30 text-xs flex-wrap">
           <button onClick={() => setFiltro(setAba, 'todos')}
@@ -374,23 +389,28 @@ function SelecaoPublico({ tipo, selectedIds, onChangeIds }: {
             Nenhum colaborador encontrado {aba !== 'todos' ? `em "${aba === 'selecionados' ? 'Selecionados' : 'Não selecionados'}"` : ''} com esses filtros.
           </div>
         )}
-        {filtradosPagina.map(c => (
+        {filtradosPagina.map(c => {
+          const jaAdicionado = selectedIds.includes(c.id)
+          const pendente = pendentes.includes(c.id)
+          return (
           <div key={c.id} onClick={() => toggle(c.id)}
-            className="grid items-center px-4 py-2.5 border-b border-slate-100/60 dark:border-slate-700/40 hover:bg-slate-50/60 dark:hover:bg-slate-700/20 transition-colors text-sm cursor-pointer"
+            className={`grid items-center px-4 py-2.5 border-b border-slate-100/60 dark:border-slate-700/40 hover:bg-slate-50/60 dark:hover:bg-slate-700/20 transition-colors text-sm cursor-pointer ${pendente ? 'bg-amber-50/60 dark:bg-amber-900/10' : ''}`}
             style={{ gridTemplateColumns: '2rem 1fr 1fr 1fr' }}>
-            <input type="checkbox" checked={selectedIds.includes(c.id)} onChange={() => toggle(c.id)}
+            <input type="checkbox" checked={jaAdicionado || pendente} onChange={() => toggle(c.id)}
               onClick={e => e.stopPropagation()}
-              className="w-3.5 h-3.5 rounded border-slate-300 text-primary-500 focus:ring-primary-400" />
+              className={`w-3.5 h-3.5 rounded focus:ring-primary-400 ${pendente ? 'border-amber-400 text-amber-500' : 'border-slate-300 text-primary-500'}`} />
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center text-[10px] font-bold text-slate-600 dark:text-slate-300 shrink-0">
                 {c.nome.charAt(0).toUpperCase()}
               </div>
               <span className="text-xs text-slate-700 dark:text-slate-300">{c.nome}</span>
+              {pendente && <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full">novo</span>}
             </div>
             <span className="text-xs text-slate-500 dark:text-slate-400">{c.cargo ?? '—'}</span>
             <span className="text-xs text-slate-500 dark:text-slate-400">{c.area ?? '—'}</span>
           </div>
-        ))}
+          )
+        })}
         <div className="flex items-center justify-between px-4 py-2.5 text-xs text-slate-400 bg-slate-50/40 dark:bg-slate-700/20">
           <span>
             {filtrados.length === 0 ? '0 colaboradores' : (
