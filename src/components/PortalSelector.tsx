@@ -26,17 +26,8 @@ export default function PortalSelector({ onSelect }: Props) {
         <div className="absolute top-[-80px] right-[-80px] w-80 h-80 rounded-full bg-primary-500/20 blur-3xl pointer-events-none" />
         <div className="absolute bottom-[-60px] left-[-60px] w-64 h-64 rounded-full bg-primary-400/10 blur-3xl pointer-events-none" />
 
-        {/* Logo + tagline */}
+        {/* Tagline */}
         <div className="relative z-10 px-12 pt-10">
-          <div className="mb-10 inline-block bg-white rounded-xl px-5 py-3 shadow-lg">
-            <img
-              src="/rema-logo-v2.png"
-              alt="Rema Tip Top"
-              className="h-11 w-auto object-contain select-none"
-              onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-            />
-          </div>
-
           <h1 className="text-4xl font-bold text-white leading-tight">
             Bem-vindo(a) de volta,<br />
             <span className="text-primary-400">{firstName}.</span>
