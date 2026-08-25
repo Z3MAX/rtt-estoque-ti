@@ -4,27 +4,32 @@ const { sendPesquisaNotificationEmail } = require('./_email')
 
 /** Notifica por e-mail os colaboradores em `idsParaNotificar` que há uma
  *  pesquisa aguardando resposta. Pesquisas anônimas nunca notificam
- *  individualmente (só respondem pelo link público). */
+ *  individualmente (só respondem pelo link público). Retorna estatísticas
+ *  de envio para feedback ao admin. */
 async function notificarPublico(sql, pesquisa, idsParaNotificar) {
-  if (pesquisa.anonima) return
+  if (pesquisa.anonima) return { total: 0, enviados: 0, falhas: 0 }
   const publico = idsParaNotificar ?? []
-  if (publico.length === 0) return
+  if (publico.length === 0) return { total: 0, enviados: 0, falhas: 0 }
 
   const colabs = await sql`
     SELECT nome, email FROM colaboradores
     WHERE id = ANY(${publico}::int[]) AND ativo = true AND email IS NOT NULL AND email <> ''
   `
-  if (colabs.length === 0) return
+  if (colabs.length === 0) return { total: 0, enviados: 0, falhas: 0 }
 
   const url = `${process.env.SITE_URL || ''}/intranet/pesquisas/${pesquisa.id}/responder`
+  let enviados = 0, falhas = 0
   // Envio sequencial — a caixa SMTP usada aceita só uma conexão por vez.
   for (const c of colabs) {
-    await sendPesquisaNotificationEmail({
+    const r = await sendPesquisaNotificationEmail({
       name: c.nome, email: c.email,
       pesquisaNome: pesquisa.nome, pesquisaObjetivo: pesquisa.objetivo, pesquisaTipo: pesquisa.tipo,
       url,
     })
+    if (r?.sent) enviados++
+    else falhas++
   }
+  return { total: colabs.length, enviados, falhas }
 }
 
 exports.handler = async (event) => {
@@ -148,6 +153,28 @@ exports.handler = async (event) => {
       if (!isAdminRole(auth.role)) {
         return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
       }
+
+      // Disparo manual de notificação — reenvia para todo o público atual.
+      if (params.action === 'notificar') {
+        const id = parseInt(params.id)
+        if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'id obrigatório' }) }
+        const rows = await sql`SELECT * FROM pesquisas WHERE id = ${id} AND ativo = true`
+        if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Não encontrada' }) }
+        const pesquisa = rows[0]
+        if (pesquisa.anonima) {
+          return { statusCode: 400, headers, body: JSON.stringify({ error: 'Pesquisas anônimas não notificam individualmente — distribua pelo link público' }) }
+        }
+        if (pesquisa.situacao !== 'LIBERADA' || pesquisa.status !== 'ATIVA') {
+          return { statusCode: 400, headers, body: JSON.stringify({ error: 'A pesquisa precisa estar publicada e ativa' }) }
+        }
+        const idsParaNotificar = pesquisa.colaborador_ids ?? []
+        if (idsParaNotificar.length === 0) {
+          return { statusCode: 400, headers, body: JSON.stringify({ error: 'Nenhum público selecionado' }) }
+        }
+        const stats = await notificarPublico(sql, pesquisa, idsParaNotificar)
+        return { statusCode: 200, headers, body: JSON.stringify(stats) }
+      }
+
       const body = JSON.parse(event.body || '{}')
       const { nome, objetivo, tipo, situacao, status, anonima, ocultar_min,
               data_inicio, data_fim, frequencia_pulso, perguntas_por_pulso,

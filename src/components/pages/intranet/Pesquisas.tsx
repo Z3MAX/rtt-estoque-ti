@@ -4,7 +4,7 @@ import {
   ClipboardList, Plus, Search, Filter, X, Pencil, BarChart2, Link2,
   ChevronLeft, ChevronDown, AlertCircle, Info, Trash2, Users, Calendar, Clock,
   Loader2, ChevronUp, GripVertical, CheckSquare, AlignLeft, Hash, Send,
-  CheckCircle2, ArrowUp, ArrowDown, Eye, MessageSquare, Download, StopCircle,
+  CheckCircle2, ArrowUp, ArrowDown, Eye, MessageSquare, Download, StopCircle, Mail,
 } from 'lucide-react'
 import { api } from '../../../lib/api'
 
@@ -1406,6 +1406,7 @@ export default function PesquisasPage() {
   const [filterStatus, setFilter]   = useState<Status | ''>('')
   const [showFilter, setShowFilter] = useState(false)
   const [copiedId, setCopiedId]     = useState<number | null>(null)
+  const [notificandoId, setNotificandoId] = useState<number | null>(null)
 
   function carregar() {
     setLoading(true)
@@ -1442,6 +1443,20 @@ export default function PesquisasPage() {
       carregar()
     } catch (e: any) {
       alert(e.message || 'Erro ao encerrar pesquisa')
+    }
+  }
+
+  async function handleNotificar(p: Pesquisa) {
+    if (!confirm(`Enviar e-mail de notificação para todo o público selecionado de "${p.nome}"?`)) return
+    setNotificandoId(p.id)
+    try {
+      const r = await api.pesquisas.notificar(p.id) as { total: number; enviados: number; falhas: number }
+      if (r.falhas > 0) alert(`${r.enviados} de ${r.total} e-mail(s) enviado(s). ${r.falhas} falharam — veja os logs do servidor.`)
+      else alert(`${r.enviados} e-mail(s) enviado(s) com sucesso.`)
+    } catch (e: any) {
+      alert(e.message || 'Erro ao enviar notificação')
+    } finally {
+      setNotificandoId(null)
     }
   }
 
@@ -1583,6 +1598,15 @@ export default function PesquisasPage() {
                         className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${copiedId === p.id ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-200'}`}>
                         <Link2 size={14} />
                       </button>
+                      {!p.anonima && p.situacao === 'LIBERADA' && p.status === 'ATIVA' && (
+                        <button
+                          title={(p.colaborador_ids?.length ?? 0) === 0 ? 'Selecione um público antes de notificar' : 'Enviar e-mail de notificação para o público'}
+                          onClick={() => handleNotificar(p)}
+                          disabled={notificandoId === p.id || (p.colaborador_ids?.length ?? 0) === 0}
+                          className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:text-primary-600 dark:hover:text-primary-400 transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400">
+                          {notificandoId === p.id ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
+                        </button>
+                      )}
                       {p.situacao === 'LIBERADA' && (
                         <button title="Encerrar pesquisa" onClick={() => handleEncerrar(p)}
                           className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:text-amber-500 transition-colors">

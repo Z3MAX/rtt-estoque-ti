@@ -476,6 +476,10 @@ export const api = {
       if (MOCK) { await delay(300); return { success: true } }
       return request(`${BASE}/pesquisas?id=${id}`, { method: 'DELETE' })
     },
+    notificar: async (id: number) => {
+      if (MOCK) { await delay(400); return { total: 0, enviados: 0, falhas: 0 } }
+      return request<{ total: number; enviados: number; falhas: number }>(`${BASE}/pesquisas?action=notificar&id=${id}`, { method: 'POST' })
+    },
   },
 
   pesquisaRespostas: {
