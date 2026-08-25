@@ -17,14 +17,13 @@ async function notificarPublico(sql, pesquisa, idsParaNotificar) {
   if (colabs.length === 0) return
 
   const url = `${process.env.SITE_URL || ''}/intranet/pesquisas/${pesquisa.id}/responder`
-  const BATCH = 8
-  for (let i = 0; i < colabs.length; i += BATCH) {
-    const lote = colabs.slice(i, i + BATCH)
-    await Promise.allSettled(lote.map(c => sendPesquisaNotificationEmail({
+  // Envio sequencial — a caixa SMTP usada aceita só uma conexão por vez.
+  for (const c of colabs) {
+    await sendPesquisaNotificationEmail({
       name: c.nome, email: c.email,
       pesquisaNome: pesquisa.nome, pesquisaObjetivo: pesquisa.objetivo, pesquisaTipo: pesquisa.tipo,
       url,
-    })))
+    })
   }
 }
 

@@ -1,19 +1,31 @@
 const nodemailer = require('nodemailer')
 
-function createTransporter() {
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.office365.com',
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: false, // STARTTLS on port 587
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-    tls: {
-      minVersion: 'TLSv1.2',
-      rejectUnauthorized: true,
-    },
-  })
+// Instância única e reutilizada entre invocações "quentes" da function.
+// Office365/Outlook rejeita conexões SMTP concorrentes acima de um limite
+// baixo (erro "432 4.3.2 Concurrent connections limit exceeded"), então o
+// pool serializa os envios numa única conexão em vez de abrir uma nova a
+// cada e-mail.
+let transporter = null
+function getTransporter() {
+  if (!transporter) {
+    transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.office365.com',
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: false, // STARTTLS on port 587
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+      tls: {
+        minVersion: 'TLSv1.2',
+        rejectUnauthorized: true,
+      },
+      pool: true,
+      maxConnections: 1,
+      maxMessages: 50,
+    })
+  }
+  return transporter
 }
 
 const FROM = () => {
@@ -37,8 +49,7 @@ async function sendMail({ to, subject, html }) {
     return { skipped: true, reason: 'SMTP_USER ou SMTP_PASS não configurado' }
   }
   try {
-    const transporter = createTransporter()
-    const info = await transporter.sendMail({ from: FROM(), to, subject, html })
+    const info = await getTransporter().sendMail({ from: FROM(), to, subject, html })
     return { sent: true, messageId: info.messageId }
   } catch (err) {
     console.error('[email] falha ao enviar:', err.message)
