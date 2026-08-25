@@ -364,24 +364,37 @@ async function sendPesquisaNotificationEmail({ name, email, pesquisaNome, url })
   const siteUrl = process.env.SITE_URL || ''
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<style>
+  :root { color-scheme: light; supported-color-schemes: light; }
+  [data-ogsc] .force-white { background-color: #ffffff !important; }
+  [data-ogsc] .force-black { background-color: #000000 !important; }
+  [data-ogsc] .force-red   { background-color: #e30613 !important; }
+  [data-ogsc] .force-bg    { background-color: #f5f5f5 !important; }
+  [data-ogsc] p, [data-ogsc] a { color: inherit !important; }
+</style>
+</head>
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:'Segoe UI',Arial,sans-serif">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px">
+  <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#f5f5f5" class="force-bg" style="background:#f5f5f5;padding:40px 20px">
     <tr><td align="center">
       <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;border-radius:16px;overflow:hidden">
         <!-- Red header with logo -->
-        <tr><td style="background:#e30613;padding:28px 40px;text-align:center">
+        <tr><td bgcolor="#e30613" class="force-red" style="background:#e30613;padding:28px 40px;text-align:center">
           ${siteUrl ? `
-          <table cellpadding="0" cellspacing="0" style="margin:0 auto;background:#fff;border-radius:12px">
+          <table cellpadding="0" cellspacing="0" bgcolor="#ffffff" class="force-white" style="margin:0 auto;background:#fff;border-radius:12px">
             <tr><td style="padding:12px 28px"><img src="${esc(siteUrl)}/rema-logo.png" alt="Rema Tip Top" height="40" style="display:block;height:40px;width:auto"></td></tr>
           </table>` : `<p style="margin:0;color:#fff;font-size:22px;font-weight:700">Rema Tip Top</p>`}
         </td></tr>
         <!-- Black sub-header -->
-        <tr><td style="background:#000;padding:12px 40px;text-align:center">
+        <tr><td bgcolor="#000000" class="force-black" style="background:#000;padding:12px 40px;text-align:center">
           <p style="margin:0;color:#fff;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase">📋 Nova pesquisa para você</p>
         </td></tr>
         <!-- Body -->
-        <tr><td style="background:#fff;padding:36px 40px">
+        <tr><td bgcolor="#ffffff" class="force-white" style="background:#fff;padding:36px 40px">
           <p style="margin:0 0 20px;color:#000;font-size:20px;font-weight:700">Olá, ${esc(name)} 👋</p>
           <p style="margin:0 0 28px;color:#333;font-size:14px;line-height:1.6">
             Você foi selecionado(a) para responder à pesquisa <strong>${esc(pesquisaNome)}</strong>. Sua participação é importante — leva só alguns minutos.
@@ -398,7 +411,7 @@ async function sendPesquisaNotificationEmail({ name, email, pesquisaNome, url })
           </p>
         </td></tr>
         <!-- Footer -->
-        <tr><td style="background:#000;padding:18px 40px;text-align:center">
+        <tr><td bgcolor="#000000" class="force-black" style="background:#000;padding:18px 40px;text-align:center">
           <p style="margin:0;color:#aaa;font-size:11px">© 2025 Rema Tip Top · Todos os direitos reservados</p>
           ${siteUrl ? `<p style="margin:6px 0 0;color:#666;font-size:11px"><a href="${esc(siteUrl)}" style="color:#aaa;text-decoration:none">${esc(siteUrl)}</a></p>` : ''}
         </td></tr>
