@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { AuthProvider, useAuth, isAdmin, isMaster } from './lib/auth'
 import { ThemeProvider, ForceLightMode } from './lib/theme'
 import LoginPage from './components/LoginPage'
@@ -37,11 +37,29 @@ import FeedbacksPage from './components/pages/intranet/Feedbacks'
 
 type Portal = 'avaliacao' | 'intranet' | null
 
+/** A quais portal um caminho profundo (ex: link de e-mail) pertence, para
+ *  pular a tela de seleção de portal e já cair direto na página certa. */
+function portalDoCaminho(path: string): Portal {
+  if (path.startsWith('/intranet')) return 'intranet'
+  if (['/dashboard', '/colaboradores', '/avaliacoes', '/departamentos', '/realizar-avaliacao', '/monitor', '/usuarios', '/auditoria', '/ciclo-avaliacao'].some(p => path.startsWith(p))) {
+    return 'avaliacao'
+  }
+  return null
+}
+
 function ProtectedRoutes() {
   const { user, loading } = useAuth()
+  const navigate = useNavigate()
+  // Captura o caminho original (ex: de um link de e-mail) uma única vez, antes
+  // de qualquer redirecionamento — usado para retomar essa página após o
+  // login e a seleção de portal, em vez de sempre cair na tela inicial.
+  const deepLinkRef = useRef<string | null>(
+    window.location.pathname !== '/' ? window.location.pathname + window.location.search : null
+  )
   const [portal, setPortal] = useState<Portal>(() => {
     const stored = localStorage.getItem('rtt_portal')
-    return (stored === 'avaliacao' || stored === 'intranet') ? stored : null
+    if (stored === 'avaliacao' || stored === 'intranet') return stored
+    return null
   })
 
   // Reset portal on fresh login (user transitions null → non-null).
@@ -53,9 +71,28 @@ function ProtectedRoutes() {
     const prevId = prevUserIdRef.current
     prevUserIdRef.current = user?.id
     if (!prevId && user?.id && !localStorage.getItem('rtt_portal')) {
-      setPortal(null)
+      // Login recém-efetuado — se veio de um link profundo (ex: e-mail de
+      // pesquisa), já escolhe o portal certo em vez de mostrar o seletor.
+      const alvo = deepLinkRef.current ? portalDoCaminho(deepLinkRef.current) : null
+      if (alvo) {
+        localStorage.setItem('rtt_portal', alvo)
+        setPortal(alvo)
+      } else {
+        setPortal(null)
+      }
     }
   }, [user?.id])
+
+  // Assim que usuário e portal estiverem prontos, retoma o caminho original
+  // (se houver) — cobre tanto o caso de já estar logado quanto o pós-login.
+  useEffect(() => {
+    if (!user || !portal || !deepLinkRef.current) return
+    const alvo = deepLinkRef.current
+    deepLinkRef.current = null
+    if (window.location.pathname + window.location.search !== alvo) {
+      navigate(alvo, { replace: true })
+    }
+  }, [user, portal, navigate])
 
   if (loading) {
     return (
