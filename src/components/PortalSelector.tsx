@@ -28,11 +28,11 @@ export default function PortalSelector({ onSelect }: Props) {
 
         {/* Logo + tagline */}
         <div className="relative z-10 px-12 pt-10">
-          <div className="mb-10">
+          <div className="mb-10 inline-block bg-white rounded-xl px-5 py-3 shadow-lg">
             <img
               src="/rema-logo-v2.png"
               alt="Rema Tip Top"
-              className="h-14 w-auto object-contain select-none"
+              className="h-11 w-auto object-contain select-none"
               onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
             />
           </div>
