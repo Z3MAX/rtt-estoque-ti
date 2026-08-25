@@ -386,7 +386,7 @@ async function sendPesquisaNotificationEmail({ name, email, pesquisaNome, url })
         <tr><td bgcolor="#e30613" class="force-red" style="background:#e30613;padding:28px 40px;text-align:center">
           ${siteUrl ? `
           <table cellpadding="0" cellspacing="0" bgcolor="#ffffff" class="force-white" style="margin:0 auto;background:#fff;border-radius:12px">
-            <tr><td style="padding:12px 28px"><img src="${esc(siteUrl)}/rema-logo.png" alt="Rema Tip Top" height="40" style="display:block;height:40px;width:auto"></td></tr>
+            <tr><td style="padding:12px 28px"><img src="${esc(siteUrl)}/rema-logo-v2.png" alt="Rema Tip Top" height="40" style="display:block;height:40px;width:auto"></td></tr>
           </table>` : `<p style="margin:0;color:#fff;font-size:22px;font-weight:700">Rema Tip Top</p>`}
         </td></tr>
         <!-- Black sub-header -->

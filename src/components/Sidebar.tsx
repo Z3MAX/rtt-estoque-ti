@@ -35,7 +35,7 @@ export default function Sidebar() {
       <div className="px-5 py-5 border-b border-slate-100 dark:border-slate-700/60">
         <div className="flex items-center justify-center">
           <img
-            src="/rema-logo.png"
+            src="/rema-logo-v2.png"
             alt="Rema Tip Top"
             className="h-10 w-auto object-contain select-none dark:brightness-0 dark:invert"
             onError={(e) => {

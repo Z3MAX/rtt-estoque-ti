@@ -65,7 +65,7 @@ export default function ResetPasswordPage() {
         <div className="relative z-10 px-12 pt-10">
           <div className="mb-10">
             <img
-              src="/rema-logo.png"
+              src="/rema-logo-v2.png"
               alt="Rema Tip Top"
               className="h-14 w-auto object-contain select-none"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
@@ -102,7 +102,7 @@ export default function ResetPasswordPage() {
 
           {/* Mobile logo */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <img src="/rema-logo.png" alt="Rema Tip Top" className="h-8 w-auto object-contain select-none"
+            <img src="/rema-logo-v2.png" alt="Rema Tip Top" className="h-8 w-auto object-contain select-none"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
           </div>
 

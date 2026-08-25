@@ -25,3 +25,10 @@
     Strict-Transport-Security = "max-age=31536000; includeSubDomains"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+# Curto para logos/imagens que podem ser substituídas sem trocar de nome —
+# evita cache de CDN/navegador entalado numa versão antiga.
+[[headers]]
+  for = "/*.png"
+  [headers.values]
+    Cache-Control = "public, max-age=300, must-revalidate"

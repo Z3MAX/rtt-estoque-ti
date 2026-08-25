@@ -17,7 +17,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       {/* Red header with Rema logo */}
       <div className="w-full bg-red-700 py-4 px-4 flex items-center justify-center shadow-md">
         <div className="bg-white rounded-xl px-8 py-3 shadow-sm">
-          <img src="/rema-logo.png" alt="Rema" className="h-12 object-contain" />
+          <img src="/rema-logo-v2.png" alt="Rema" className="h-12 object-contain" />
         </div>
       </div>
       {/* Sub-header label */}

@@ -40,7 +40,7 @@ export default function LoginPage() {
           {/* Logo */}
           <div className="mb-10">
             <img
-              src="/rema-logo.png"
+              src="/rema-logo-v2.png"
               alt="Rema Tip Top"
               className="h-14 w-auto object-contain select-none"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
@@ -80,7 +80,7 @@ export default function LoginPage() {
 
           {/* Mobile logo */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <img src="/rema-logo.png" alt="Rema Tip Top" className="h-8 w-auto object-contain select-none"
+            <img src="/rema-logo-v2.png" alt="Rema Tip Top" className="h-8 w-auto object-contain select-none"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
           </div>
 
