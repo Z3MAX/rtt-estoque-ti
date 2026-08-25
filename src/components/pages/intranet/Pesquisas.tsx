@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import ExcelJS from 'exceljs'
 import {
   ClipboardList, Plus, Search, Filter, X, Pencil, BarChart2, Link2,
@@ -222,6 +222,8 @@ function SelecaoPublico({ tipo, selectedIds, onChangeIds }: {
   const [filtroArea, setFiltroArea] = useState('')
   const [aba, setAba] = useState<'todos' | 'selecionados' | 'nao_selecionados'>('todos')
   const [pagina, setPagina] = useState(1)
+  const [toast, setToast] = useState<{ nome: string; adicionado: boolean } | null>(null)
+  const toastTimer = useRef<number | null>(null)
   const PAGE_SIZE = 20
   const isPulso = tipo === 'Pesquisa de pulso'
   const isDesligamento = tipo === 'Desligamento'
@@ -249,21 +251,37 @@ function SelecaoPublico({ tipo, selectedIds, onChangeIds }: {
     setPagina(1)
   }
 
+  function mostrarToast(nome: string, adicionado: boolean) {
+    setToast({ nome, adicionado })
+    if (toastTimer.current) window.clearTimeout(toastTimer.current)
+    toastTimer.current = window.setTimeout(() => setToast(null), 2200)
+  }
+
   function toggle(id: number) {
-    if (selectedIds.includes(id)) onChangeIds(selectedIds.filter(x => x !== id))
-    else onChangeIds([...selectedIds, id])
+    const c = colaboradores.find(x => x.id === id)
+    const adicionado = !selectedIds.includes(id)
+    if (adicionado) onChangeIds([...selectedIds, id])
+    else onChangeIds(selectedIds.filter(x => x !== id))
+    if (c) mostrarToast(c.nome, adicionado)
   }
 
   function selecionarFiltrados() {
     const novos = porBuscaEArea.map(c => c.id).filter(id => !selectedIds.includes(id))
     onChangeIds([...selectedIds, ...novos])
+    if (novos.length > 0) mostrarToast(`${novos.length} colaborador${novos.length !== 1 ? 'es' : ''}`, true)
   }
 
   const temFiltroAtivo = !!buscaLower || !!filtroArea
   const todosFiltradosJaSelecionados = porBuscaEArea.length > 0 && porBuscaEArea.every(c => selectedIds.includes(c.id))
 
   return (
-    <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
+    <section className="relative bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
+      {toast && (
+        <div className={`absolute top-4 right-4 z-10 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-white shadow-lg animate-fade-in ${toast.adicionado ? 'bg-emerald-600' : 'bg-slate-600'}`}>
+          <CheckCircle2 size={14} className="shrink-0" />
+          <span className="truncate max-w-[220px]">{toast.nome} {toast.adicionado ? 'adicionado' : 'removido'}</span>
+        </div>
+      )}
       <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-100 dark:border-slate-700 pb-3">
         Seleção de público
       </h2>
