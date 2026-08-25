@@ -833,8 +833,9 @@ export default function TreinamentosPresenciais() {
                   </button>
 
                   <button
-                    onClick={() => setConteudoTreinamento(ev)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600 text-xs font-medium rounded-xl hover:bg-slate-50 transition-colors"
+                    disabled
+                    title="Em breve"
+                    className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-100 text-slate-300 text-xs font-medium rounded-xl cursor-not-allowed"
                   >
                     <FolderOpen size={13} />Conteúdo
                   </button>
