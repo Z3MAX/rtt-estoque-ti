@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import ExcelJS from 'exceljs'
 import {
   ClipboardList, Plus, Search, Filter, X, Pencil, BarChart2, Link2,
-  ChevronLeft, ChevronDown, AlertCircle, Info, Trash2, Users, Calendar, Clock,
+  ChevronLeft, ChevronRight, ChevronDown, AlertCircle, Info, Trash2, Users, Calendar, Clock,
   Loader2, ChevronUp, GripVertical, CheckSquare, AlignLeft, Hash, Send,
   CheckCircle2, ArrowUp, ArrowDown, Eye, MessageSquare, Download, StopCircle, Mail,
 } from 'lucide-react'
@@ -219,6 +219,10 @@ function SelecaoPublico({ tipo, selectedIds, onChangeIds }: {
 }) {
   const [colaboradores, setColaboradores] = useState<ColaboradorBasico[]>([])
   const [busca, setBusca] = useState('')
+  const [filtroArea, setFiltroArea] = useState('')
+  const [aba, setAba] = useState<'todos' | 'selecionados' | 'nao_selecionados'>('todos')
+  const [pagina, setPagina] = useState(1)
+  const PAGE_SIZE = 20
   const isPulso = tipo === 'Pesquisa de pulso'
   const isDesligamento = tipo === 'Desligamento'
 
@@ -226,12 +230,37 @@ function SelecaoPublico({ tipo, selectedIds, onChangeIds }: {
     api.colaboradores.list().then(list => setColaboradores(list as ColaboradorBasico[])).catch(() => {})
   }, [])
 
-  const filtrados = colaboradores.filter(c => !busca || c.nome.toLowerCase().includes(busca.toLowerCase()))
+  const areasDisponiveis = [...new Set(colaboradores.map(c => c.area).filter((a): a is string => !!a))].sort()
+
+  const buscaLower = busca.trim().toLowerCase()
+  const porBuscaEArea = colaboradores.filter(c =>
+    (!buscaLower || c.nome.toLowerCase().includes(buscaLower) || (c.cargo ?? '').toLowerCase().includes(buscaLower) || (c.area ?? '').toLowerCase().includes(buscaLower)) &&
+    (!filtroArea || c.area === filtroArea)
+  )
+  const filtrados = porBuscaEArea.filter(c =>
+    aba === 'todos' ? true : aba === 'selecionados' ? selectedIds.includes(c.id) : !selectedIds.includes(c.id)
+  )
+  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / PAGE_SIZE))
+  const paginaAtual = Math.min(pagina, totalPaginas)
+  const filtradosPagina = filtrados.slice((paginaAtual - 1) * PAGE_SIZE, paginaAtual * PAGE_SIZE)
+
+  function setFiltro<T>(setter: (v: T) => void, v: T) {
+    setter(v)
+    setPagina(1)
+  }
 
   function toggle(id: number) {
     if (selectedIds.includes(id)) onChangeIds(selectedIds.filter(x => x !== id))
     else onChangeIds([...selectedIds, id])
   }
+
+  function selecionarFiltrados() {
+    const novos = porBuscaEArea.map(c => c.id).filter(id => !selectedIds.includes(id))
+    onChangeIds([...selectedIds, ...novos])
+  }
+
+  const temFiltroAtivo = !!buscaLower || !!filtroArea
+  const todosFiltradosJaSelecionados = porBuscaEArea.length > 0 && porBuscaEArea.every(c => selectedIds.includes(c.id))
 
   return (
     <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
@@ -268,6 +297,12 @@ function SelecaoPublico({ tipo, selectedIds, onChangeIds }: {
             Selecionar todos ({colaboradores.length})
           </button>
         )}
+        {temFiltroAtivo && !todosFiltradosJaSelecionados && (
+          <button onClick={selecionarFiltrados}
+            className="text-xs font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 transition-colors">
+            Selecionar filtrados ({porBuscaEArea.length})
+          </button>
+        )}
         {selectedIds.length > 0 && (
           <span className="flex items-center gap-1.5 text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-3 py-1.5 rounded-full">
             {selectedIds.length} selecionado{selectedIds.length !== 1 ? 's' : ''}
@@ -276,18 +311,37 @@ function SelecaoPublico({ tipo, selectedIds, onChangeIds }: {
         )}
       </div>
       <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
-        <div className="flex items-center gap-4 px-4 py-2.5 border-b border-slate-100 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-700/30 text-xs text-slate-500">
-          <span className="font-semibold text-emerald-600">Selecionados ({selectedIds.length})</span>
-          <span className="text-slate-400">Não Selecionados ({colaboradores.length - selectedIds.length})</span>
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-100 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-700/30 text-xs flex-wrap">
+          <button onClick={() => setFiltro(setAba, 'todos')}
+            className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${aba === 'todos' ? 'bg-slate-700 text-white dark:bg-slate-600' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
+            Todos ({colaboradores.length})
+          </button>
+          <button onClick={() => setFiltro(setAba, 'selecionados')}
+            className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${aba === 'selecionados' ? 'bg-emerald-600 text-white' : 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'}`}>
+            Selecionados ({selectedIds.length})
+          </button>
+          <button onClick={() => setFiltro(setAba, 'nao_selecionados')}
+            className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${aba === 'nao_selecionados' ? 'bg-slate-700 text-white dark:bg-slate-600' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
+            Não selecionados ({colaboradores.length - selectedIds.length})
+          </button>
           {!isPulso && selectedIds.length > 0 && (
-            <button onClick={() => onChangeIds([])} className="ml-2 flex items-center gap-1 text-slate-400 hover:text-red-400 transition-colors">
+            <button onClick={() => onChangeIds([])} className="flex items-center gap-1 text-slate-400 hover:text-red-400 transition-colors px-1">
               <Trash2 size={11} /> Remover todos
             </button>
           )}
-          <div className="ml-auto relative">
-            <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar"
-              className="pl-6 pr-2 py-1 text-xs border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-primary-500/30 w-36" />
+          <div className="ml-auto flex items-center gap-2">
+            {areasDisponiveis.length > 0 && (
+              <select value={filtroArea} onChange={e => setFiltro(setFiltroArea, e.target.value)}
+                className="py-1 px-2 text-xs border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-primary-500/30 max-w-[160px]">
+                <option value="">Todas as áreas</option>
+                {areasDisponiveis.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+            )}
+            <div className="relative">
+              <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input value={busca} onChange={e => setFiltro(setBusca, e.target.value)} placeholder="Nome, cargo ou área"
+                className="pl-6 pr-2 py-1 text-xs border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-primary-500/30 w-40" />
+            </div>
           </div>
         </div>
         <div className="grid text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-2 border-b border-slate-100 dark:border-slate-700 bg-slate-50/40 dark:bg-slate-700/20"
@@ -297,7 +351,12 @@ function SelecaoPublico({ tipo, selectedIds, onChangeIds }: {
           <span>Cargo</span>
           <span>Área</span>
         </div>
-        {filtrados.map(c => (
+        {filtrados.length === 0 && colaboradores.length > 0 && (
+          <div className="px-4 py-8 text-center text-xs text-slate-400">
+            Nenhum colaborador encontrado {aba !== 'todos' ? `em "${aba === 'selecionados' ? 'Selecionados' : 'Não selecionados'}"` : ''} com esses filtros.
+          </div>
+        )}
+        {filtradosPagina.map(c => (
           <div key={c.id} onClick={() => toggle(c.id)}
             className="grid items-center px-4 py-2.5 border-b border-slate-100/60 dark:border-slate-700/40 hover:bg-slate-50/60 dark:hover:bg-slate-700/20 transition-colors text-sm cursor-pointer"
             style={{ gridTemplateColumns: '2rem 1fr 1fr 1fr' }}>
@@ -314,8 +373,25 @@ function SelecaoPublico({ tipo, selectedIds, onChangeIds }: {
             <span className="text-xs text-slate-500 dark:text-slate-400">{c.area ?? '—'}</span>
           </div>
         ))}
-        <div className="flex items-center justify-end px-4 py-2.5 text-xs text-slate-400 bg-slate-50/40 dark:bg-slate-700/20">
-          <span>{filtrados.length} colaborador{filtrados.length !== 1 ? 'es' : ''}</span>
+        <div className="flex items-center justify-between px-4 py-2.5 text-xs text-slate-400 bg-slate-50/40 dark:bg-slate-700/20">
+          <span>
+            {filtrados.length === 0 ? '0 colaboradores' : (
+              <>Mostrando {(paginaAtual - 1) * PAGE_SIZE + 1}–{Math.min(paginaAtual * PAGE_SIZE, filtrados.length)} de {filtrados.length}</>
+            )}
+          </span>
+          {totalPaginas > 1 && (
+            <div className="flex items-center gap-2">
+              <button onClick={() => setPagina(p => Math.max(1, p - 1))} disabled={paginaAtual <= 1}
+                className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-30 disabled:hover:bg-transparent transition-colors">
+                <ChevronLeft size={13} />
+              </button>
+              <span className="tabular-nums">Página {paginaAtual} de {totalPaginas}</span>
+              <button onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))} disabled={paginaAtual >= totalPaginas}
+                className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-30 disabled:hover:bg-transparent transition-colors">
+                <ChevronRight size={13} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </section>
