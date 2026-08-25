@@ -50,12 +50,23 @@ function portalDoCaminho(path: string): Portal {
 function ProtectedRoutes() {
   const { user, loading } = useAuth()
   const navigate = useNavigate()
-  // Captura o caminho original (ex: de um link de e-mail) uma única vez, antes
-  // de qualquer redirecionamento — usado para retomar essa página após o
-  // login e a seleção de portal, em vez de sempre cair na tela inicial.
-  const deepLinkRef = useRef<string | null>(
-    window.location.pathname !== '/' ? window.location.pathname + window.location.search : null
-  )
+  // Captura o caminho original (ex: de um link de e-mail) uma única vez por
+  // aba — usado para retomar essa página após o login e a seleção de portal,
+  // em vez de sempre cair na tela inicial. Marcado em sessionStorage (não só
+  // num ref) para não recapturar a URL atual num reload posterior — senão
+  // "Trocar portal" (que limpa rtt_portal e recarrega) reinterpretaria a
+  // página em que o usuário já estava como um "link profundo" novo e
+  // restauraria o mesmo portal automaticamente, sem nunca mostrar o seletor.
+  const initedRef = useRef(false)
+  const deepLinkRef = useRef<string | null>(null)
+  if (!initedRef.current) {
+    initedRef.current = true
+    const jaCapturado = sessionStorage.getItem('rtt_deep_link_done')
+    if (!jaCapturado && window.location.pathname !== '/') {
+      deepLinkRef.current = window.location.pathname + window.location.search
+    }
+    sessionStorage.setItem('rtt_deep_link_done', '1')
+  }
   const [portal, setPortal] = useState<Portal>(() => {
     const stored = localStorage.getItem('rtt_portal')
     if (stored === 'avaliacao' || stored === 'intranet') return stored
