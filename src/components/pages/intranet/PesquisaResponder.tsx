@@ -181,7 +181,7 @@ export default function PesquisaResponder() {
               </div>
             </div>
             {pesquisa?.objetivo && (
-              <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-700 pt-3 mt-3">
+              <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-700 pt-3 mt-3 whitespace-pre-wrap">
                 {pesquisa.objetivo}
               </p>
             )}
