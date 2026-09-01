@@ -269,7 +269,7 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
             </div>
           )}
 
-          {isEdit && (
+          {isEdit && currentUserRole === 'Administrador Master' && (
             <div>
               <label className="label">Configurações de avaliação</label>
               <label className={`flex items-center gap-3 px-3 py-3 rounded-xl border-2 cursor-pointer transition-all ${avaliacoesConfidenciais ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/10' : 'border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}>
