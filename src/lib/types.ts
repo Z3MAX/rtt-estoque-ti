@@ -70,6 +70,7 @@ export interface CicloAvaliacao {
   quadrante?: string
   respostas?: Record<string, RespostaCompetencia>
   status: StatusAvaliacao
+  confidencial?: boolean
   created_at: string
   updated_at: string
 }

@@ -2,6 +2,13 @@ const { neon } = require('@neondatabase/serverless')
 const { requireAuth, isAdminRole, makeHeaders, errorResponse } = require('./_auth')
 const { logAudit, getUserName } = require('./_audit')
 
+// RH admins e Master podem ver avaliações confidenciais; TI não pode
+function isRHAdminRole(role) {
+  return role === 'Administrador de RH' ||
+    role === 'Administrador Master' ||
+    role === 'Administrador de RH / Gestor'
+}
+
 exports.handler = async (event) => {
   const headers = makeHeaders(event)
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers, body: '' }
@@ -17,6 +24,10 @@ exports.handler = async (event) => {
     const authPayload = requireAuth(event)
     const isGestor   = authPayload.role === 'Gestor'
     const gestorName = authPayload.name || null
+    const isRHAdmin  = isRHAdminRole(authPayload.role)
+
+    await sql`ALTER TABLE ciclos_avaliacao ADD COLUMN IF NOT EXISTS confidencial BOOLEAN DEFAULT false`
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS avaliacoes_confidenciais BOOLEAN DEFAULT false`
 
     if (event.httpMethod === 'GET') {
       if (!isAdminRole(authPayload.role) && !isGestor) {
@@ -28,6 +39,7 @@ exports.handler = async (event) => {
           LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
           WHERE ca.id = ${id}
             AND (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
+            AND (ca.confidencial = false OR ${isRHAdmin} OR ca.avaliador_id = ${authPayload.userId})
         `
         if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Não encontrado' }) }
         return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
@@ -41,6 +53,7 @@ exports.handler = async (event) => {
           LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
           WHERE ca.colaborador_id = ${colaboradorId}
             AND (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
+            AND (ca.confidencial = false OR ${isRHAdmin} OR ca.avaliador_id = ${authPayload.userId})
           ORDER BY ca.created_at DESC
         `
       } else {
@@ -48,6 +61,7 @@ exports.handler = async (event) => {
           SELECT ca.*, c.nome AS colaborador_nome FROM ciclos_avaliacao ca
           LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
           WHERE (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
+            AND (ca.confidencial = false OR ${isRHAdmin} OR ca.avaliador_id = ${authPayload.userId})
           ORDER BY ca.created_at DESC
         `
       }
@@ -92,12 +106,16 @@ exports.handler = async (event) => {
         }
       }
 
+      // Marca como confidencial automaticamente se o usuário tiver a flag ativada
+      const userFlagRow = await sql`SELECT avaliacoes_confidenciais FROM users WHERE id = ${authPayload.userId} LIMIT 1`
+      const isConfidencial = userFlagRow[0]?.avaliacoes_confidenciais ?? false
+
       const rows = await sql`
         INSERT INTO ciclos_avaliacao (
           colaborador_id, colaborador_nome, avaliador_id, avaliador_nome,
           tipo, periodo_inicial, periodo_final, nivel_cargo,
           score_desempenho, score_potencial, nivel_desempenho, nivel_potencial,
-          quadrante, respostas, status
+          quadrante, respostas, status, confidencial
         ) VALUES (
           ${colaborador_id}, ${colaborador_nome || null},
           ${authPayload.userId || null}, ${authPayload.name || null},
@@ -105,7 +123,7 @@ exports.handler = async (event) => {
           ${nivel_cargo || null}, ${score_desempenho ?? null}, ${score_potencial ?? null},
           ${nivel_desempenho || null}, ${nivel_potencial || null},
           ${quadrante || null}, ${respostas ? JSON.stringify(respostas) : null},
-          'pendente'
+          'pendente', ${isConfidencial}
         )
         RETURNING *
       `

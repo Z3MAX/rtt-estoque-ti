@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Search, X, RefreshCw, ClipboardList, ChevronRight, Filter,
-  FileDown, CheckSquare, Square, Package, FileSpreadsheet, CheckCircle2, Trash2, AlertTriangle,
+  FileDown, CheckSquare, Square, Package, FileSpreadsheet, CheckCircle2, Trash2, AlertTriangle, Lock,
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { api } from '../../lib/api'
@@ -502,9 +502,16 @@ export default function AvaliacoesPage() {
                               {(a.colaborador_nome ?? '?')[0].toUpperCase()}
                             </span>
                           </div>
-                          <span className="text-sm font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap">
-                            {a.colaborador_nome ?? '—'}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                              {a.colaborador_nome ?? '—'}
+                            </span>
+                            {a.confidencial && (
+                              <span title="Avaliação confidencial" className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 px-1.5 py-0.5 rounded-full">
+                                <Lock size={9} /> Confidencial
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
 
