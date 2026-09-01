@@ -80,9 +80,10 @@ exports.handler = async (event) => {
         return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
       }
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS avaliacoes_confidenciais BOOLEAN DEFAULT false`
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS ver_confidencial BOOLEAN DEFAULT false`
       const rows = await sql`
         SELECT id, name, email, role, roles, area, active, must_change_password, colaborador_id,
-               avaliacoes_confidenciais, created_at, updated_at,
+               avaliacoes_confidenciais, ver_confidencial, created_at, updated_at,
                (assinatura IS NOT NULL) AS has_assinatura
         FROM users ORDER BY name ASC
       `
@@ -182,7 +183,7 @@ exports.handler = async (event) => {
         await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS colaborador_id INTEGER`
       } catch (e) { /* coluna já existe */ }
 
-      const { name, email, password, role, roles, area, active, colaborador_id, avaliacoes_confidenciais } = JSON.parse(event.body || '{}')
+      const { name, email, password, role, roles, area, active, colaborador_id, avaliacoes_confidenciais, ver_confidencial } = JSON.parse(event.body || '{}')
 
       if (email !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'E-mail inválido' }) }
@@ -216,6 +217,7 @@ exports.handler = async (event) => {
       if (password)                      updates.password_hash = await hashPassword(password)
       if (colaborador_id !== undefined)              updates.colaborador_id = colaborador_id || null
       if (avaliacoes_confidenciais !== undefined)    updates.avaliacoes_confidenciais = !!avaliacoes_confidenciais
+      if (ver_confidencial !== undefined)            updates.ver_confidencial = !!ver_confidencial
 
       const rolesVal = roles !== undefined ? roles : null
 
@@ -230,9 +232,10 @@ exports.handler = async (event) => {
           password_hash             = COALESCE(${updates.password_hash ?? null}, password_hash),
           colaborador_id            = CASE WHEN ${colaborador_id !== undefined} THEN ${updates.colaborador_id ?? null} ELSE colaborador_id END,
           avaliacoes_confidenciais  = CASE WHEN ${avaliacoes_confidenciais !== undefined} THEN ${updates.avaliacoes_confidenciais ?? false} ELSE avaliacoes_confidenciais END,
+          ver_confidencial          = CASE WHEN ${ver_confidencial !== undefined} THEN ${updates.ver_confidencial ?? false} ELSE ver_confidencial END,
           updated_at                = NOW()
         WHERE id = ${id}
-        RETURNING id, name, email, role, roles, area, active, colaborador_id, avaliacoes_confidenciais, created_at, updated_at
+        RETURNING id, name, email, role, roles, area, active, colaborador_id, avaliacoes_confidenciais, ver_confidencial, created_at, updated_at
       `
       if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Usuário não encontrado' }) }
 

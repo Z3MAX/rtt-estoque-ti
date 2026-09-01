@@ -16,6 +16,7 @@ interface AppUser {
   colaborador_id?: number | null
   has_assinatura?: boolean
   avaliacoes_confidenciais?: boolean
+  ver_confidencial?: boolean
   created_at: string
 }
 
@@ -68,6 +69,7 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
   const [areas, setAreas]       = useState<string[]>([])
   const [colaboradorId, setColaboradorId] = useState<number | null>(user?.colaborador_id ?? null)
   const [avaliacoesConfidenciais, setAvaliacoesConfidenciais] = useState(user?.avaliacoes_confidenciais ?? false)
+  const [verConfidencial, setVerConfidencial] = useState(user?.ver_confidencial ?? false)
   const [colaboradores, setColaboradores] = useState<{ id: number; nome: string; cargo?: string; area?: string }[]>([])
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading]   = useState(false)
@@ -109,7 +111,7 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
       setLoading(true); setError(''); setEmailWarning(null)
       const allRoles = [role, ...secondaryRoles.filter(r => r !== role)]
       if (isEdit) {
-        const payload: Record<string, unknown> = { name, email, role, roles: allRoles, area: area.trim() || null, colaborador_id: colaboradorId ?? null, avaliacoes_confidenciais: avaliacoesConfidenciais }
+        const payload: Record<string, unknown> = { name, email, role, roles: allRoles, area: area.trim() || null, colaborador_id: colaboradorId ?? null, avaliacoes_confidenciais: avaliacoesConfidenciais, ver_confidencial: verConfidencial }
         if (password) payload.password = password
         await api.users.update(user!.id, payload)
         onSaved()
@@ -277,7 +279,17 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
                 <input type="checkbox" className="sr-only" checked={avaliacoesConfidenciais} disabled={loading} onChange={e => setAvaliacoesConfidenciais(e.target.checked)} />
                 <div>
                   <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Avaliações confidenciais</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Avaliações criadas por este usuário serão visíveis apenas para ele e administradores de RH.</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Avaliações criadas por este usuário serão visíveis apenas para ele e quem tiver acesso a confidenciais.</p>
+                </div>
+              </label>
+              <label className={`flex items-center gap-3 px-3 py-3 rounded-xl border-2 cursor-pointer transition-all mt-2 ${verConfidencial ? 'border-violet-400 bg-violet-50 dark:bg-violet-900/10' : 'border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}>
+                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${verConfidencial ? 'bg-violet-500 border-violet-500' : 'border-slate-300 dark:border-slate-600'}`}>
+                  {verConfidencial && <svg viewBox="0 0 10 8" fill="none" className="w-2.5 h-2.5"><path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                </div>
+                <input type="checkbox" className="sr-only" checked={verConfidencial} disabled={loading} onChange={e => setVerConfidencial(e.target.checked)} />
+                <div>
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Pode ver avaliações confidenciais</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Este usuário terá acesso a todas as avaliações marcadas como confidenciais.</p>
                 </div>
               </label>
             </div>

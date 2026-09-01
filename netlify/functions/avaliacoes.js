@@ -28,6 +28,11 @@ exports.handler = async (event) => {
 
     await sql`ALTER TABLE ciclos_avaliacao ADD COLUMN IF NOT EXISTS confidencial BOOLEAN DEFAULT false`
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS avaliacoes_confidenciais BOOLEAN DEFAULT false`
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS ver_confidencial BOOLEAN DEFAULT false`
+
+    // Verifica se o usuário logado tem permissão para ver avaliações confidenciais
+    const userPermsRow = await sql`SELECT ver_confidencial FROM users WHERE id = ${authPayload.userId} LIMIT 1`
+    const podeVerConfidencial = userPermsRow[0]?.ver_confidencial ?? false
 
     if (event.httpMethod === 'GET') {
       if (!isAdminRole(authPayload.role) && !isGestor) {
@@ -39,7 +44,7 @@ exports.handler = async (event) => {
           LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
           WHERE ca.id = ${id}
             AND (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
-            AND (ca.confidencial = false OR ${isRHAdmin} OR ca.avaliador_id = ${authPayload.userId})
+            AND (ca.confidencial = false OR ${podeVerConfidencial} OR ca.avaliador_id = ${authPayload.userId})
         `
         if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Não encontrado' }) }
         return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
@@ -53,7 +58,7 @@ exports.handler = async (event) => {
           LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
           WHERE ca.colaborador_id = ${colaboradorId}
             AND (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
-            AND (ca.confidencial = false OR ${isRHAdmin} OR ca.avaliador_id = ${authPayload.userId})
+            AND (ca.confidencial = false OR ${podeVerConfidencial} OR ca.avaliador_id = ${authPayload.userId})
           ORDER BY ca.created_at DESC
         `
       } else {
@@ -61,7 +66,7 @@ exports.handler = async (event) => {
           SELECT ca.*, c.nome AS colaborador_nome FROM ciclos_avaliacao ca
           LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
           WHERE (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
-            AND (ca.confidencial = false OR ${isRHAdmin} OR ca.avaliador_id = ${authPayload.userId})
+            AND (ca.confidencial = false OR ${podeVerConfidencial} OR ca.avaliador_id = ${authPayload.userId})
           ORDER BY ca.created_at DESC
         `
       }
