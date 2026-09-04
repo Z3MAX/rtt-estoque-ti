@@ -594,7 +594,7 @@ export default function UsersPage() {
   const [sendingInvites, setSendingInvites] = useState(false)
   const [showVincular, setShowVincular] = useState(false)
 
-  const userIsAdmin = currentUser?.role === 'Administrador de RH' || currentUser?.role === 'Administrador de TI' || currentUser?.role === 'Administrador Master'
+  const userIsAdmin = currentUser?.role === 'Administrador de RH' || currentUser?.role === 'Administrador de TI' || currentUser?.role === 'Administrador Master' || currentUser?.role === 'Administrador de RH / Gestor'
 
   async function load() {
     try {
