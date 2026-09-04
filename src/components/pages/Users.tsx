@@ -687,7 +687,7 @@ export default function UsersPage() {
   }
 
   async function sendAllPendingInvites() {
-    const pending = users.filter(u => u.role === 'Gestor' && u.must_change_password && u.active)
+    const pending = users.filter(u => (u.role === 'Gestor' || u.role === 'Administrador de RH / Gestor') && u.must_change_password && u.active)
     if (pending.length === 0) return
     setSendingInvites(true)
     try {
@@ -744,7 +744,7 @@ export default function UsersPage() {
               {importingGestores ? <RefreshCw size={15} className="animate-spin" /> : <UserPlus size={15} />}
               Importar Gestores
             </button>
-            {users.some(u => u.role === 'Gestor' && u.must_change_password && u.active) && (
+            {users.some(u => (u.role === 'Gestor' || u.role === 'Administrador de RH / Gestor') && u.must_change_password && u.active) && (
               <button
                 onClick={sendAllPendingInvites}
                 disabled={sendingInvites}
@@ -752,7 +752,7 @@ export default function UsersPage() {
                 title="Reenviar convite para todos os gestores com convite pendente"
               >
                 {sendingInvites ? <RefreshCw size={15} className="animate-spin" /> : <MailCheck size={15} />}
-                Enviar Convites ({users.filter(u => u.role === 'Gestor' && u.must_change_password && u.active).length})
+                Enviar Convites ({users.filter(u => (u.role === 'Gestor' || u.role === 'Administrador de RH / Gestor') && u.must_change_password && u.active).length})
               </button>
             )}
             <button onClick={() => setShowVincular(true)} className="btn-secondary gap-2" title="Vincular automaticamente usuários aos seus perfis de colaborador">
