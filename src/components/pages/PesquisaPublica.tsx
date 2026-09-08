@@ -123,7 +123,20 @@ export default function PesquisaPublica() {
           <CheckCircle2 size={32} className="text-amber-500" />
         </div>
         <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">Já respondida</h2>
-        <p className="text-sm text-slate-500">Você já respondeu esta pesquisa anteriormente. Obrigado pela participação!</p>
+        <p className="text-sm text-slate-500 mb-5">Parece que você já respondeu esta pesquisa recentemente. Obrigado pela participação!</p>
+        <p className="text-xs text-slate-400 mb-4">Se você ainda não respondeu e está usando um dispositivo compartilhado, clique abaixo.</p>
+        <button
+          onClick={() => {
+            if (token) localStorage.removeItem(`pesq_pub_${token}`)
+            setStatus('loading')
+            api.pesquisaPublica.get(token!)
+              .then((data: any) => { setPesquisa(data); setRespostas((data.perguntas ?? []).map(initResposta)); setStatus('ready') })
+              .catch(() => setStatus('error'))
+          }}
+          className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+        >
+          Ainda não respondi — continuar
+        </button>
       </div>
     </div>
   )
