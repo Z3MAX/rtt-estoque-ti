@@ -29,12 +29,6 @@ export default function PesquisaPublica() {
   useEffect(() => {
     if (!token) { setStatus('error'); return }
 
-    // Layer 1: check localStorage for prior submission
-    if (localStorage.getItem(`pesq_pub_${token}`)) {
-      setStatus('already')
-      return
-    }
-
     api.pesquisaPublica.get(token)
       .then((data: any) => {
         setPesquisa(data)
@@ -78,12 +72,10 @@ export default function PesquisaPublica() {
     setSubmitting(true)
     try {
       await api.pesquisaPublica.submit({ token, respostas: payload, local_de_trabalho: localTrabalho || undefined })
-      localStorage.setItem(`pesq_pub_${token}`, new Date().toISOString())
       setStatus('done')
     } catch (err: any) {
       const code = err?.body?.code || err?.code
       if (code === 'duplicate_token' || code === 'duplicate_ip') {
-        localStorage.setItem(`pesq_pub_${token}`, new Date().toISOString())
         setStatus('already')
       } else {
         setErrorMsg(err?.message || 'Erro ao enviar resposta. Tente novamente.')
