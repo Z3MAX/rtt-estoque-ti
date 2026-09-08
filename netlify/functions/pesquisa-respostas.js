@@ -47,6 +47,7 @@ exports.handler = async (event) => {
 
       const rows = await sql`
         SELECT pr.id, pr.pesquisa_id, pr.respostas, pr.anonima, pr.created_at,
+               pr.local_de_trabalho,
                CASE WHEN pr.anonima THEN NULL ELSE c.nome END AS colaborador_nome,
                CASE WHEN pr.anonima THEN NULL ELSE c.cargo END AS colaborador_cargo
         FROM pesquisa_respostas pr

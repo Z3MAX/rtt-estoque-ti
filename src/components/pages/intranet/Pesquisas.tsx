@@ -1165,7 +1165,7 @@ async function exportarResultadosXLSX(pesquisa: Pesquisa, respostas: any[]) {
 
   // Sheet 1: Respostas brutas — perguntas agrupadas por categoria (colunas)
   const ws1 = wb.addWorksheet('Respostas')
-  const baseCols = ['#', 'Data', ...(pesquisa.anonima ? [] : ['Colaborador', 'Cargo'])]
+  const baseCols = ['#', 'Data', ...(pesquisa.anonima ? [] : ['Colaborador', 'Cargo']), ...(pesquisa.pede_local_trabalho ? ['Local de Trabalho'] : [])]
   const cols = [...baseCols, ...perguntasOrdenadas.map(p => p.titulo || `Pergunta ${p.id}`)]
 
   let headerRows = 1
@@ -1185,7 +1185,7 @@ async function exportarResultadosXLSX(pesquisa: Pesquisa, respostas: any[]) {
 
   respostas.forEach((r, i) => {
     const data = new Date(r.created_at).toLocaleDateString('pt-BR')
-    const base = [i + 1, data, ...(pesquisa.anonima ? [] : [r.colaborador_nome ?? '—', r.colaborador_cargo ?? '—'])]
+    const base = [i + 1, data, ...(pesquisa.anonima ? [] : [r.colaborador_nome ?? '—', r.colaborador_cargo ?? '—']), ...(pesquisa.pede_local_trabalho ? [r.local_de_trabalho ?? '—'] : [])]
     const resArr: any[] = r.respostas ?? []
     const vals = perguntasOrdenadas.map(p => {
       const found = resArr.find((x: any) => x.pergunta_id === p.id)
@@ -1478,6 +1478,40 @@ function ResultadosView({ pesquisa, onBack }: { pesquisa: Pesquisa; onBack: () =
             )
           })}
 
+          {/* Distribuição de local de trabalho */}
+          {pesquisa.pede_local_trabalho && (() => {
+            const counts: Record<string, number> = {}
+            for (const r of respostas) {
+              const loc = r.local_de_trabalho
+              if (loc) counts[loc] = (counts[loc] ?? 0) + 1
+            }
+            const entries = Object.entries(counts).sort((a, b) => b[1] - a[1])
+            const maxCount = Math.max(1, ...entries.map(([, n]) => n))
+            if (entries.length === 0) return null
+            return (
+              <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Local de trabalho</p>
+                <div className="space-y-2.5">
+                  {entries.map(([loc, n]) => {
+                    const pct = respostas.length > 0 ? Math.round((n / respostas.length) * 100) : 0
+                    return (
+                      <div key={loc} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-700 dark:text-slate-300 truncate pr-2">{loc}</span>
+                          <span className="text-slate-500 tabular-nums shrink-0">{n} ({pct}%)</span>
+                        </div>
+                        <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                          <div className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                            style={{ width: `${maxCount > 0 ? (n / maxCount) * 100 : 0}%` }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
+
           {/* Respostas individuais */}
           {!pesquisa.anonima && (
             <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
@@ -1490,11 +1524,12 @@ function ResultadosView({ pesquisa, onBack }: { pesquisa: Pesquisa; onBack: () =
                     <div className="w-7 h-7 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-[11px] font-bold text-primary-600 dark:text-primary-400 shrink-0">
                       {r.colaborador_nome ? r.colaborador_nome.charAt(0) : '?'}
                     </div>
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{r.colaborador_nome ?? 'Anônimo'}</p>
                       {r.colaborador_cargo && <p className="text-xs text-slate-400">{r.colaborador_cargo}</p>}
+                      {r.local_de_trabalho && <p className="text-xs text-emerald-600 dark:text-emerald-400">{r.local_de_trabalho}</p>}
                     </div>
-                    <p className="ml-auto text-xs text-slate-400">
+                    <p className="ml-auto text-xs text-slate-400 shrink-0">
                       {new Date(r.created_at).toLocaleDateString('pt-BR')}
                     </p>
                   </div>
