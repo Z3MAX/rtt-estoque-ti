@@ -59,40 +59,11 @@ exports.handler = async (event) => {
 
       const pesquisaId = rows[0].id
 
-      // Layer 2: IP+UA fingerprint (24h window) — hash never stores raw values
-      const ip = (event.headers['x-forwarded-for'] || '').split(',')[0].trim() || event.headers['client-ip'] || 'unknown'
-      const ua = event.headers['user-agent'] || ''
-      const ipHash = crypto.createHash('sha256').update(`${ip}|${ua}|${pesquisaId}`).digest('hex')
-
-      const dupeByIp = await sql`
-        SELECT id FROM pesquisa_respostas
-        WHERE pesquisa_id = ${pesquisaId} AND ip_hash = ${ipHash}
-          AND created_at > NOW() - INTERVAL '24 hours'
-        LIMIT 1
+      const serverToken = crypto.randomBytes(32).toString('hex')
+      await sql`
+        INSERT INTO pesquisa_respostas (pesquisa_id, respostas, anonima, token_anonimo, local_de_trabalho)
+        VALUES (${pesquisaId}, ${JSON.stringify(respostas)}, true, ${serverToken}, ${localStr})
       `
-      if (dupeByIp.length > 0) {
-        return { statusCode: 409, headers, body: JSON.stringify({
-          error: 'Parece que você já respondeu esta pesquisa recentemente.',
-          code: 'duplicate_ip',
-        }) }
-      }
-
-      // Generate token_anonimo server-side from ip_hash to prevent client spoofing of the unique constraint
-      const serverToken = crypto.createHash('sha256').update(`anon_token|${pesquisaId}|${ipHash}`).digest('hex')
-      try {
-        await sql`
-          INSERT INTO pesquisa_respostas (pesquisa_id, respostas, anonima, token_anonimo, ip_hash, local_de_trabalho)
-          VALUES (${pesquisaId}, ${JSON.stringify(respostas)}, true, ${serverToken}, ${ipHash}, ${localStr})
-        `
-      } catch (e) {
-        if (e.code === '23505') {
-          return { statusCode: 409, headers, body: JSON.stringify({
-            error: 'Você já respondeu esta pesquisa.',
-            code: 'duplicate_token',
-          }) }
-        }
-        throw e
-      }
 
       return { statusCode: 201, headers, body: JSON.stringify({ success: true }) }
     }
