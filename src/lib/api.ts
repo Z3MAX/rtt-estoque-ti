@@ -49,14 +49,15 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
     },
     ...options,
   })
-  const data = await res.json()
+  let data: any
+  try { data = await res.json() } catch { data = {} }
   if (!res.ok) {
     if (res.status === 401) {
       localStorage.removeItem('osiris_user')
       localStorage.removeItem('osiris_token')
       window.location.href = '/'
     }
-    throw new Error(data.error || 'Erro na requisição')
+    throw new Error(`[${res.status}] ${data?.error || data?.message || JSON.stringify(data) || 'Sem detalhe'}`)
   }
   return data
 }
