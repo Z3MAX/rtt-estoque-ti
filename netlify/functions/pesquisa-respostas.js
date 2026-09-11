@@ -45,6 +45,25 @@ exports.handler = async (event) => {
       if (!pesquisaId) return { statusCode: 400, headers, body: JSON.stringify({ error: 'pesquisa_id obrigatório' }) }
       if (!isAdmin) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
 
+      // Export mode: paginated raw data for Excel generation
+      if (params.export === '1') {
+        const limit  = Math.min(parseInt(params.limit  || '200', 10), 200)
+        const offset = Math.max(0, parseInt(params.offset || '0', 10))
+        const [{ count }] = await sql`SELECT COUNT(*)::int AS count FROM pesquisa_respostas WHERE pesquisa_id = ${pesquisaId}`
+        const page = await sql`
+          SELECT pr.id, pr.respostas, pr.anonima, pr.created_at,
+                 pr.local_de_trabalho,
+                 CASE WHEN pr.anonima THEN NULL ELSE c.nome END AS colaborador_nome,
+                 CASE WHEN pr.anonima THEN NULL ELSE c.cargo END AS colaborador_cargo
+          FROM pesquisa_respostas pr
+          LEFT JOIN colaboradores c ON c.id = pr.colaborador_id
+          WHERE pr.pesquisa_id = ${pesquisaId}
+          ORDER BY pr.created_at ASC
+          LIMIT ${limit} OFFSET ${offset}
+        `
+        return { statusCode: 200, headers, body: JSON.stringify({ rows: page, total: count, offset, limit }) }
+      }
+
       const rows = await sql`
         SELECT pr.id, pr.respostas, pr.anonima, pr.created_at,
                pr.local_de_trabalho,
@@ -55,11 +74,6 @@ exports.handler = async (event) => {
         WHERE pr.pesquisa_id = ${pesquisaId}
         ORDER BY pr.created_at DESC
       `
-
-      // Export mode: return full raw data (needed for Excel generation)
-      if (params.export === '1') {
-        return { statusCode: 200, headers, body: JSON.stringify(rows) }
-      }
 
       // Default: aggregate in the function to avoid 6MB Netlify response limit
       const respondentes = rows.map(r => ({

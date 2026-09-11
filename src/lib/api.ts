@@ -488,9 +488,20 @@ export const api = {
       if (MOCK) { await delay(300); return { total: 0, respondentes: [], porPergunta: {} } }
       return request<{ total: number; respondentes: any[]; porPergunta: Record<string, any[]> }>(`${BASE}/pesquisa-respostas?pesquisa_id=${pesquisaId}`)
     },
-    exportRaw: async (pesquisaId: number) => {
+    exportRaw: async (pesquisaId: number): Promise<any[]> => {
       if (MOCK) { await delay(300); return [] }
-      return request<any[]>(`${BASE}/pesquisa-respostas?pesquisa_id=${pesquisaId}&export=1`)
+      const PAGE = 200
+      const all: any[] = []
+      let offset = 0
+      while (true) {
+        const res = await request<{ rows: any[]; total: number; offset: number; limit: number }>(
+          `${BASE}/pesquisa-respostas?pesquisa_id=${pesquisaId}&export=1&limit=${PAGE}&offset=${offset}`
+        )
+        all.push(...res.rows)
+        if (all.length >= res.total) break
+        offset += PAGE
+      }
+      return all
     },
     jaRespondi: async () => {
       if (MOCK) { await delay(200); return [] as number[] }
