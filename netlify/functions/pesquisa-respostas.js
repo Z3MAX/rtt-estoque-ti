@@ -46,7 +46,7 @@ exports.handler = async (event) => {
       if (!isAdmin) return { statusCode: 403, headers, body: JSON.stringify({ error: 'Sem permissão' }) }
 
       const rows = await sql`
-        SELECT pr.id, pr.pesquisa_id, pr.respostas, pr.anonima, pr.created_at,
+        SELECT pr.id, pr.respostas, pr.anonima, pr.created_at,
                pr.local_de_trabalho,
                CASE WHEN pr.anonima THEN NULL ELSE c.nome END AS colaborador_nome,
                CASE WHEN pr.anonima THEN NULL ELSE c.cargo END AS colaborador_cargo
@@ -55,7 +55,35 @@ exports.handler = async (event) => {
         WHERE pr.pesquisa_id = ${pesquisaId}
         ORDER BY pr.created_at DESC
       `
-      return { statusCode: 200, headers, body: JSON.stringify(rows) }
+
+      // Export mode: return full raw data (needed for Excel generation)
+      if (params.export === '1') {
+        return { statusCode: 200, headers, body: JSON.stringify(rows) }
+      }
+
+      // Default: aggregate in the function to avoid 6MB Netlify response limit
+      const respondentes = rows.map(r => ({
+        id: r.id,
+        created_at: r.created_at,
+        anonima: r.anonima,
+        local_de_trabalho: r.local_de_trabalho,
+        colaborador_nome: r.colaborador_nome,
+        colaborador_cargo: r.colaborador_cargo,
+      }))
+
+      const porPergunta = {}
+      for (const row of rows) {
+        const resps = Array.isArray(row.respostas) ? row.respostas : []
+        for (const resp of resps) {
+          if (resp.pergunta_id == null) continue
+          const pid = String(resp.pergunta_id)
+          if (!porPergunta[pid]) porPergunta[pid] = []
+          const v = resp.valor
+          if (v !== null && v !== undefined && v !== '') porPergunta[pid].push(v)
+        }
+      }
+
+      return { statusCode: 200, headers, body: JSON.stringify({ total: rows.length, respondentes, porPergunta }) }
     }
 
     if (event.httpMethod === 'POST') {

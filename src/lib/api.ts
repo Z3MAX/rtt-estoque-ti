@@ -485,8 +485,12 @@ export const api = {
 
   pesquisaRespostas: {
     list: async (pesquisaId: number) => {
+      if (MOCK) { await delay(300); return { total: 0, respondentes: [], porPergunta: {} } }
+      return request<{ total: number; respondentes: any[]; porPergunta: Record<string, any[]> }>(`${BASE}/pesquisa-respostas?pesquisa_id=${pesquisaId}`)
+    },
+    exportRaw: async (pesquisaId: number) => {
       if (MOCK) { await delay(300); return [] }
-      return request<any[]>(`${BASE}/pesquisa-respostas?pesquisa_id=${pesquisaId}`)
+      return request<any[]>(`${BASE}/pesquisa-respostas?pesquisa_id=${pesquisaId}&export=1`)
     },
     jaRespondi: async () => {
       if (MOCK) { await delay(200); return [] as number[] }

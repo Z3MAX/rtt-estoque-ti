@@ -1244,27 +1244,40 @@ async function exportarResultadosXLSX(pesquisa: Pesquisa, respostas: any[]) {
 
 /* ─── Resultados ─── */
 function ResultadosView({ pesquisa, onBack }: { pesquisa: Pesquisa; onBack: () => void }) {
-  const [respostas, setRespostas] = useState<any[]>([])
+  const [stats, setStats]         = useState<{ total: number; respondentes: any[]; porPergunta: Record<string, any[]> } | null>(null)
   const [loading, setLoading]     = useState(true)
   const [erro, setErro]           = useState<string | null>(null)
+  const [exportando, setExportando] = useState(false)
 
   useEffect(() => {
     setErro(null)
     api.pesquisaRespostas.list(pesquisa.id)
-      .then((data: any) => setRespostas(Array.isArray(data) ? data : []))
+      .then((data: any) => setStats(data))
       .catch((err: any) => setErro(err?.message || 'Erro ao carregar respostas'))
       .finally(() => setLoading(false))
   }, [pesquisa.id])
 
-  const perguntas = pesquisa.perguntas ?? []
-  const total     = respostas.length
-  const pubTotal  = pesquisa.colaborador_ids?.length ?? 0
-  const taxa      = pubTotal > 0 ? Math.round((total / pubTotal) * 100) : null
+  const perguntas    = pesquisa.perguntas ?? []
+  const total        = stats?.total ?? 0
+  const respondentes = stats?.respondentes ?? []
+  const porPergunta  = stats?.porPergunta ?? {}
+  const pubTotal     = pesquisa.colaborador_ids?.length ?? 0
+  const taxa         = pubTotal > 0 ? Math.round((total / pubTotal) * 100) : null
 
-  function getValores(pergId: number) {
-    return respostas
-      .map(r => (r.respostas as any[]).find((x: any) => x.pergunta_id === pergId)?.valor ?? null)
-      .filter(v => v !== null && v !== '' && !(Array.isArray(v) && v.length === 0))
+  function getValores(pergId: number): any[] {
+    return porPergunta[String(pergId)] ?? []
+  }
+
+  async function handleExportar() {
+    setExportando(true)
+    try {
+      const raw = await api.pesquisaRespostas.exportRaw(pesquisa.id)
+      await exportarResultadosXLSX(pesquisa, raw)
+    } catch (e: any) {
+      alert(e?.message || 'Erro ao exportar')
+    } finally {
+      setExportando(false)
+    }
   }
 
   function contarOpcoes(valores: any[]) {
@@ -1312,10 +1325,12 @@ function ResultadosView({ pesquisa, onBack }: { pesquisa: Pesquisa; onBack: () =
           )}
           {!loading && total > 0 && (
             <button
-              onClick={() => exportarResultadosXLSX(pesquisa, respostas)}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              onClick={handleExportar}
+              disabled={exportando}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
             >
-              <Download size={14} /> Exportar Excel
+              {exportando ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              {exportando ? 'Exportando...' : 'Exportar Excel'}
             </button>
           )}
         </div>
@@ -1488,7 +1503,7 @@ function ResultadosView({ pesquisa, onBack }: { pesquisa: Pesquisa; onBack: () =
           {/* Distribuição de local de trabalho */}
           {pesquisa.pede_local_trabalho && (() => {
             const counts: Record<string, number> = {}
-            for (const r of respostas) {
+            for (const r of respondentes) {
               const loc = r.local_de_trabalho
               if (loc) counts[loc] = (counts[loc] ?? 0) + 1
             }
@@ -1500,7 +1515,7 @@ function ResultadosView({ pesquisa, onBack }: { pesquisa: Pesquisa; onBack: () =
                 <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Local de trabalho</p>
                 <div className="space-y-2.5">
                   {entries.map(([loc, n]) => {
-                    const pct = respostas.length > 0 ? Math.round((n / respostas.length) * 100) : 0
+                    const pct = total > 0 ? Math.round((n / total) * 100) : 0
                     return (
                       <div key={loc} className="space-y-1">
                         <div className="flex items-center justify-between text-xs">
@@ -1526,7 +1541,7 @@ function ResultadosView({ pesquisa, onBack }: { pesquisa: Pesquisa; onBack: () =
                 <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Respondentes</h3>
               </div>
               <div className="divide-y divide-slate-100 dark:divide-slate-700">
-                {respostas.map(r => (
+                {respondentes.map(r => (
                   <div key={r.id} className="flex items-center gap-3 px-5 py-3">
                     <div className="w-7 h-7 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-[11px] font-bold text-primary-600 dark:text-primary-400 shrink-0">
                       {r.colaborador_nome ? r.colaborador_nome.charAt(0) : '?'}
