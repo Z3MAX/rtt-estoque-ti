@@ -28,7 +28,7 @@ exports.handler = async (event) => {
     try {
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS colaborador_id INTEGER`
     } catch (_) {}
-    await sql`ALTER TABLE pesquisa_respostas ADD COLUMN IF NOT EXISTS local_de_trabalho TEXT`
+    try { await sql`ALTER TABLE pesquisa_respostas ADD COLUMN IF NOT EXISTS local_de_trabalho TEXT` } catch (_) {}
 
     const auth = requireAuth(event)
     const isAdmin = isAdminRole(auth.role)

@@ -1246,11 +1246,13 @@ async function exportarResultadosXLSX(pesquisa: Pesquisa, respostas: any[]) {
 function ResultadosView({ pesquisa, onBack }: { pesquisa: Pesquisa; onBack: () => void }) {
   const [respostas, setRespostas] = useState<any[]>([])
   const [loading, setLoading]     = useState(true)
+  const [erro, setErro]           = useState<string | null>(null)
 
   useEffect(() => {
+    setErro(null)
     api.pesquisaRespostas.list(pesquisa.id)
-      .then((data: any) => setRespostas(data))
-      .catch(() => {})
+      .then((data: any) => setRespostas(Array.isArray(data) ? data : []))
+      .catch((err: any) => setErro(err?.message || 'Erro ao carregar respostas'))
       .finally(() => setLoading(false))
   }, [pesquisa.id])
 
@@ -1322,6 +1324,11 @@ function ResultadosView({ pesquisa, onBack }: { pesquisa: Pesquisa; onBack: () =
       {loading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 size={28} className="animate-spin text-primary-400" />
+        </div>
+      ) : erro ? (
+        <div className="bg-red-50 dark:bg-red-900/20 rounded-2xl border border-red-200 dark:border-red-800 p-8 text-center">
+          <p className="text-sm font-medium text-red-600 dark:text-red-400">Erro ao carregar respostas</p>
+          <p className="text-xs text-red-500 dark:text-red-500 mt-1 font-mono">{erro}</p>
         </div>
       ) : total === 0 ? (
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-12 text-center">
