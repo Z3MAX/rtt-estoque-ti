@@ -26,6 +26,9 @@ exports.handler = async (event) => {
     // Para admins:   "concluidas" = somente concluido (calibradas pelo RH)
     const statusFiltro = isGestor ? ['pendente', 'concluido'] : ['concluido']
 
+    const userPermsRow = await sql`SELECT ver_confidencial FROM users WHERE id = ${authPayload.userId} LIMIT 1`
+    const podeVerConfidencial = userPermsRow[0]?.ver_confidencial ?? false
+
     const [totalColabs] = await sql`
       SELECT COUNT(*)::int AS n FROM colaboradores
       WHERE ativo = true
@@ -69,6 +72,7 @@ exports.handler = async (event) => {
       LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
       WHERE ca.status = ANY(${statusFiltro}) AND ca.quadrante IS NOT NULL
         AND (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
+        AND (ca.confidencial = false OR ${podeVerConfidencial})
       GROUP BY ca.quadrante
       ORDER BY count DESC
     `
@@ -79,7 +83,20 @@ exports.handler = async (event) => {
     }))
 
     const recentes = await sql`
-      SELECT ca.*, c.nome AS colaborador_nome
+      SELECT ca.id, ca.colaborador_id, ca.colaborador_nome, ca.avaliador_nome,
+             ca.tipo, ca.periodo_inicial, ca.periodo_final, ca.status,
+             ca.confidencial, ca.created_at,
+             CASE WHEN ca.confidencial = false OR ${podeVerConfidencial}
+               THEN ca.quadrante           ELSE NULL END AS quadrante,
+             CASE WHEN ca.confidencial = false OR ${podeVerConfidencial}
+               THEN ca.score_desempenho    ELSE NULL END AS score_desempenho,
+             CASE WHEN ca.confidencial = false OR ${podeVerConfidencial}
+               THEN ca.score_potencial     ELSE NULL END AS score_potencial,
+             CASE WHEN ca.confidencial = false OR ${podeVerConfidencial}
+               THEN ca.nivel_desempenho    ELSE NULL END AS nivel_desempenho,
+             CASE WHEN ca.confidencial = false OR ${podeVerConfidencial}
+               THEN ca.nivel_potencial     ELSE NULL END AS nivel_potencial,
+             c.nome AS colaborador_nome_colab
       FROM ciclos_avaliacao ca
       LEFT JOIN colaboradores c ON ca.colaborador_id = c.id
       WHERE (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
