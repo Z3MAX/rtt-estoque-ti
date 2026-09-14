@@ -517,11 +517,19 @@ export default function AvaliacoesPage() {
                             <span className="text-sm font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap">
                               {a.colaborador_nome ?? '—'}
                             </span>
-                            {a.confidencial && (
+                            {userIsAdmin ? (
+                              <button
+                                onClick={e => handleToggleConfidencial(a, e)}
+                                title={a.confidencial ? 'Confidencial — clique para tornar pública' : 'Clique para marcar como confidencial'}
+                                className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border transition-colors ${a.confidencial ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700 hover:bg-amber-100' : 'text-slate-300 border-slate-200 dark:border-slate-600 hover:text-amber-500 hover:border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/10'}`}
+                              >
+                                <Lock size={9} />{a.confidencial ? ' Confidencial' : ''}
+                              </button>
+                            ) : a.confidencial ? (
                               <span title="Avaliação confidencial" className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 px-1.5 py-0.5 rounded-full">
                                 <Lock size={9} /> Confidencial
                               </span>
-                            )}
+                            ) : null}
                           </div>
                         </div>
                       </td>
@@ -608,15 +616,6 @@ export default function AvaliacoesPage() {
                             >
                               <CheckCircle2 size={11} />
                               Calibrar
-                            </button>
-                          )}
-                          {userIsAdmin && (
-                            <button
-                              onClick={e => handleToggleConfidencial(a, e)}
-                              title={a.confidencial ? 'Tornar pública' : 'Marcar como confidencial'}
-                              className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${a.confidencial ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40' : 'text-slate-300 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20'}`}
-                            >
-                              <Lock size={13} />
                             </button>
                           )}
                           <button
