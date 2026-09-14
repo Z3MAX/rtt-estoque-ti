@@ -155,7 +155,7 @@ exports.handler = async (event) => {
       const {
         avaliador_nome, tipo, periodo_inicial, periodo_final, nivel_cargo,
         score_desempenho, score_potencial, nivel_desempenho, nivel_potencial,
-        quadrante, respostas, status, calibrar,
+        quadrante, respostas, status, calibrar, confidencial,
       } = body
 
       // Calibração: Admin RH conclui avaliação enviada por Gestor
@@ -198,6 +198,7 @@ exports.handler = async (event) => {
             quadrante         = COALESCE(${quadrante ?? null}, quadrante),
             respostas         = COALESCE(${respostas ? JSON.stringify(respostas) : null}::jsonb, respostas),
             status            = COALESCE(${status ?? null}, status),
+            confidencial      = CASE WHEN ${confidencial !== undefined} THEN ${!!confidencial} ELSE confidencial END,
             updated_at        = NOW()
         WHERE id = ${id}
         RETURNING *

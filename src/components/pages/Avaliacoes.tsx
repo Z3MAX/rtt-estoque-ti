@@ -229,6 +229,17 @@ export default function AvaliacoesPage() {
     setDeleteTarget('bulk')
   }
 
+  async function handleToggleConfidencial(av: CicloAvaliacao, e: React.MouseEvent) {
+    e.stopPropagation()
+    const novoValor = !av.confidencial
+    try {
+      await api.avaliacoes.update(av.id!, { confidencial: novoValor })
+      setAvaliacoes(prev => prev.map(a => a.id === av.id ? { ...a, confidencial: novoValor } : a))
+    } catch (err: any) {
+      alert(err?.message || 'Erro ao atualizar confidencialidade')
+    }
+  }
+
   return (
     <>
       {/* Modal de confirmação de deleção */}
@@ -597,6 +608,15 @@ export default function AvaliacoesPage() {
                             >
                               <CheckCircle2 size={11} />
                               Calibrar
+                            </button>
+                          )}
+                          {userIsAdmin && (
+                            <button
+                              onClick={e => handleToggleConfidencial(a, e)}
+                              title={a.confidencial ? 'Tornar pública' : 'Marcar como confidencial'}
+                              className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${a.confidencial ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40' : 'text-slate-300 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20'}`}
+                            >
+                              <Lock size={13} />
                             </button>
                           )}
                           <button
