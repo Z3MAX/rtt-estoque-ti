@@ -22,6 +22,7 @@ import RealizarAvaliacaoPage from './components/pages/RealizarAvaliacao'
 import AvaliacaoDetalhe from './components/pages/AvaliacaoDetalhe'
 import AvaliacoesPage from './components/pages/Avaliacoes'
 import AuditoriaPage from './components/pages/Auditoria'
+import CorrigirGestorPage from './components/pages/CorrigirGestor'
 import CicloAvaliacaoPage from './components/pages/CicloAvaliacao'
 import MinhaVisao from './components/pages/intranet/MinhaVisao'
 import TreinamentosPage from './components/pages/intranet/Treinamentos'
@@ -41,7 +42,7 @@ type Portal = 'avaliacao' | 'intranet' | null
  *  pular a tela de seleção de portal e já cair direto na página certa. */
 function portalDoCaminho(path: string): Portal {
   if (path.startsWith('/intranet')) return 'intranet'
-  if (['/dashboard', '/colaboradores', '/avaliacoes', '/departamentos', '/realizar-avaliacao', '/monitor', '/usuarios', '/auditoria', '/ciclo-avaliacao'].some(p => path.startsWith(p))) {
+  if (['/dashboard', '/colaboradores', '/avaliacoes', '/departamentos', '/realizar-avaliacao', '/monitor', '/usuarios', '/auditoria', '/ciclo-avaliacao', '/corrigir-gestor'].some(p => path.startsWith(p))) {
     return 'avaliacao'
   }
   return null
@@ -171,6 +172,7 @@ function ProtectedRoutes() {
         <Route path="/monitor" element={<AuditMonitor />} />
         <Route path="/usuarios" element={isAdmin(user?.role) ? <UsersPage /> : <Navigate to="/dashboard" replace />} />
         <Route path="/auditoria" element={isMaster(user?.role) ? <AuditoriaPage /> : <Navigate to="/dashboard" replace />} />
+        <Route path="/corrigir-gestor" element={isMaster(user?.role) ? <CorrigirGestorPage /> : <Navigate to="/dashboard" replace />} />
         <Route path="/ciclo-avaliacao" element={isAdmin(user?.role) ? <CicloAvaliacaoPage /> : <Navigate to="/dashboard" replace />} />
 <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
