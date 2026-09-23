@@ -35,6 +35,7 @@ import PesquisaResponder from './components/pages/intranet/PesquisaResponder'
 import PesquisaPublica from './components/pages/PesquisaPublica'
 import PresencaPublica from './components/pages/PresencaPublica'
 import FeedbacksPage from './components/pages/intranet/Feedbacks'
+import MetasPage from './components/pages/Metas'
 
 type Portal = 'avaliacao' | 'intranet' | null
 
@@ -42,7 +43,7 @@ type Portal = 'avaliacao' | 'intranet' | null
  *  pular a tela de seleção de portal e já cair direto na página certa. */
 function portalDoCaminho(path: string): Portal {
   if (path.startsWith('/intranet')) return 'intranet'
-  if (['/dashboard', '/colaboradores', '/avaliacoes', '/departamentos', '/realizar-avaliacao', '/monitor', '/usuarios', '/auditoria', '/ciclo-avaliacao', '/corrigir-gestor'].some(p => path.startsWith(p))) {
+  if (['/dashboard', '/colaboradores', '/avaliacoes', '/departamentos', '/realizar-avaliacao', '/monitor', '/usuarios', '/auditoria', '/ciclo-avaliacao', '/corrigir-gestor', '/metas'].some(p => path.startsWith(p))) {
     return 'avaliacao'
   }
   return null
@@ -174,6 +175,7 @@ function ProtectedRoutes() {
         <Route path="/auditoria" element={isMaster(user?.role) ? <AuditoriaPage /> : <Navigate to="/dashboard" replace />} />
         <Route path="/corrigir-gestor" element={isMaster(user?.role) ? <CorrigirGestorPage /> : <Navigate to="/dashboard" replace />} />
         <Route path="/ciclo-avaliacao" element={isAdmin(user?.role) ? <CicloAvaliacaoPage /> : <Navigate to="/dashboard" replace />} />
+        <Route path="/metas" element={<MetasPage />} />
 <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>

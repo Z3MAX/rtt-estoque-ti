@@ -619,4 +619,12 @@ export const api = {
     submit: async (data: { token: string; colaborador_id?: number; nome: string; cargo?: string; area?: string; codigo?: string }) =>
       request(`${BASE}/presenca-publica`, { method: 'POST', body: JSON.stringify(data) }),
   },
+
+  metas: {
+    list: async () => request<any[]>(`${BASE}/metas`),
+    get: async (id: number) => request<any>(`${BASE}/metas?id=${id}`),
+    create: async (data: any) => request<any>(`${BASE}/metas`, { method: 'POST', body: JSON.stringify(data) }),
+    update: async (id: number, data: any) => request<any>(`${BASE}/metas?id=${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: async (id: number) => request(`${BASE}/metas?id=${id}`, { method: 'DELETE' }),
+  },
 }
