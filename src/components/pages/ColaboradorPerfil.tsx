@@ -268,28 +268,24 @@ function SucessaoPanel({ colabId, colabNome, onSave }: { colabId: number; colabN
               </button>
             </div>
           )}
-          {/* Toggle candidato */}
-          <label className="flex items-center gap-2.5 cursor-pointer">
-            <span className="text-xs text-slate-500 dark:text-slate-400">Candidato a sucessor</span>
-            <button
-              type="button"
-              onClick={handleToggleCandidato}
-              disabled={saving}
-              className={`w-11 h-6 rounded-full flex items-center transition-colors shrink-0 disabled:opacity-60 ${state.candidato ? 'bg-violet-500' : 'bg-slate-200 dark:bg-slate-600'}`}
-            >
-              <span className={`w-5 h-5 rounded-full bg-white shadow transition-all mx-0.5 ${state.candidato ? 'translate-x-5' : 'translate-x-0'}`} />
-            </button>
-          </label>
+          {/* Botão candidato a sucessor — independente do formulário */}
+          <button
+            type="button"
+            onClick={handleToggleCandidato}
+            disabled={saving}
+            className={`flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all disabled:opacity-60 ${
+              state.candidato
+                ? 'bg-violet-500 border-violet-500 text-white shadow-sm shadow-violet-500/30'
+                : 'border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-violet-300 hover:text-violet-600'
+            }`}
+          >
+            <ShieldCheck size={13} />
+            {state.candidato ? 'Candidato a Sucessor ✓' : 'Indicar como Sucessor'}
+          </button>
         </div>
       </div>
 
-      {!state.candidato ? (
-        <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
-          <ShieldCheck size={28} className="opacity-25" />
-          <p className="text-sm">Ative o toggle para indicar {colabNome.split(' ')[0]} como candidato a sucessor</p>
-        </div>
-      ) : (
-        <div className="p-6 space-y-8">
+      <div className="p-6 space-y-8">
 
           {/* ── Risk Assessment ── */}
           <div className="space-y-4">
@@ -502,7 +498,6 @@ function SucessaoPanel({ colabId, colabNome, onSave }: { colabId: number; colabN
             </button>
           </div>
         </div>
-      )}
     </div>
   )
 }
