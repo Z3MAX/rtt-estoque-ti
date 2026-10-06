@@ -9,19 +9,25 @@ import './index.css'
 async function startApp() {
   await msalInstance.initialize()
 
-  // If this window was opened as a popup callback (has auth code/error in URL
-  // and has an opener), MSAL handles it internally during initialize().
-  // Don't render the app — MSAL will close the popup automatically.
+  // Detect MSAL auth callback by URL hash/query — code= or error= only come
+  // from Microsoft's OAuth redirect, so it's safe to intercept unconditionally.
   const hash = window.location.hash
   const search = window.location.search
-  const isPopupCallback =
-    window.opener != null &&
-    (hash.includes('code=') || hash.includes('error=') ||
-     search.includes('code=') || search.includes('error='))
+  const isMsalCallback =
+    hash.includes('code=') || hash.includes('error=') ||
+    search.includes('code=') || search.includes('error=')
 
-  if (isPopupCallback) return
-
-  await msalInstance.handleRedirectPromise().catch(() => {})
+  if (isMsalCallback) {
+    // Let MSAL process the token and communicate to the opener
+    await msalInstance.handleRedirectPromise().catch(() => {})
+    // Close if opened as popup; otherwise redirect home
+    if (window.opener) {
+      window.close()
+    } else {
+      window.location.replace('/')
+    }
+    return
+  }
 
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
