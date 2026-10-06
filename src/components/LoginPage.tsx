@@ -12,7 +12,12 @@ export default function LoginPage() {
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading]   = useState(false)
   const [msLoading, setMsLoading] = useState(false)
-  const [error, setError]       = useState('')
+  const [error, setError]       = useState(() => {
+    // Show error from Microsoft redirect if any (e.g. e-mail not registered)
+    const msErr = sessionStorage.getItem('ms_login_error')
+    if (msErr) { sessionStorage.removeItem('ms_login_error'); return msErr }
+    return ''
+  })
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -32,14 +37,9 @@ export default function LoginPage() {
     try {
       setMsLoading(true)
       setError('')
-      const { idToken } = await loginWithMicrosoft()
-      const data = await api.loginMicrosoft(idToken)
-      loginWithToken(data.token, data.user)
+      await loginWithMicrosoft() // Redirects the whole page — nothing after this runs
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Erro ao autenticar com Microsoft'
-      if (msg.includes('popup_window_error') || msg.includes('user_cancelled')) return
-      setError(msg)
-    } finally {
+      setError(err instanceof Error ? err.message : 'Erro ao autenticar com Microsoft')
       setMsLoading(false)
     }
   }

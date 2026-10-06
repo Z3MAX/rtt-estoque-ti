@@ -1,4 +1,4 @@
-import { PublicClientApplication, Configuration } from '@azure/msal-browser'
+import { PublicClientApplication, Configuration, AuthenticationResult } from '@azure/msal-browser'
 
 const TENANT_ID = '3ba4e9dd-629e-4004-9c62-708d327b58a5'
 const CLIENT_ID = '1f8f742a-3544-4370-ae68-986ef41eba45'
@@ -17,33 +17,18 @@ const msalConfig: Configuration = {
 
 export const msalInstance = new PublicClientApplication(msalConfig)
 
-let msalReady = false
-
-async function ensureInitialized() {
-  if (!msalReady) {
-    await msalInstance.initialize()
-    // Clear any stale interaction state from previous failed attempts
-    await msalInstance.handleRedirectPromise().catch(() => {})
-    msalReady = true
-  }
-}
-
 export const loginRequest = {
   scopes: ['openid', 'profile', 'email', 'User.Read'],
 }
 
-export async function loginWithMicrosoft(): Promise<{ idToken: string; email: string; name: string }> {
-  await ensureInitialized()
+// Redirects the whole page to Microsoft login (more reliable than popup)
+export async function loginWithMicrosoft(): Promise<void> {
+  await msalInstance.initialize()
+  await msalInstance.loginRedirect(loginRequest)
+}
 
-  // Clear stale interaction lock before each popup attempt
-  await msalInstance.handleRedirectPromise().catch(() => {})
-
-  const result = await msalInstance.loginPopup(loginRequest)
-
-  const account = result.account
-  const idToken = result.idToken
-  const email = account.username
-  const name = account.name ?? email
-
-  return { idToken, email, name }
+// Called at app startup — resolves the redirect response if returning from Microsoft
+export async function handleMsalRedirect(): Promise<AuthenticationResult | null> {
+  await msalInstance.initialize()
+  return msalInstance.handleRedirectPromise().catch(() => null)
 }

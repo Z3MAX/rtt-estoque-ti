@@ -3,30 +3,33 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
-import { msalInstance } from './lib/msalConfig'
+import { handleMsalRedirect } from './lib/msalConfig'
 import './index.css'
 
 async function startApp() {
-  await msalInstance.initialize()
+  // Handle Microsoft redirect response (runs after login redirect returns)
+  const msResult = await handleMsalRedirect()
 
-  // Detect MSAL auth callback by URL hash/query — code= or error= only come
-  // from Microsoft's OAuth redirect, so it's safe to intercept unconditionally.
-  const hash = window.location.hash
-  const search = window.location.search
-  const isMsalCallback =
-    hash.includes('code=') || hash.includes('error=') ||
-    search.includes('code=') || search.includes('error=')
-
-  if (isMsalCallback) {
-    // Let MSAL process the token and communicate to the opener
-    await msalInstance.handleRedirectPromise().catch(() => {})
-    // Close if opened as popup; otherwise redirect home
-    if (window.opener) {
-      window.close()
-    } else {
-      window.location.replace('/')
+  if (msResult?.idToken) {
+    // Exchange Microsoft token for our JWT and store it before rendering
+    try {
+      const res = await fetch('/.netlify/functions/auth-microsoft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: msResult.idToken }),
+      })
+      const data = await res.json()
+      if (res.ok && data.token) {
+        localStorage.setItem('osiris_token', data.token)
+        localStorage.setItem('osiris_user', JSON.stringify(data.user))
+        localStorage.removeItem('rtt_portal')
+      } else {
+        // Store error so LoginPage can show it
+        sessionStorage.setItem('ms_login_error', data.error || 'Erro ao autenticar com Microsoft')
+      }
+    } catch {
+      sessionStorage.setItem('ms_login_error', 'Erro de conexão ao autenticar com Microsoft')
     }
-    return
   }
 
   ReactDOM.createRoot(document.getElementById('root')!).render(
