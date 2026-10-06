@@ -6,10 +6,22 @@ import ErrorBoundary from './components/ErrorBoundary'
 import { msalInstance } from './lib/msalConfig'
 import './index.css'
 
-// Initialize MSAL before rendering so the popup can detect and handle
-// the auth code redirect (closes itself automatically after login)
-msalInstance.initialize().then(() => {
-  msalInstance.handleRedirectPromise().catch(() => {})
+async function startApp() {
+  await msalInstance.initialize()
+
+  // If this window was opened as a popup callback (has auth code/error in URL
+  // and has an opener), MSAL handles it internally during initialize().
+  // Don't render the app — MSAL will close the popup automatically.
+  const hash = window.location.hash
+  const search = window.location.search
+  const isPopupCallback =
+    window.opener != null &&
+    (hash.includes('code=') || hash.includes('error=') ||
+     search.includes('code=') || search.includes('error='))
+
+  if (isPopupCallback) return
+
+  await msalInstance.handleRedirectPromise().catch(() => {})
 
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
@@ -20,4 +32,6 @@ msalInstance.initialize().then(() => {
       </BrowserRouter>
     </React.StrictMode>
   )
-})
+}
+
+startApp()
