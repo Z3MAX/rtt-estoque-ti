@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { useRef } from 'react'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth, isAdmin, isMaster } from './lib/auth'
 import { ThemeProvider, ForceLightMode } from './lib/theme'
 import LoginPage from './components/LoginPage'
@@ -7,9 +7,8 @@ import ForgotPasswordPage from './components/ForgotPasswordPage'
 import ResetPasswordPage from './components/ResetPasswordPage'
 import AssinarPage from './components/pages/AssinarPage'
 import ChangePasswordPage from './components/ChangePasswordPage'
-import Layout from './components/Layout'
-import PortalSelector from './components/PortalSelector'
 import IntranetLayout from './components/IntranetLayout'
+import AvaliacoesSubLayout from './components/AvaliacoesSubLayout'
 import Dashboard from './components/pages/Dashboard'
 import ColaboradoresPage from './components/pages/Colaboradores'
 import ColaboradorPerfil from './components/pages/ColaboradorPerfil'
@@ -37,75 +36,19 @@ import PresencaPublica from './components/pages/PresencaPublica'
 import FeedbacksPage from './components/pages/intranet/Feedbacks'
 import MetasPage from './components/pages/Metas'
 
-type Portal = 'avaliacao' | 'intranet' | null
-
-/** A quais portal um caminho profundo (ex: link de e-mail) pertence, para
- *  pular a tela de seleção de portal e já cair direto na página certa. */
-function portalDoCaminho(path: string): Portal {
-  if (path.startsWith('/intranet')) return 'intranet'
-  if (['/dashboard', '/colaboradores', '/avaliacoes', '/departamentos', '/realizar-avaliacao', '/monitor', '/usuarios', '/auditoria', '/ciclo-avaliacao', '/corrigir-gestor', '/metas'].some(p => path.startsWith(p))) {
-    return 'avaliacao'
-  }
-  return null
-}
-
 function ProtectedRoutes() {
   const { user, loading } = useAuth()
-  const navigate = useNavigate()
-  // Captura o caminho original (ex: de um link de e-mail) uma única vez por
-  // aba — usado para retomar essa página após o login e a seleção de portal,
-  // em vez de sempre cair na tela inicial. Marcado em sessionStorage (não só
-  // num ref) para não recapturar a URL atual num reload posterior — senão
-  // "Trocar portal" (que limpa rtt_portal e recarrega) reinterpretaria a
-  // página em que o usuário já estava como um "link profundo" novo e
-  // restauraria o mesmo portal automaticamente, sem nunca mostrar o seletor.
-  const initedRef = useRef(false)
+
+  // Preserve deep link (e.g. from email) across login redirect
   const deepLinkRef = useRef<string | null>(null)
+  const initedRef = useRef(false)
   if (!initedRef.current) {
     initedRef.current = true
-    const jaCapturado = sessionStorage.getItem('rtt_deep_link_done')
-    if (!jaCapturado && window.location.pathname !== '/') {
+    if (!sessionStorage.getItem('rtt_deep_link_done') && window.location.pathname !== '/') {
       deepLinkRef.current = window.location.pathname + window.location.search
     }
     sessionStorage.setItem('rtt_deep_link_done', '1')
   }
-  const [portal, setPortal] = useState<Portal>(() => {
-    const stored = localStorage.getItem('rtt_portal')
-    if (stored === 'avaliacao' || stored === 'intranet') return stored
-    return null
-  })
-
-  // Reset portal on fresh login (user transitions null → non-null).
-  // On page reload the same transition happens, but login() already cleared
-  // 'rtt_portal' from localStorage before the transition — so we use the
-  // presence of that key to distinguish reload (keep portal) from fresh login (reset).
-  const prevUserIdRef = useRef<number | undefined>(user?.id)
-  useEffect(() => {
-    const prevId = prevUserIdRef.current
-    prevUserIdRef.current = user?.id
-    if (!prevId && user?.id && !localStorage.getItem('rtt_portal')) {
-      // Login recém-efetuado — se veio de um link profundo (ex: e-mail de
-      // pesquisa), já escolhe o portal certo em vez de mostrar o seletor.
-      const alvo = deepLinkRef.current ? portalDoCaminho(deepLinkRef.current) : null
-      if (alvo) {
-        localStorage.setItem('rtt_portal', alvo)
-        setPortal(alvo)
-      } else {
-        setPortal(null)
-      }
-    }
-  }, [user?.id])
-
-  // Assim que usuário e portal estiverem prontos, retoma o caminho original
-  // (se houver) — cobre tanto o caso de já estar logado quanto o pós-login.
-  useEffect(() => {
-    if (!user || !portal || !deepLinkRef.current) return
-    const alvo = deepLinkRef.current
-    deepLinkRef.current = null
-    if (window.location.pathname + window.location.search !== alvo) {
-      navigate(alvo, { replace: true })
-    }
-  }, [user, portal, navigate])
 
   if (loading) {
     return (
@@ -126,57 +69,43 @@ function ProtectedRoutes() {
   if (!user) return <ForceLightMode><LoginPage /></ForceLightMode>
   if (user.mustChangePassword) return <ForceLightMode><ChangePasswordPage /></ForceLightMode>
 
-  // Portal selector
-  if (!portal) {
-    return (
-      <ForceLightMode>
-        <PortalSelector onSelect={p => setPortal(p)} />
-      </ForceLightMode>
-    )
-  }
-
-  // Intranet portal
-  if (portal === 'intranet') {
-    return (
-      <Routes>
-        <Route element={<IntranetLayout onSwitchPortal={() => setPortal(null)} />}>
-          <Route path="/" element={<Navigate to="/intranet" replace />} />
-          <Route path="/intranet" element={<MinhaVisao />} />
-          <Route path="/intranet/treinamentos" element={<TreinamentosPage />} />
-          <Route path="/intranet/treinamentos/:id" element={<CursoDetalhe />} />
-          <Route path="/intranet/comunicados" element={<ComunicadosPage />} />
-          <Route path="/intranet/pdi" element={<PDIPage />} />
-          <Route path="/intranet/equipe" element={<EquipePage />} />
-          <Route path="/intranet/pesquisas" element={<PesquisasIntranetPage />} />
-          <Route path="/intranet/pesquisas/:id/responder" element={<PesquisaResponder />} />
-          <Route path="/intranet/feedbacks" element={<FeedbacksPage />} />
-          <Route path="*" element={<Navigate to="/intranet" replace />} />
-        </Route>
-      </Routes>
-    )
-  }
-
-  // Avaliação portal (existing)
   return (
     <Routes>
-      <Route element={<Layout />}>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/colaboradores" element={<ColaboradoresPage />} />
-        <Route path="/colaboradores/:id" element={<ColaboradorPerfil />} />
-        <Route path="/avaliacoes/nova/:colaboradorId" element={<NovaAvaliacao />} />
-        <Route path="/departamentos" element={<DepartamentosPage />} />
-        <Route path="/departamentos/:area" element={<DepartamentoDetalhe />} />
-        <Route path="/realizar-avaliacao" element={<RealizarAvaliacaoPage />} />
-        <Route path="/avaliacoes" element={isAdmin(user?.role) ? <AvaliacoesPage /> : <Navigate to="/dashboard" replace />} />
-        <Route path="/avaliacoes/:id" element={<AvaliacaoDetalhe />} />
-        <Route path="/monitor" element={<AuditMonitor />} />
-        <Route path="/usuarios" element={isAdmin(user?.role) ? <UsersPage /> : <Navigate to="/dashboard" replace />} />
-        <Route path="/auditoria" element={isMaster(user?.role) ? <AuditoriaPage /> : <Navigate to="/dashboard" replace />} />
-        <Route path="/corrigir-gestor" element={isMaster(user?.role) ? <CorrigirGestorPage /> : <Navigate to="/dashboard" replace />} />
-        <Route path="/ciclo-avaliacao" element={isAdmin(user?.role) ? <CicloAvaliacaoPage /> : <Navigate to="/dashboard" replace />} />
-        <Route path="/metas" element={<MetasPage />} />
-<Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route element={<IntranetLayout />}>
+        {/* Redireciona raiz para intranet */}
+        <Route path="/" element={<Navigate to="/intranet" replace />} />
+
+        {/* Intranet */}
+        <Route path="/intranet" element={<MinhaVisao />} />
+        <Route path="/intranet/treinamentos" element={<TreinamentosPage />} />
+        <Route path="/intranet/treinamentos/:id" element={<CursoDetalhe />} />
+        <Route path="/intranet/comunicados" element={<ComunicadosPage />} />
+        <Route path="/intranet/pdi" element={<PDIPage />} />
+        <Route path="/intranet/equipe" element={<EquipePage />} />
+        <Route path="/intranet/pesquisas" element={<PesquisasIntranetPage />} />
+        <Route path="/intranet/pesquisas/:id/responder" element={<PesquisaResponder />} />
+        <Route path="/intranet/feedbacks" element={<FeedbacksPage />} />
+
+        {/* Avaliações — sub-layout com sidebar própria */}
+        <Route element={<AvaliacoesSubLayout />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/colaboradores" element={<ColaboradoresPage />} />
+          <Route path="/colaboradores/:id" element={<ColaboradorPerfil />} />
+          <Route path="/avaliacoes/nova/:colaboradorId" element={<NovaAvaliacao />} />
+          <Route path="/departamentos" element={<DepartamentosPage />} />
+          <Route path="/departamentos/:area" element={<DepartamentoDetalhe />} />
+          <Route path="/realizar-avaliacao" element={<RealizarAvaliacaoPage />} />
+          <Route path="/avaliacoes" element={isAdmin(user?.role) ? <AvaliacoesPage /> : <Navigate to="/dashboard" replace />} />
+          <Route path="/avaliacoes/:id" element={<AvaliacaoDetalhe />} />
+          <Route path="/monitor" element={<AuditMonitor />} />
+          <Route path="/usuarios" element={isAdmin(user?.role) ? <UsersPage /> : <Navigate to="/dashboard" replace />} />
+          <Route path="/auditoria" element={isMaster(user?.role) ? <AuditoriaPage /> : <Navigate to="/dashboard" replace />} />
+          <Route path="/corrigir-gestor" element={isMaster(user?.role) ? <CorrigirGestorPage /> : <Navigate to="/dashboard" replace />} />
+          <Route path="/ciclo-avaliacao" element={isAdmin(user?.role) ? <CicloAvaliacaoPage /> : <Navigate to="/dashboard" replace />} />
+          <Route path="/metas" element={<MetasPage />} />
+        </Route>
+
+        <Route path="*" element={<Navigate to="/intranet" replace />} />
       </Route>
     </Routes>
   )

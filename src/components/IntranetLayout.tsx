@@ -2,12 +2,18 @@ import { useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   Home, BookOpen, Megaphone, GraduationCap, Users, ClipboardList,
-  LogOut, ChevronDown, Menu, X, ArrowLeftRight, Bell, SmilePlus,
+  LogOut, ChevronDown, Menu, X, Bell, SmilePlus, BarChart3,
 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import ChatBot from './ChatBot'
 import Avatar from './ui/Avatar'
 import PhotoUploadModal from './ui/PhotoUploadModal'
+
+const AVALIACOES_PATHS = [
+  '/dashboard', '/colaboradores', '/departamentos', '/realizar-avaliacao',
+  '/avaliacoes', '/metas', '/usuarios', '/auditoria', '/ciclo-avaliacao',
+  '/corrigir-gestor', '/monitor',
+]
 
 const NAV = [
   { to: '/intranet',              icon: Home,          label: 'Minha Visão',  adminOnly: false },
@@ -16,16 +22,13 @@ const NAV = [
   { to: '/intranet/pdi',         icon: BookOpen,      label: 'PDI',          adminOnly: false },
   { to: '/intranet/equipe',      icon: Users,         label: 'Minha Equipe', adminOnly: false },
   { to: '/intranet/pesquisas',   icon: ClipboardList, label: 'Pesquisas',    adminOnly: false },
-  { to: '/intranet/feedbacks',   icon: SmilePlus,     label: 'Feedbacks',    adminOnly: true  },
+  { to: '/dashboard',            icon: BarChart3,     label: 'Avaliações',   adminOnly: false },
+  { to: '/intranet/feedbacks',   icon: SmilePlus,     label: 'Humor',        adminOnly: true  },
 ]
 
 const ADMIN_NAV_ROLES = ['Administrador de RH', 'Administrador Master', 'Administrador de RH / Gestor']
 
-interface IntranetLayoutProps {
-  onSwitchPortal: () => void
-}
-
-export default function IntranetLayout({ onSwitchPortal }: IntranetLayoutProps) {
+export default function IntranetLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -33,13 +36,15 @@ export default function IntranetLayout({ onSwitchPortal }: IntranetLayoutProps) 
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [photoModal, setPhotoModal] = useState(false)
 
-  function switchPortal() {
-    localStorage.removeItem('rtt_portal')
-    onSwitchPortal()
+  const isActive = (to: string) => {
+    if (to === '/dashboard') {
+      return AVALIACOES_PATHS.some(p =>
+        location.pathname === p || location.pathname.startsWith(p + '/')
+      )
+    }
+    if (to === '/intranet') return location.pathname === '/intranet'
+    return location.pathname.startsWith(to)
   }
-
-  const isActive = (to: string) =>
-    to === '/intranet' ? location.pathname === '/intranet' : location.pathname.startsWith(to)
 
   const visibleNav = NAV.filter(n => !n.adminOnly || ADMIN_NAV_ROLES.includes(user?.role ?? ''))
 
@@ -72,18 +77,8 @@ export default function IntranetLayout({ onSwitchPortal }: IntranetLayoutProps) 
             ))}
           </nav>
 
-          {/* Right: switch + notification + user */}
+          {/* Right: notification + user */}
           <div className="flex items-center gap-2 ml-auto">
-            {/* Switch portal */}
-            <button
-              onClick={switchPortal}
-              className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 hover:text-primary-500 transition-colors px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
-              title="Trocar portal"
-            >
-              <ArrowLeftRight size={13} />
-              <span>Trocar portal</span>
-            </button>
-
             {/* Bell */}
             <button className="relative w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
               <Bell size={17} />
@@ -116,12 +111,6 @@ export default function IntranetLayout({ onSwitchPortal }: IntranetLayoutProps) 
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                   >
                     <Users size={14} /> Alterar foto
-                  </button>
-                  <button
-                    onClick={switchPortal}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-                  >
-                    <ArrowLeftRight size={14} /> Trocar portal
                   </button>
                   <button
                     onClick={logout}
@@ -159,12 +148,6 @@ export default function IntranetLayout({ onSwitchPortal }: IntranetLayoutProps) 
                 <Icon size={16} /> {label}
               </button>
             ))}
-            <button
-              onClick={switchPortal}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700"
-            >
-              <ArrowLeftRight size={16} /> Trocar portal
-            </button>
             <button
               onClick={logout}
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"

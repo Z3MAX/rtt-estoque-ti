@@ -75,7 +75,7 @@ export default function FeedbacksPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Feedbacks de Humor</h1>
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Humor</h1>
           <p className="text-sm text-slate-400 mt-0.5">Respostas dos colaboradores sobre como estão se sentindo</p>
         </div>
         <button
