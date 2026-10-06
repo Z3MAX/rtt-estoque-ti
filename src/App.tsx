@@ -34,6 +34,7 @@ import PesquisaResponder from './components/pages/intranet/PesquisaResponder'
 import PesquisaPublica from './components/pages/PesquisaPublica'
 import PresencaPublica from './components/pages/PresencaPublica'
 import FeedbacksPage from './components/pages/intranet/Feedbacks'
+import CarreiraPage from './components/pages/intranet/Carreira'
 import MetasPage from './components/pages/Metas'
 
 function ProtectedRoutes() {
@@ -84,6 +85,7 @@ function ProtectedRoutes() {
         <Route path="/intranet/equipe" element={<EquipePage />} />
         <Route path="/intranet/pesquisas" element={<PesquisasIntranetPage />} />
         <Route path="/intranet/pesquisas/:id/responder" element={<PesquisaResponder />} />
+        <Route path="/intranet/carreira" element={<CarreiraPage />} />
         <Route path="/intranet/feedbacks" element={<FeedbacksPage />} />
 
         {/* Avaliações — sub-layout com sidebar própria */}

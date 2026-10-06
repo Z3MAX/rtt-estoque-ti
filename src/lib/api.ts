@@ -627,4 +627,24 @@ export const api = {
     update: async (id: number, data: any) => request<any>(`${BASE}/metas?id=${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: async (id: number) => request(`${BASE}/metas?id=${id}`, { method: 'DELETE' }),
   },
+
+  carreiraPdi: {
+    list: async () => request<any[]>(`${BASE}/carreira-pdi`),
+    create: async (data: any) => request<any>(`${BASE}/carreira-pdi`, { method: 'POST', body: JSON.stringify(data) }),
+    update: async (id: number, data: any) => request<any>(`${BASE}/carreira-pdi?id=${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: async (id: number) => request(`${BASE}/carreira-pdi?id=${id}`, { method: 'DELETE' }),
+  },
+
+  carreiraFeedbacks: {
+    list: async () => request<any[]>(`${BASE}/carreira-feedbacks`),
+    create: async (data: any) => request<any>(`${BASE}/carreira-feedbacks`, { method: 'POST', body: JSON.stringify(data) }),
+    delete: async (id: number) => request(`${BASE}/carreira-feedbacks?id=${id}`, { method: 'DELETE' }),
+  },
+
+  carreiraOneonone: {
+    list: async () => request<any[]>(`${BASE}/carreira-oneonone`),
+    create: async (data: any) => request<any>(`${BASE}/carreira-oneonone`, { method: 'POST', body: JSON.stringify(data) }),
+    update: async (id: number, data: any) => request<any>(`${BASE}/carreira-oneonone?id=${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: async (id: number) => request(`${BASE}/carreira-oneonone?id=${id}`, { method: 'DELETE' }),
+  },
 }

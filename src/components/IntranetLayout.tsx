@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   Home, BookOpen, Megaphone, GraduationCap, Users, ClipboardList,
-  LogOut, ChevronDown, Menu, X, Bell, SmilePlus, BarChart3,
+  LogOut, ChevronDown, Menu, X, Bell, SmilePlus, BarChart3, TrendingUp,
 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import ChatBot from './ChatBot'
@@ -22,6 +22,7 @@ const NAV = [
   { to: '/intranet/pdi',         icon: BookOpen,      label: 'PDI',          adminOnly: false },
   { to: '/intranet/equipe',      icon: Users,         label: 'Minha Equipe', adminOnly: false },
   { to: '/intranet/pesquisas',   icon: ClipboardList, label: 'Pesquisas',    adminOnly: false },
+  { to: '/intranet/carreira',    icon: TrendingUp,    label: 'Carreira',     adminOnly: false },
   { to: '/dashboard',            icon: BarChart3,     label: 'Avaliações',   adminOnly: false },
   { to: '/intranet/feedbacks',   icon: SmilePlus,     label: 'Humor',        adminOnly: true  },
 ]
