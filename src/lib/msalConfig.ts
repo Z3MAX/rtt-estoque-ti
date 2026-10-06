@@ -17,19 +17,32 @@ const msalConfig: Configuration = {
 
 export const msalInstance = new PublicClientApplication(msalConfig)
 
+let msalReady = false
+
+async function ensureInitialized() {
+  if (!msalReady) {
+    await msalInstance.initialize()
+    // Clear any stale interaction state from previous failed attempts
+    await msalInstance.handleRedirectPromise().catch(() => {})
+    msalReady = true
+  }
+}
+
 export const loginRequest = {
   scopes: ['openid', 'profile', 'email', 'User.Read'],
 }
 
 export async function loginWithMicrosoft(): Promise<{ idToken: string; email: string; name: string }> {
-  await msalInstance.initialize()
+  await ensureInitialized()
+
+  // Clear stale interaction lock before each popup attempt
+  await msalInstance.handleRedirectPromise().catch(() => {})
 
   const result = await msalInstance.loginPopup(loginRequest)
 
   const account = result.account
   const idToken = result.idToken
-
-  const email = account.username // Microsoft uses username as UPN (email)
+  const email = account.username
   const name = account.name ?? email
 
   return { idToken, email, name }
