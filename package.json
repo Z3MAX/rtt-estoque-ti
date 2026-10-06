@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
+    "@azure/msal-browser": "^5.24.0",
     "@neondatabase/serverless": "^0.9.3",
     "@netlify/blobs": "^11.0.1",
     "@types/jszip": "^3.4.0",
@@ -16,6 +17,7 @@
     "docx": "^9.6.1",
     "exceljs": "^4.4.0",
     "html2canvas": "^1.4.1",
+    "jose": "^6.2.12",
     "jsonwebtoken": "^9.0.3",
     "jspdf": "^4.2.1",
     "jszip": "^3.10.1",

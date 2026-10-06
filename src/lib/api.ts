@@ -67,6 +67,12 @@ function delay(ms = 350) { return new Promise((r) => setTimeout(r, ms)) }
 // ─── api ─────────────────────────────────────────────────────────────────────
 
 export const api = {
+  loginMicrosoft: async (idToken: string) =>
+    request<{ token: string; user: any }>(`${BASE}/auth-microsoft`, {
+      method: 'POST',
+      body: JSON.stringify({ idToken }),
+    }),
+
   setup: async () => {
     if (MOCK) { await delay(500); return { success: true } }
     return request(`${BASE}/setup`, { method: 'POST' })

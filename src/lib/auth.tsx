@@ -38,6 +38,7 @@ interface AuthContextType {
   user: User | null
   token: string | null
   login: (email: string, password: string) => Promise<void>
+  loginWithToken: (token: string, user: User) => void
   logout: () => void
   updateUser: (updates: Partial<User>) => void
   loading: boolean
@@ -97,6 +98,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('rtt_portal')
   }
 
+  function loginWithToken(t: string, u: User) {
+    setUser(u)
+    setToken(t)
+    localStorage.setItem('osiris_user', JSON.stringify(u))
+    localStorage.setItem('osiris_token', t)
+    localStorage.removeItem('rtt_portal')
+  }
+
   function logout() {
     setUser(null)
     setToken(null)
@@ -115,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, updateUser, loading }}>
+    <AuthContext.Provider value={{ user, token, login, loginWithToken, logout, updateUser, loading }}>
       {children}
     </AuthContext.Provider>
   )

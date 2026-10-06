@@ -1,14 +1,17 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { Server, Monitor, Tag, MapPin, Eye, EyeOff, LogIn, Shield } from 'lucide-react'
+import { Eye, EyeOff, LogIn } from 'lucide-react'
 import { useAuth } from '../lib/auth'
+import { loginWithMicrosoft } from '../lib/msalConfig'
+import { api } from '../lib/api'
 
 export default function LoginPage() {
-  const { login } = useAuth()
+  const { login, loginWithToken } = useAuth()
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading]   = useState(false)
+  const [msLoading, setMsLoading] = useState(false)
   const [error, setError]       = useState('')
 
   async function handleSubmit(e: FormEvent) {
@@ -22,6 +25,22 @@ export default function LoginPage() {
       setError(err instanceof Error ? err.message : 'Erro ao autenticar')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleMicrosoftLogin() {
+    try {
+      setMsLoading(true)
+      setError('')
+      const { idToken } = await loginWithMicrosoft()
+      const data = await api.loginMicrosoft(idToken)
+      loginWithToken(data.token, data.user)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao autenticar com Microsoft'
+      if (msg.includes('popup_window_error') || msg.includes('user_cancelled')) return
+      setError(msg)
+    } finally {
+      setMsLoading(false)
     }
   }
 
@@ -143,7 +162,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 className="btn-primary w-full justify-center py-2.5 text-base"
-                disabled={loading}
+                disabled={loading || msLoading}
               >
                 {loading ? (
                   <>
@@ -161,6 +180,36 @@ export default function LoginPage() {
                 )}
               </button>
             </form>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3 my-4">
+              <div className="flex-1 h-px bg-slate-200" />
+              <span className="text-xs text-slate-400">ou</span>
+              <div className="flex-1 h-px bg-slate-200" />
+            </div>
+
+            {/* Microsoft login */}
+            <button
+              type="button"
+              onClick={handleMicrosoftLogin}
+              disabled={loading || msLoading}
+              className="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors disabled:opacity-50"
+            >
+              {msLoading ? (
+                <svg className="animate-spin h-4 w-4 text-slate-500" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+                  <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
+                  <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
+                  <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+                </svg>
+              )}
+              {msLoading ? 'Aguardando Microsoft...' : 'Entrar com Microsoft'}
+            </button>
 
           </div>
         </div>
