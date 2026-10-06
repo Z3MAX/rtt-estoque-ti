@@ -2,13 +2,28 @@ const { neon } = require('@neondatabase/serverless')
 const { createRemoteJWKSet, jwtVerify } = require('jose')
 const { signToken, makeHeaders, errorResponse } = require('./_auth')
 
-const TENANT_ID = '3ba4e9dd-629e-4004-9c62-708d327b58a5'
-const CLIENT_ID = '1f8f742a-3544-4370-ae68-986ef41eba45'
+const TENANT_ID = process.env.MS_TENANT_ID || '3ba4e9dd-629e-4004-9c62-708d327b58a5'
+const CLIENT_ID = process.env.MS_CLIENT_ID || '1f8f742a-3544-4370-ae68-986ef41eba45'
 
-// Microsoft's public keys endpoint
+// Microsoft's public keys endpoint (cached at module level by jose)
 const JWKS = createRemoteJWKSet(
   new URL(`https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/keys`)
 )
+
+async function fetchMsProfilePhoto(accessToken) {
+  try {
+    const res = await fetch('https://graph.microsoft.com/v1.0/me/photo/$value', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!res.ok) return null
+    const buffer = await res.arrayBuffer()
+    const contentType = res.headers.get('content-type') || 'image/jpeg'
+    const base64 = Buffer.from(buffer).toString('base64')
+    return `data:${contentType};base64,${base64}`
+  } catch {
+    return null
+  }
+}
 
 exports.handler = async (event) => {
   const headers = makeHeaders(event, 'POST, OPTIONS')
@@ -16,10 +31,11 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) }
   if (!process.env.DATABASE_URL) return { statusCode: 500, headers, body: JSON.stringify({ error: 'DATABASE_URL not configured' }) }
 
-  let idToken
+  let idToken, accessToken
   try {
     const body = JSON.parse(event.body || '{}')
     idToken = body.idToken
+    accessToken = body.accessToken || null
   } catch {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Body inválido' }) }
   }
@@ -61,6 +77,16 @@ exports.handler = async (event) => {
       return { statusCode: 403, headers, body: JSON.stringify({ error: 'Usuário desativado. Contate o administrador.' }) }
     }
 
+    // Fetch and update Microsoft profile photo (best-effort, non-blocking auth)
+    let photoUrl = user.photo_url || null
+    if (accessToken) {
+      const msPhoto = await fetchMsProfilePhoto(accessToken)
+      if (msPhoto) {
+        photoUrl = msPhoto
+        await sql`UPDATE users SET photo_url = ${msPhoto} WHERE id = ${user.id}`
+      }
+    }
+
     const tokenPayload = {
       userId: user.id,
       name: user.name,
@@ -86,7 +112,7 @@ exports.handler = async (event) => {
           roles: user.roles || [user.role],
           area: user.area || null,
           mustChangePassword: user.must_change_password ?? false,
-          photo_url: user.photo_url || null,
+          photo_url: photoUrl,
         },
       }),
     }

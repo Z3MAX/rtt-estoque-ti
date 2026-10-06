@@ -16,7 +16,10 @@ async function startApp() {
       const res = await fetch('/.netlify/functions/auth-microsoft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken: msResult.idToken }),
+        body: JSON.stringify({
+          idToken: msResult.idToken,
+          accessToken: msResult.accessToken || null,
+        }),
       })
       const data = await res.json()
       if (res.ok && data.token) {
