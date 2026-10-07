@@ -23,7 +23,7 @@ function ColaboradorPicker({ value, onChange, placeholder }: {
   async function load() {
     if (loaded) return
     try {
-      const list = await api.colaboradores.list({ ativo: true })
+      const list = await api.colaboradores.list()
       setColabs(list.map((c: any) => c.nome as string).sort())
       setLoaded(true)
     } catch {}
