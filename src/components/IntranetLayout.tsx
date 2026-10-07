@@ -160,7 +160,7 @@ export default function IntranetLayout() {
       </header>
 
       {/* Content */}
-      <main className="flex-1 max-w-screen-2xl mx-auto w-full px-4 py-6">
+      <main className="flex-1 w-full px-4 py-6">
         <Outlet />
       </main>
 
