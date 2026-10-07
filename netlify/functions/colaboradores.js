@@ -24,6 +24,7 @@ exports.handler = async (event) => {
 
     const isGestor = authPayload.role === 'Gestor'
     const gestorName = authPayload.name || null
+    const gestorEmail = authPayload.email || null
 
     // Add new columns if table predates them
     await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS data_nascimento DATE`
@@ -52,7 +53,7 @@ exports.handler = async (event) => {
              ORDER BY ca5.created_at DESC LIMIT 1) AS score_potencial
           FROM colaboradores c
           WHERE c.id = ${id}
-            AND (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
+            AND (${!isGestor} OR (LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})) AND (c.gestor_email IS NULL OR LOWER(TRIM(c.gestor_email)) = LOWER(TRIM(${gestorEmail})))))
         `
         if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Colaborador não encontrado' }) }
         return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
@@ -79,7 +80,7 @@ exports.handler = async (event) => {
              ORDER BY ca5.created_at DESC LIMIT 1) AS score_potencial
           FROM colaboradores c
           WHERE c.ativo = true
-            AND (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
+            AND (${!isGestor} OR (LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})) AND (c.gestor_email IS NULL OR LOWER(TRIM(c.gestor_email)) = LOWER(TRIM(${gestorEmail})))))
             AND (
               LOWER(c.nome)        LIKE ${'%' + search + '%'} OR
               LOWER(c.cargo)       LIKE ${'%' + search + '%'} OR
@@ -107,7 +108,7 @@ exports.handler = async (event) => {
              ORDER BY ca5.created_at DESC LIMIT 1) AS score_potencial
           FROM colaboradores c
           WHERE c.ativo = true
-            AND (${!isGestor} OR LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})))
+            AND (${!isGestor} OR (LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})) AND (c.gestor_email IS NULL OR LOWER(TRIM(c.gestor_email)) = LOWER(TRIM(${gestorEmail})))))
           ORDER BY c.nome ASC
         `
       }

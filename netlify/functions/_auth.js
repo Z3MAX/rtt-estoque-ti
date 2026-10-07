@@ -88,9 +88,12 @@ function makeHeaders(event, methods = 'GET, POST, PUT, DELETE, OPTIONS') {
   const origin = (event && event.headers && (event.headers.origin || event.headers.Origin)) || ''
   // Nunca refletir origem arbitrária — usar allowlist explícita
   const allowed = siteUrl.split(',').map(s => s.trim()).filter(Boolean)
+  // Quando SITE_URL não estiver configurado, usa o URL do deploy injetado pelo Netlify.
+  // Nunca cair em '*' pois isso tornaria CORS permissivo para qualquer origem.
+  const netlifyUrl = process.env.URL || ''
   const allowOrigin = allowed.length > 0
     ? (allowed.includes(origin) ? origin : allowed[0])
-    : '*'
+    : (netlifyUrl || 'null')
   return {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': allowOrigin,

@@ -2,6 +2,9 @@ const { neon } = require('@neondatabase/serverless')
 const crypto = require('crypto')
 const { verifyMfaPendingToken, makeHeaders, errorResponse } = require('./_auth')
 const { sendMfaCodeEmail } = require('./_email')
+const { checkRateLimit, recordAttempt } = require('./_rate_limit')
+
+const MFA_SEND_MAX = 3
 
 exports.handler = async (event) => {
   const headers = makeHeaders(event, 'POST, OPTIONS')
@@ -22,6 +25,14 @@ exports.handler = async (event) => {
   try {
     const payload = verifyMfaPendingToken(mfaToken)
     const sql = neon(process.env.DATABASE_URL)
+
+    // Rate limiting: máx 3 reenvios por email em 15 min (previne assédio por e-mail e esgotamento de cota SMTP)
+    const mfaKey = `mfa_send:${payload.email}`
+    const rl = await checkRateLimit(sql, event, mfaKey)
+    if (rl.emailCount >= MFA_SEND_MAX) {
+      return { statusCode: 429, headers, body: JSON.stringify({ error: 'Muitas solicitações de código. Aguarde alguns minutos antes de solicitar novamente.' }) }
+    }
+    await recordAttempt(sql, event, mfaKey)
 
     await sql`
       CREATE TABLE IF NOT EXISTS mfa_codes (

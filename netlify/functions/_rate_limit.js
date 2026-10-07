@@ -19,7 +19,9 @@ function getWindowStart() {
 
 function getClientIp(event) {
   const headers = event.headers || {}
+  // x-nf-client-connection-ip é injetado pelo Netlify e não pode ser forjado pelo cliente
   return (
+    headers['x-nf-client-connection-ip'] ||
     headers['x-forwarded-for']?.split(',')[0]?.trim() ||
     headers['client-ip'] ||
     'unknown'

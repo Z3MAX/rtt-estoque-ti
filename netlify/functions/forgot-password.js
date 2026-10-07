@@ -2,6 +2,9 @@ const { neon } = require('@neondatabase/serverless')
 const crypto = require('crypto')
 const { makeHeaders, errorResponse } = require('./_auth')
 const { sendResetEmail } = require('./_email')
+const { checkRateLimit, recordAttempt } = require('./_rate_limit')
+
+const FORGOT_MAX = 3
 
 exports.handler = async (event) => {
   const headers = makeHeaders(event, 'POST, OPTIONS')
@@ -34,6 +37,15 @@ exports.handler = async (event) => {
   const sql = neon(process.env.DATABASE_URL)
 
   try {
+    // Rate limiting: máx 3 solicitações de reset por email em 15 min
+    const rl = await checkRateLimit(sql, event, email.toLowerCase())
+    if (rl.emailCount >= FORGOT_MAX) {
+      // Retorna resposta genérica para não revelar estado interno
+      await new Promise((r) => setTimeout(r, 400))
+      return successResponse
+    }
+    await recordAttempt(sql, event, email.toLowerCase())
+
     await sql`
       CREATE TABLE IF NOT EXISTS password_reset_tokens (
         id SERIAL PRIMARY KEY,

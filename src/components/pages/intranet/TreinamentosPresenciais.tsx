@@ -261,19 +261,23 @@ function QRModal({ evento, onClose }: { evento: TreinamentoPresencial; onClose: 
     setTimeout(() => setCopied(false), 2000)
   }
 
+  function esc(s: string) {
+    return (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  }
+
   function handlePrint() {
     const win = window.open('', '_blank')
     if (!win) return
-    win.document.write(`<!DOCTYPE html><html><head><title>${evento.titulo}</title>
+    win.document.write(`<!DOCTYPE html><html><head><title>${esc(evento.titulo)}</title>
       <style>body{font-family:sans-serif;text-align:center;padding:40px;color:#1e293b}
       h2{margin:0 0 8px;font-size:22px}p{margin:4px 0;font-size:14px;color:#64748b}
       img{display:block;margin:24px auto;width:280px;height:280px}
       .url{font-size:11px;color:#94a3b8;word-break:break-all;margin-top:8px}</style></head>
-      <body><h2>${evento.titulo}</h2>
-      ${evento.instrutor ? `<p>Instrutor: ${evento.instrutor}</p>` : ''}
-      ${evento.local ? `<p>Local: ${evento.local}</p>` : ''}
+      <body><h2>${esc(evento.titulo)}</h2>
+      ${evento.instrutor ? `<p>Instrutor: ${esc(evento.instrutor)}</p>` : ''}
+      ${evento.local ? `<p>Local: ${esc(evento.local)}</p>` : ''}
       ${evento.data_evento ? `<p>${new Date(evento.data_evento).toLocaleString('pt-BR')}</p>` : ''}
-      <img src="${qrUrl}" /><p class="url">${presencaUrl}</p>
+      <img src="${esc(qrUrl)}" /><p class="url">${esc(presencaUrl)}</p>
       <script>window.onload=()=>{window.print();window.close()}<\/script></body></html>`)
     win.document.close()
   }

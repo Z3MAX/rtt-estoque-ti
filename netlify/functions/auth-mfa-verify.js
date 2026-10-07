@@ -1,6 +1,9 @@
 const { neon } = require('@neondatabase/serverless')
 const crypto = require('crypto')
 const { verifyMfaPendingToken, signToken, makeHeaders, errorResponse } = require('./_auth')
+const { checkRateLimit, recordAttempt, clearAttempts } = require('./_rate_limit')
+
+const MFA_MAX_ATTEMPTS = 5
 
 exports.handler = async (event) => {
   const headers = makeHeaders(event, 'POST, OPTIONS')
@@ -24,6 +27,13 @@ exports.handler = async (event) => {
     const payload = verifyMfaPendingToken(mfaToken)
     const sql = neon(process.env.DATABASE_URL)
 
+    // Rate limiting: máx 5 tentativas erradas por email em 15 min (previne força bruta do OTP)
+    const mfaKey = `mfa_verify:${payload.email}`
+    const rl = await checkRateLimit(sql, event, mfaKey)
+    if (rl.emailCount >= MFA_MAX_ATTEMPTS) {
+      return { statusCode: 429, headers, body: JSON.stringify({ error: 'Muitas tentativas incorretas. Aguarde alguns minutos e solicite um novo código.' }) }
+    }
+
     // Verifica código válido, não usado e não expirado
     const codeRows = await sql`
       SELECT id FROM mfa_codes
@@ -34,8 +44,12 @@ exports.handler = async (event) => {
     `
 
     if (codeRows.length === 0) {
+      await recordAttempt(sql, event, mfaKey)
       return { statusCode: 401, headers, body: JSON.stringify({ error: 'Código inválido ou expirado' }) }
     }
+
+    // Código correto — limpa contador de tentativas MFA
+    await clearAttempts(sql, mfaKey)
 
     // Marca como usado (one-time use)
     await sql`UPDATE mfa_codes SET used = TRUE WHERE id = ${codeRows[0].id}`
