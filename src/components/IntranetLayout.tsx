@@ -161,7 +161,10 @@ export default function IntranetLayout() {
 
       {/* Content */}
       <main className="flex-1 w-full px-4 py-6">
-        <Outlet />
+        {AVALIACOES_PATHS.some(p => location.pathname === p || location.pathname.startsWith(p + '/'))
+          ? <Outlet />
+          : <div className="max-w-screen-xl mx-auto"><Outlet /></div>
+        }
       </main>
 
       <ChatBot />
