@@ -13,21 +13,24 @@ async function startApp() {
   if (msResult?.idToken) {
     // Exchange Microsoft token for our JWT and store it before rendering
     try {
+      const deviceToken = localStorage.getItem('osiris_device') || null
       const res = await fetch('/.netlify/functions/auth-microsoft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           idToken: msResult.idToken,
           accessToken: msResult.accessToken || null,
+          deviceToken,
         }),
       })
       const data = await res.json()
-      if (res.ok && data.token) {
+      if (res.ok && data.status === 'mfa_required') {
+        sessionStorage.setItem('ms_mfa_pending', data.mfaToken)
+      } else if (res.ok && data.token) {
         localStorage.setItem('osiris_token', data.token)
         localStorage.setItem('osiris_user', JSON.stringify(data.user))
         localStorage.removeItem('rtt_portal')
       } else {
-        // Store error so LoginPage can show it
         sessionStorage.setItem('ms_login_error', data.error || 'Erro ao autenticar com Microsoft')
       }
     } catch {

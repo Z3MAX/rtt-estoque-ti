@@ -34,11 +34,17 @@ export function isInstrutor(role?: string, roles?: string[]) {
   return role === 'Instrutor' || (roles?.includes('Instrutor') ?? false)
 }
 
+export interface MfaPending {
+  mfaToken: string
+  email: string
+  name: string
+}
+
 interface AuthContextType {
   user: User | null
   token: string | null
-  login: (email: string, password: string) => Promise<void>
-  loginWithToken: (token: string, user: User) => void
+  login: (email: string, password: string) => Promise<MfaPending | void>
+  loginWithToken: (token: string, user: User, deviceToken?: string | null) => void
   logout: () => void
   updateUser: (updates: Partial<User>) => void
   loading: boolean
@@ -83,13 +89,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    const deviceToken = localStorage.getItem('osiris_device') || undefined
     const res = await fetch('/.netlify/functions/auth-login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, deviceToken }),
     })
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || 'Erro ao autenticar')
+
+    if (data.status === 'mfa_required') {
+      return { mfaToken: data.mfaToken, email: email.trim().toLowerCase(), name: '' } as MfaPending
+    }
 
     setUser(data.user)
     setToken(data.token)
@@ -98,12 +109,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('rtt_portal')
   }
 
-  function loginWithToken(t: string, u: User) {
+  function loginWithToken(t: string, u: User, deviceToken?: string | null) {
     setUser(u)
     setToken(t)
     localStorage.setItem('osiris_user', JSON.stringify(u))
     localStorage.setItem('osiris_token', t)
     localStorage.removeItem('rtt_portal')
+    if (deviceToken) localStorage.setItem('osiris_device', deviceToken)
   }
 
   function logout() {
@@ -112,6 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('osiris_user')
     localStorage.removeItem('osiris_token')
     localStorage.removeItem('rtt_portal')
+    // Não remove osiris_device — o "lembrar dispositivo" deve persistir entre logouts
   }
 
   function updateUser(updates: Partial<User>) {

@@ -1,7 +1,7 @@
 const { neon } = require('@neondatabase/serverless')
 const crypto = require('crypto')
 const { hashPassword, comparePassword } = require('./_hash')
-const { signToken, makeHeaders, errorResponse } = require('./_auth')
+const { signToken, signMfaPendingToken, makeHeaders, errorResponse } = require('./_auth')
 const { checkRateLimit, recordAttempt, clearAttempts, MAX_PER_EMAIL, MAX_PER_IP } = require('./_rate_limit')
 
 exports.handler = async (event) => {
@@ -14,11 +14,12 @@ exports.handler = async (event) => {
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'DATABASE_URL not configured' }) }
   }
 
-  let email, password
+  let email, password, deviceToken
   try {
     const body = JSON.parse(event.body || '{}')
     email = body.email
     password = body.password
+    deviceToken = body.deviceToken || null
   } catch {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Body inválido' }) }
   }
@@ -89,25 +90,46 @@ exports.handler = async (event) => {
       mustChangePassword: user.must_change_password ?? false,
     }
 
-    const token = signToken(tokenPayload)
     await clearAttempts(sql, email)
 
+    // Check if device is already trusted (skip MFA)
+    if (deviceToken) {
+      await sql`
+        CREATE TABLE IF NOT EXISTS trusted_devices (
+          id SERIAL PRIMARY KEY,
+          user_id INT NOT NULL,
+          device_token VARCHAR(64) NOT NULL,
+          expires_at TIMESTAMPTZ NOT NULL,
+          user_agent VARCHAR(512),
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `
+      const trusted = await sql`
+        SELECT id FROM trusted_devices
+        WHERE user_id = ${user.id} AND device_token = ${deviceToken} AND expires_at > NOW()
+      `
+      if (trusted.length > 0) {
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({
+            token: signToken(tokenPayload),
+            user: {
+              id: user.id, name: user.name, email: user.email, role: user.role,
+              roles: user.roles || [user.role], area: user.area || null,
+              mustChangePassword: user.must_change_password ?? false, photo_url: user.photo_url || null,
+            },
+          }),
+        }
+      }
+    }
+
+    // MFA required — issue short-lived pending token
+    const mfaToken = signMfaPendingToken(tokenPayload)
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({
-        token,
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          roles: user.roles || [user.role],
-          area: user.area || null,
-          mustChangePassword: user.must_change_password ?? false,
-          photo_url: user.photo_url || null,
-        },
-      }),
+      body: JSON.stringify({ status: 'mfa_required', mfaToken }),
     }
   } catch (err) {
     return errorResponse(headers, err)

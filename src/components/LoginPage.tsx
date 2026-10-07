@@ -1,23 +1,32 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Eye, EyeOff, LogIn } from 'lucide-react'
-import { useAuth } from '../lib/auth'
+import { useAuth, type MfaPending } from '../lib/auth'
 import { loginWithMicrosoft } from '../lib/msalConfig'
-import { api } from '../lib/api'
+import MfaModal from './MfaModal'
 
 export default function LoginPage() {
-  const { login, loginWithToken } = useAuth()
+  const { login } = useAuth()
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading]   = useState(false)
   const [msLoading, setMsLoading] = useState(false)
+  const [mfaPending, setMfaPending] = useState<MfaPending | null>(null)
   const [error, setError]       = useState(() => {
-    // Show error from Microsoft redirect if any (e.g. e-mail not registered)
     const msErr = sessionStorage.getItem('ms_login_error')
     if (msErr) { sessionStorage.removeItem('ms_login_error'); return msErr }
     return ''
   })
+
+  useEffect(() => {
+    // SSO MFA pending (Microsoft redirect returned mfa_required)
+    const ssoMfa = sessionStorage.getItem('ms_mfa_pending')
+    if (ssoMfa) {
+      sessionStorage.removeItem('ms_mfa_pending')
+      setMfaPending({ mfaToken: ssoMfa, email: '', name: '' })
+    }
+  }, [])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -25,7 +34,10 @@ export default function LoginPage() {
     try {
       setLoading(true)
       setError('')
-      await login(email.trim(), password)
+      const result = await login(email.trim(), password)
+      if (result?.mfaToken) {
+        setMfaPending(result)
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erro ao autenticar')
     } finally {
@@ -45,6 +57,14 @@ export default function LoginPage() {
   }
 
   return (
+    <>
+    {mfaPending && (
+      <MfaModal
+        mfaToken={mfaPending.mfaToken}
+        email={mfaPending.email}
+        onCancel={() => setMfaPending(null)}
+      />
+    )}
     <div className="min-h-screen w-full flex">
 
       {/* ── Left panel ── */}
@@ -215,5 +235,6 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+    </>
   )
 }

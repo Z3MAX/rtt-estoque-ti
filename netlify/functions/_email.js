@@ -424,4 +424,44 @@ async function sendPesquisaNotificationEmail({ name, email, pesquisaNome, url })
   return sendMail({ to: email, subject: `📋 Nova pesquisa para responder: ${pesquisaNome}`, html })
 }
 
-module.exports = { sendInviteEmail, sendResetEmail, sendLocationReport, sendSignatureRequestEmail, sendPesquisaNotificationEmail }
+async function sendMfaCodeEmail({ name, email, code }) {
+  const siteUrl = process.env.SITE_URL || ''
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 20px">
+    <tr><td align="center">
+      <table width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%">
+        <tr><td style="background:linear-gradient(135deg,#0f172a 0%,#7f0008 100%);border-radius:16px 16px 0 0;padding:28px 40px;text-align:center">
+          <p style="margin:0;color:#fff;font-size:20px;font-weight:700">Rema Tip Top</p>
+          <p style="margin:4px 0 0;color:#94a3b8;font-size:12px">Gestão de Talentos e Avaliações</p>
+        </td></tr>
+        <tr><td style="background:#fff;padding:36px 40px;text-align:center">
+          <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.08em">Verificação de dois fatores</p>
+          <p style="margin:0 0 28px;color:#0f172a;font-size:18px;font-weight:700">Olá, ${esc(name)} 👋</p>
+          <p style="margin:0 0 28px;color:#475569;font-size:14px;line-height:1.6">
+            Use o código abaixo para concluir seu login. Ele é válido por <strong>10 minutos</strong> e só pode ser usado uma vez.
+          </p>
+          <div style="background:#f8fafc;border:2px dashed #e2e8f0;border-radius:16px;padding:24px 32px;margin-bottom:28px;display:inline-block;width:100%;box-sizing:border-box">
+            <p style="margin:0 0 6px;color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em">Código de verificação</p>
+            <p style="margin:0;font-size:42px;font-weight:800;letter-spacing:10px;color:#0f172a;font-family:'Courier New',monospace">${esc(code)}</p>
+          </div>
+          <p style="margin:0;color:#94a3b8;font-size:12px;line-height:1.6">
+            Se você não tentou fazer login, ignore este e-mail.<br>Sua senha continua segura.
+          </p>
+        </td></tr>
+        <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;border-radius:0 0 16px 16px;padding:18px 40px;text-align:center">
+          <p style="margin:0;color:#94a3b8;font-size:12px">© 2025 Rema Tip Top · Todos os direitos reservados</p>
+          ${siteUrl ? `<p style="margin:4px 0 0;color:#cbd5e1;font-size:11px"><a href="${esc(siteUrl)}" style="color:#cbd5e1">${esc(siteUrl)}</a></p>` : ''}
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+
+  return sendMail({ to: email, subject: `🔐 ${code} — Código de verificação Rema Tip Top`, html })
+}
+
+module.exports = { sendInviteEmail, sendResetEmail, sendLocationReport, sendSignatureRequestEmail, sendPesquisaNotificationEmail, sendMfaCodeEmail }

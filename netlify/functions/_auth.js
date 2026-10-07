@@ -16,8 +16,13 @@ function requireAuth(event) {
   }
   const token = authHeader.slice(7)
   try {
-    return jwt.verify(token, getSecret())
-  } catch {
+    const payload = jwt.verify(token, getSecret())
+    if (payload.mfaPending) {
+      throw Object.assign(new Error('Autenticação de dois fatores pendente'), { statusCode: 401 })
+    }
+    return payload
+  } catch (err) {
+    if (err.statusCode) throw err
     throw Object.assign(new Error('Sessão expirada. Faça login novamente.'), { statusCode: 401 })
   }
 }
@@ -60,6 +65,23 @@ function signToken(payload) {
   return jwt.sign(payload, getSecret(), { expiresIn: '2h' })
 }
 
+/** Assina um JWT "MFA pendente" com 10 min de validade. */
+function signMfaPendingToken(payload) {
+  return jwt.sign({ ...payload, mfaPending: true }, getSecret(), { expiresIn: '10m' })
+}
+
+/** Verifica um token MFA pendente. Lança erro se inválido ou expirado. */
+function verifyMfaPendingToken(token) {
+  try {
+    const payload = jwt.verify(token, getSecret())
+    if (!payload.mfaPending) throw Object.assign(new Error('Token inválido'), { statusCode: 401 })
+    return payload
+  } catch (err) {
+    if (err.statusCode) throw err
+    throw Object.assign(new Error('Sessão de verificação expirada. Faça login novamente.'), { statusCode: 401 })
+  }
+}
+
 /** Gera os headers CORS/Content-Type padronizados. */
 function makeHeaders(event, methods = 'GET, POST, PUT, DELETE, OPTIONS') {
   const siteUrl = process.env.SITE_URL || ''
@@ -89,4 +111,4 @@ function errorResponse(headers, err) {
   return { statusCode: status, headers, body: JSON.stringify({ error: message }) }
 }
 
-module.exports = { requireAuth, requireAdmin, requireMaster, isAdminRole, isMasterRole, signToken, makeHeaders, errorResponse }
+module.exports = { requireAuth, requireAdmin, requireMaster, isAdminRole, isMasterRole, signToken, signMfaPendingToken, verifyMfaPendingToken, makeHeaders, errorResponse }
