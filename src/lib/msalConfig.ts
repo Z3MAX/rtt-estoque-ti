@@ -1,7 +1,7 @@
 import { PublicClientApplication, Configuration, AuthenticationResult } from '@azure/msal-browser'
 
-const TENANT_ID = import.meta.env.VITE_MS_TENANT_ID || '3ba4e9dd-629e-4004-9c62-708d327b58a5'
-const CLIENT_ID = import.meta.env.VITE_MS_CLIENT_ID || '1f8f742a-3544-4370-ae68-986ef41eba45'
+const TENANT_ID = import.meta.env.VITE_MS_TENANT_ID as string
+const CLIENT_ID = import.meta.env.VITE_MS_CLIENT_ID as string
 
 const msalConfig: Configuration = {
   auth: {

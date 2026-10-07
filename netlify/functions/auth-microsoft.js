@@ -2,8 +2,8 @@ const { neon } = require('@neondatabase/serverless')
 const { createRemoteJWKSet, jwtVerify } = require('jose')
 const { signToken, makeHeaders, errorResponse } = require('./_auth')
 
-const TENANT_ID = process.env.MS_TENANT_ID || '3ba4e9dd-629e-4004-9c62-708d327b58a5'
-const CLIENT_ID = process.env.MS_CLIENT_ID || '1f8f742a-3544-4370-ae68-986ef41eba45'
+const TENANT_ID = process.env.MS_TENANT_ID
+const CLIENT_ID = process.env.MS_CLIENT_ID
 
 // Microsoft's public keys endpoint (cached at module level by jose)
 const JWKS = createRemoteJWKSet(
@@ -29,7 +29,7 @@ exports.handler = async (event) => {
   const headers = makeHeaders(event, 'POST, OPTIONS')
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers, body: '' }
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) }
-  if (!process.env.DATABASE_URL) return { statusCode: 500, headers, body: JSON.stringify({ error: 'DATABASE_URL not configured' }) }
+  if (!process.env.DATABASE_URL || !TENANT_ID || !CLIENT_ID) return { statusCode: 500, headers, body: JSON.stringify({ error: 'Configuração do servidor incompleta' }) }
 
   let idToken, accessToken
   try {
