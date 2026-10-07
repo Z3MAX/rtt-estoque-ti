@@ -1,6 +1,6 @@
 const { neon } = require('@neondatabase/serverless')
 const { createRemoteJWKSet, jwtVerify } = require('jose')
-const { signToken, signMfaPendingToken, makeHeaders, errorResponse } = require('./_auth')
+const { signToken, signMfaPendingToken, makeHeaders, errorResponse, makeSessionCookie } = require('./_auth')
 
 const TENANT_ID = process.env.MS_TENANT_ID
 const CLIENT_ID = process.env.MS_CLIENT_ID
@@ -121,7 +121,8 @@ exports.handler = async (event) => {
         WHERE user_id = ${user.id} AND device_token = ${deviceToken} AND expires_at > NOW()
       `
       if (trusted.length > 0) {
-        return { statusCode: 200, headers, body: JSON.stringify({ token: signToken(tokenPayload), user: userObj }) }
+        const token = signToken(tokenPayload)
+        return { statusCode: 200, headers: { ...headers, 'Set-Cookie': makeSessionCookie(token) }, body: JSON.stringify({ token, user: userObj }) }
       }
     }
 

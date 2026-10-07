@@ -1,6 +1,6 @@
 const { neon } = require('@neondatabase/serverless')
 const crypto = require('crypto')
-const { verifyMfaPendingToken, signToken, makeHeaders, errorResponse } = require('./_auth')
+const { verifyMfaPendingToken, signToken, makeHeaders, errorResponse, makeSessionCookie } = require('./_auth')
 const { checkRateLimit, recordAttempt, clearAttempts } = require('./_rate_limit')
 
 const MFA_MAX_ATTEMPTS = 5
@@ -56,7 +56,7 @@ exports.handler = async (event) => {
 
     // Busca dados atualizados do usuário
     const users = await sql`
-      SELECT id, name, email, role, roles, area, active, must_change_password, photo_url
+      SELECT id, name, email, role, roles, area, active, must_change_password, photo_url, token_version
       FROM users WHERE id = ${payload.userId}
     `
 
@@ -74,6 +74,7 @@ exports.handler = async (event) => {
       roles: user.roles || [user.role],
       area: user.area || null,
       mustChangePassword: user.must_change_password ?? false,
+      tokenVersion: user.token_version ?? 0,
     }
 
     const token = signToken(tokenPayload)
@@ -101,7 +102,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      headers,
+      headers: { ...headers, 'Set-Cookie': makeSessionCookie(token) },
       body: JSON.stringify({
         token,
         deviceToken,

@@ -27,7 +27,20 @@ exports.handler = async (event) => {
       return { statusCode: 200, headers, body: JSON.stringify({ valid: true, nome: user.name }) }
     }
 
-    // GET ?nome=xxx — certificado busca assinatura pelo nome do instrutor (requer autenticação)
+    // GET ?id=xxx — busca assinatura por ID do usuário (preferido: único, sem ambiguidade)
+    if (event.httpMethod === 'GET' && params.id) {
+      requireAuth(event)
+      const userId = parseInt(params.id, 10)
+      if (!Number.isInteger(userId) || userId <= 0) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'ID inválido' }) }
+      }
+      const [user] = await sql`
+        SELECT assinatura FROM users WHERE id = ${userId} AND active = true
+      `
+      return { statusCode: 200, headers, body: JSON.stringify({ assinatura: user?.assinatura ?? null }) }
+    }
+
+    // GET ?nome=xxx — legado: busca por nome (mantido para compatibilidade com Treinamentos)
     if (event.httpMethod === 'GET' && params.nome) {
       requireAuth(event)
       const [user] = await sql`

@@ -59,10 +59,14 @@ exports.handler = async (event) => {
 
     const hash = await hashPassword(newPassword)
 
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INT NOT NULL DEFAULT 0`
+
+    // Incrementa token_version para invalidar todas as sessões JWT abertas deste usuário
     await sql`
       UPDATE users
       SET password_hash = ${hash},
           must_change_password = false,
+          token_version = token_version + 1,
           updated_at = NOW()
       WHERE id = ${resetToken.user_id}
     `

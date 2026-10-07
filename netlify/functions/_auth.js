@@ -7,14 +7,34 @@ function getSecret() {
   return process.env.JWT_SECRET
 }
 
-/** Verifica JWT no header Authorization: Bearer <token>. Retorna o payload. */
+/** Extrai o JWT do cookie httpOnly osiris_token (fallback para session recovery). */
+function getTokenFromCookie(event) {
+  const cookieHeader = (event.headers && (event.headers.cookie || event.headers.Cookie)) || ''
+  const match = cookieHeader.match(/(?:^|;\s*)osiris_token=([^;]+)/)
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+/** Gera o header Set-Cookie para o cookie httpOnly de sessão (2h, mesmo tempo que o JWT). */
+function makeSessionCookie(token) {
+  return `osiris_token=${encodeURIComponent(token)}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=7200`
+}
+
+/** Gera o header Set-Cookie para apagar o cookie de sessão. */
+function clearSessionCookie() {
+  return `osiris_token=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`
+}
+
+/** Verifica JWT no header Authorization: Bearer <token> OU no cookie httpOnly. Retorna o payload. */
 function requireAuth(event) {
   const headers = event.headers || {}
   const authHeader = headers.authorization || headers.Authorization || ''
-  if (!authHeader.startsWith('Bearer ')) {
-    throw Object.assign(new Error('Não autenticado'), { statusCode: 401 })
+  let token
+  if (authHeader.startsWith('Bearer ')) {
+    token = authHeader.slice(7)
+  } else {
+    token = getTokenFromCookie(event)
+    if (!token) throw Object.assign(new Error('Não autenticado'), { statusCode: 401 })
   }
-  const token = authHeader.slice(7)
   try {
     const payload = jwt.verify(token, getSecret())
     if (payload.mfaPending) {
@@ -25,6 +45,17 @@ function requireAuth(event) {
     if (err.statusCode) throw err
     throw Object.assign(new Error('Sessão expirada. Faça login novamente.'), { statusCode: 401 })
   }
+}
+
+/** Como requireAuth, mas também valida token_version contra o banco (previne tokens de sessões antigas). */
+async function requireAuthVersioned(sql, event) {
+  const payload = requireAuth(event)
+  if (typeof payload.tokenVersion !== 'number') return payload
+  const rows = await sql`SELECT token_version FROM users WHERE id = ${payload.userId} LIMIT 1`
+  if (rows.length === 0 || rows[0].token_version !== payload.tokenVersion) {
+    throw Object.assign(new Error('Sessão inválida. Faça login novamente.'), { statusCode: 401 })
+  }
+  return payload
 }
 
 /** Retorna true para roles com acesso administrativo completo. */
@@ -114,4 +145,4 @@ function errorResponse(headers, err) {
   return { statusCode: status, headers, body: JSON.stringify({ error: message }) }
 }
 
-module.exports = { requireAuth, requireAdmin, requireMaster, isAdminRole, isMasterRole, signToken, signMfaPendingToken, verifyMfaPendingToken, makeHeaders, errorResponse }
+module.exports = { requireAuth, requireAuthVersioned, requireAdmin, requireMaster, isAdminRole, isMasterRole, signToken, signMfaPendingToken, verifyMfaPendingToken, makeHeaders, errorResponse, makeSessionCookie, clearSessionCookie }

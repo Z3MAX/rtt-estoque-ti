@@ -504,12 +504,12 @@ function AssinaturaModal({
   const [carregando, setCarregando] = useState(true)
 
   useEffect(() => {
-    fetch(`/.netlify/functions/assinatura?nome=${encodeURIComponent(user.name)}`)
+    fetch(`/.netlify/functions/assinatura?id=${user.id}`)
       .then(r => r.json())
       .then(d => setAssinatura(d.assinatura ?? null))
       .catch(() => setAssinatura(null))
       .finally(() => setCarregando(false))
-  }, [user.name])
+  }, [user.id])
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">

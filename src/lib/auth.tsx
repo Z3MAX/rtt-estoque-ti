@@ -65,13 +65,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const storedUser  = localStorage.getItem('osiris_user')
-    const storedToken = localStorage.getItem('osiris_token')
-    if (storedUser) {
-      try { setUser(JSON.parse(storedUser)) } catch {}
-    }
-    if (storedToken) setToken(storedToken)
-    setLoading(false)
+    // Tenta restaurar sessão via cookie httpOnly (seguro) — token nunca fica no localStorage
+    fetch('/.netlify/functions/auth-me', { credentials: 'same-origin' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.token && data?.user) {
+          setUser(data.user)
+          setToken(data.token)
+          localStorage.setItem('osiris_user', JSON.stringify(data.user))
+        } else {
+          // Cookie inválido ou expirado — limpeza defensiva
+          setUser(null)
+          setToken(null)
+          localStorage.removeItem('osiris_user')
+          localStorage.removeItem('osiris_token')
+        }
+      })
+      .catch(() => {
+        // Offline ou erro de rede: mantém o usuário em estado não autenticado
+        setUser(null)
+        setToken(null)
+      })
+      .finally(() => setLoading(false))
   }, [])
 
   async function login(email: string, password: string) {
@@ -105,7 +120,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user)
     setToken(data.token)
     localStorage.setItem('osiris_user', JSON.stringify(data.user))
-    localStorage.setItem('osiris_token', data.token)
+    // Token NÃO é gravado em localStorage — protegido no cookie httpOnly definido pelo servidor
+    localStorage.removeItem('osiris_token')
     localStorage.removeItem('rtt_portal')
   }
 
@@ -113,7 +129,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(u)
     setToken(t)
     localStorage.setItem('osiris_user', JSON.stringify(u))
-    localStorage.setItem('osiris_token', t)
+    // Token NÃO é gravado em localStorage — protegido no cookie httpOnly definido pelo servidor
+    localStorage.removeItem('osiris_token')
     localStorage.removeItem('rtt_portal')
     if (deviceToken) localStorage.setItem('osiris_device', deviceToken)
   }
@@ -124,6 +141,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('osiris_user')
     localStorage.removeItem('osiris_token')
     localStorage.removeItem('rtt_portal')
+    // Apaga o cookie httpOnly server-side (best effort — não bloqueia o logout local)
+    fetch('/.netlify/functions/auth-logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {})
     // Não remove osiris_device — o "lembrar dispositivo" deve persistir entre logouts
   }
 

@@ -1,7 +1,7 @@
 const { neon } = require('@neondatabase/serverless')
 const crypto = require('crypto')
 const { hashPassword, comparePassword } = require('./_hash')
-const { signToken, signMfaPendingToken, makeHeaders, errorResponse } = require('./_auth')
+const { signToken, signMfaPendingToken, makeHeaders, errorResponse, makeSessionCookie } = require('./_auth')
 const { checkRateLimit, recordAttempt, clearAttempts, MAX_PER_EMAIL, MAX_PER_IP } = require('./_rate_limit')
 
 exports.handler = async (event) => {
@@ -39,8 +39,10 @@ exports.handler = async (event) => {
     }
 
     // Busca por e-mail (sem conferir senha no SQL para evitar timing attacks)
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INT NOT NULL DEFAULT 0`
+
     const rows = await sql`
-      SELECT id, name, email, role, roles, area, active, must_change_password, password_hash, photo_url
+      SELECT id, name, email, role, roles, area, active, must_change_password, password_hash, photo_url, token_version
       FROM users
       WHERE email = ${email.toLowerCase()}
     `
@@ -88,6 +90,7 @@ exports.handler = async (event) => {
       roles: user.roles || [user.role],
       area: user.area || null,
       mustChangePassword: user.must_change_password ?? false,
+      tokenVersion: user.token_version ?? 0,
     }
 
     await clearAttempts(sql, email)
@@ -109,11 +112,12 @@ exports.handler = async (event) => {
         WHERE user_id = ${user.id} AND device_token = ${deviceToken} AND expires_at > NOW()
       `
       if (trusted.length > 0) {
+        const token = signToken(tokenPayload)
         return {
           statusCode: 200,
-          headers,
+          headers: { ...headers, 'Set-Cookie': makeSessionCookie(token) },
           body: JSON.stringify({
-            token: signToken(tokenPayload),
+            token,
             user: {
               id: user.id, name: user.name, email: user.email, role: user.role,
               roles: user.roles || [user.role], area: user.area || null,
