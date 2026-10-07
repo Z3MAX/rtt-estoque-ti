@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { X, Minimize2, ChevronDown } from 'lucide-react'
 
-const COPILOT_URL =
-  'https://copilotstudio.microsoft.com/environments/Default-3ba4e9dd-629e-4004-9c62-708d327b58a5/bots/cr037_agent1/webchat?__version__=2'
+const COPILOT_URL = import.meta.env.VITE_COPILOT_URL as string
 
 const AVATAR = '/avatar-assistente.png'
 
