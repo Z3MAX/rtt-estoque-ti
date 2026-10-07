@@ -65,7 +65,7 @@ const PORTAIS = [
   { nome: 'Zeev',              desc: 'Chamados e fluxos das áreas',     logo: '/portais/zeev.png',      from: 'from-purple-600', to: 'to-purple-800', url: 'https://rttshop.zeev.it/' },
   { nome: 'Protheus',          desc: 'Sistema ERP',                     logo: '/portais/protheus.svg',  from: 'from-blue-700',   to: 'to-blue-900',   url: 'http://balancer-rema.jelastic.saveincloud.net:13193/webapp/#' },
   { nome: 'Flash',             desc: 'Benefícios e despesas',           logo: '/portais/flash.svg',     from: 'from-pink-500', to: 'to-pink-700',   url: 'https://hros.flashapp.com.br/' },
-  { nome: 'Drive',             desc: 'Documentos e arquivos',           logo: '/portais/drive.png',     from: 'from-amber-500',  to: 'to-orange-600', url: 'https://drive.google.com' },
+  { nome: 'Qualyteam',         desc: 'Gestão de qualidade',             logo: '/portais/qualyteam.svg', from: 'from-green-900',  to: 'to-green-950',  url: 'https://rematiptop.qualyteam.com.br/' },
   { nome: 'WhatsApp',          desc: 'Atendimento ao cliente',          logo: '/portais/whatsapp.png',  from: 'from-green-500',  to: 'to-green-700',  url: 'https://web.whatsapp.com' },
   { nome: 'Meet',              desc: 'Reuniões e videoconferências',    logo: '/portais/meet.png',      from: 'from-sky-500',    to: 'to-blue-600',   url: 'https://meet.google.com' },
 ]

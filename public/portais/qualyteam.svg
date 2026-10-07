@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
+  <rect width="80" height="80" rx="12" fill="#1e2d14"/>
+  <!-- Top-left bracket -->
+  <path d="M14 14 L14 34 L22 34 L22 22 L34 22 L34 14 Z" fill="white"/>
+  <!-- Top-right bracket -->
+  <path d="M66 14 L46 14 L46 22 L58 22 L58 34 L66 34 Z" fill="white"/>
+  <!-- Bottom-left bracket -->
+  <path d="M14 46 L14 66 L34 66 L34 58 L22 58 L22 46 Z" fill="white"/>
+  <!-- Bottom-right bracket (lime accent) -->
+  <path d="M58 46 L58 58 L46 58 L46 66 L66 66 L66 46 Z" fill="#b3f000"/>
+</svg>
