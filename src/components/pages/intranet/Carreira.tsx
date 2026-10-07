@@ -29,9 +29,23 @@ function ColaboradorPicker({ value, onChange, placeholder }: {
     } catch {}
   }
 
-  const suggestions = query.trim().length >= 1
-    ? colabs.filter(n => n.toLowerCase().includes(query.toLowerCase())).slice(0, 8)
-    : []
+  function norm(s: string) {
+    return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  }
+
+  const q = norm(query.trim())
+  const words = q.split(/\s+/).filter(Boolean)
+  const suggestions = q.length < 1 ? [] : colabs
+    .map(nome => {
+      const n = norm(nome)
+      if (!words.every(w => n.includes(w))) return null
+      const score = n === q ? 0 : n.startsWith(words[0]) ? 1 : n.split(' ').some(p => p.startsWith(words[0])) ? 2 : 3
+      return { nome, score }
+    })
+    .filter(Boolean)
+    .sort((a, b) => a!.score - b!.score || a!.nome.localeCompare(b!.nome, 'pt-BR'))
+    .slice(0, 10)
+    .map(x => x!.nome)
 
   useEffect(() => {
     function close(e: MouseEvent) {
