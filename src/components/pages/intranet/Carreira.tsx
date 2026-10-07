@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   TrendingUp, MessageSquare, Users2, Plus, Pencil, Trash2,
   ChevronDown, ChevronUp, Calendar, CheckCircle2, Clock, AlertCircle,
@@ -6,6 +6,68 @@ import {
 } from 'lucide-react'
 import { api } from '../../../lib/api'
 import { useAuth } from '../../../lib/auth'
+
+// ─── COLABORADOR AUTOCOMPLETE ──────────────────────────────────────────────
+
+function ColaboradorPicker({ value, onChange, placeholder }: {
+  value: string; onChange: (nome: string) => void; placeholder?: string
+}) {
+  const [colabs, setColabs] = useState<string[]>([])
+  const [loaded, setLoaded] = useState(false)
+  const [open, setOpen]   = useState(false)
+  const [query, setQuery] = useState(value)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { setQuery(value) }, [value])
+
+  async function load() {
+    if (loaded) return
+    try {
+      const list = await api.colaboradores.list({ ativo: true })
+      setColabs(list.map((c: any) => c.nome as string).sort())
+      setLoaded(true)
+    } catch {}
+  }
+
+  const suggestions = query.trim().length >= 1
+    ? colabs.filter(n => n.toLowerCase().includes(query.toLowerCase())).slice(0, 8)
+    : []
+
+  useEffect(() => {
+    function close(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [])
+
+  return (
+    <div className="relative" ref={ref}>
+      <input
+        value={query}
+        onFocus={() => { load(); setOpen(true) }}
+        onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true) }}
+        placeholder={placeholder ?? 'Nome do colaborador'}
+        className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-400"
+      />
+      {open && suggestions.length > 0 && (
+        <div className="absolute top-full mt-1 left-0 right-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-lg z-50 overflow-hidden max-h-52 overflow-y-auto">
+          {suggestions.map(nome => (
+            <button
+              key={nome}
+              type="button"
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => { onChange(nome); setQuery(nome); setOpen(false) }}
+              className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
+            >
+              {nome}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 type Tab = 'pdi' | 'feedbacks' | 'oneonone'
 
@@ -77,9 +139,7 @@ function PDIForm({ initial, onSave, onCancel, saving }: {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Colaborador *</label>
-          <input value={form.colaborador_nome} onChange={e => setField('colaborador_nome', e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-400"
-            placeholder="Nome do colaborador" />
+          <ColaboradorPicker value={form.colaborador_nome} onChange={v => setField('colaborador_nome', v)} />
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Título</label>
@@ -329,9 +389,7 @@ function FeedbackForm({ onSave, onCancel, saving }: { onSave: (d: any) => void; 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Para *</label>
-          <input value={form.para_nome} onChange={e => f('para_nome', e.target.value)}
-            placeholder="Nome do colaborador"
-            className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-400" />
+          <ColaboradorPicker value={form.para_nome} onChange={v => f('para_nome', v)} placeholder="Buscar colaborador..." />
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Tipo</label>
@@ -483,9 +541,7 @@ function OneononeForm({ initial, onSave, onCancel, saving }: {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Colaborador *</label>
-          <input value={form.colaborador_nome} onChange={e => f('colaborador_nome', e.target.value)}
-            placeholder="Nome do colaborador"
-            className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-400" />
+          <ColaboradorPicker value={form.colaborador_nome} onChange={v => f('colaborador_nome', v)} />
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Data da Reunião *</label>
