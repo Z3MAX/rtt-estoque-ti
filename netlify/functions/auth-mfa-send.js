@@ -57,7 +57,11 @@ exports.handler = async (event) => {
       VALUES (${payload.userId}, ${code}, ${expiresAt})
     `
 
-    await sendMfaCodeEmail({ name: payload.name, email: payload.email, code })
+    const result = await sendMfaCodeEmail({ name: payload.name, email: payload.email, code })
+    if (!result?.sent) {
+      console.error('[mfa-send] e-mail não enviado:', result?.error || result?.reason || 'desconhecido')
+      return { statusCode: 502, headers, body: JSON.stringify({ error: 'Não foi possível enviar o código por e-mail. Tente novamente em instantes ou contate o suporte.' }) }
+    }
 
     return { statusCode: 200, headers, body: JSON.stringify({ sent: true }) }
   } catch (err) {

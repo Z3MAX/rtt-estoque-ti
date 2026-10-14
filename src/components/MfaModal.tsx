@@ -28,12 +28,18 @@ export default function MfaModal({ mfaToken, email, onCancel }: Props) {
     setSending(true)
     setError('')
     try {
-      await fetch('/.netlify/functions/auth-mfa-send', {
+      const res = await fetch('/.netlify/functions/auth-mfa-send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mfaToken }),
       })
-    } catch {}
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error || 'Não foi possível enviar o código. Tente novamente.')
+      }
+    } catch {
+      setError('Falha de conexão ao enviar o código. Tente novamente.')
+    }
     setSending(false)
     inputRef.current?.focus()
     startCooldown(60)
