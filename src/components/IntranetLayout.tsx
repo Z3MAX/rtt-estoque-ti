@@ -4,7 +4,7 @@ import {
   Home, Megaphone, GraduationCap, Users, ClipboardList,
   LogOut, ChevronDown, Menu, X, Bell, SmilePlus, BarChart3, TrendingUp,
 } from 'lucide-react'
-import { useAuth } from '../lib/auth'
+import { useAuth, isColaborador } from '../lib/auth'
 import ChatBot from './ChatBot'
 import Avatar from './ui/Avatar'
 import PhotoUploadModal from './ui/PhotoUploadModal'
@@ -28,6 +28,9 @@ const NAV = [
 
 const ADMIN_NAV_ROLES = ['Administrador de RH', 'Administrador Master', 'Administrador de RH / Gestor']
 
+// Perfil Colaborador: apenas estas áreas da Intranet (mantenha em sincronia com App.tsx e _auth.js)
+const COLABORADOR_NAV = ['/intranet', '/intranet/treinamentos', '/intranet/comunicados', '/intranet/pesquisas']
+
 export default function IntranetLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
@@ -46,7 +49,9 @@ export default function IntranetLayout() {
     return location.pathname.startsWith(to)
   }
 
-  const visibleNav = NAV.filter(n => !n.adminOnly || ADMIN_NAV_ROLES.includes(user?.role ?? ''))
+  const visibleNav = isColaborador(user?.role)
+    ? NAV.filter(n => COLABORADOR_NAV.includes(n.to))
+    : NAV.filter(n => !n.adminOnly || ADMIN_NAV_ROLES.includes(user?.role ?? ''))
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col">

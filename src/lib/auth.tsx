@@ -5,7 +5,7 @@ const MOCK = import.meta.env.VITE_MOCK === 'true'
 export interface User {
   id?: number
   name: string
-  email: string
+  email?: string | null   // ausente em usuários que entram só com CPF
   role: string
   roles?: string[]
   area?: string | null
@@ -28,6 +28,11 @@ export function isMaster(role?: string) {
 
 export function isGestor(role?: string) {
   return role === 'Gestor' || role === 'Administrador de RH / Gestor'
+}
+
+/** Perfil restrito à Intranet (sem acesso ao portal de Avaliação de Talentos). */
+export function isColaborador(role?: string) {
+  return role === 'Colaborador'
 }
 
 export function isInstrutor(role?: string, roles?: string[]) {

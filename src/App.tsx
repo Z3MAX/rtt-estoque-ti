@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider, useAuth, isAdmin, isMaster } from './lib/auth'
+import { AuthProvider, useAuth, isAdmin, isMaster, isColaborador } from './lib/auth'
 import { ThemeProvider, ForceLightMode } from './lib/theme'
 import LoginPage from './components/LoginPage'
 import ForgotPasswordPage from './components/ForgotPasswordPage'
@@ -69,6 +69,24 @@ function ProtectedRoutes() {
 
   if (!user) return <ForceLightMode><LoginPage /></ForceLightMode>
   if (user.mustChangePassword) return <ForceLightMode><ChangePasswordPage /></ForceLightMode>
+
+  // Colaborador: somente Intranet (treinamentos, comunicados, pesquisas). O bloqueio real
+  // está no backend (_auth.js); aqui só evitamos que ele navegue para telas que dariam 403.
+  if (isColaborador(user.role)) {
+    return (
+      <Routes>
+        <Route element={<IntranetLayout />}>
+          <Route path="/intranet" element={<MinhaVisao />} />
+          <Route path="/intranet/treinamentos" element={<TreinamentosPage />} />
+          <Route path="/intranet/treinamentos/:id" element={<CursoDetalhe />} />
+          <Route path="/intranet/comunicados" element={<ComunicadosPage />} />
+          <Route path="/intranet/pesquisas" element={<PesquisasIntranetPage />} />
+          <Route path="/intranet/pesquisas/:id/responder" element={<PesquisaResponder />} />
+          <Route path="*" element={<Navigate to="/intranet" replace />} />
+        </Route>
+      </Routes>
+    )
+  }
 
   return (
     <Routes>

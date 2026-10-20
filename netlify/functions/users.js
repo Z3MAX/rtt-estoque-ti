@@ -4,8 +4,17 @@ const { hashPassword } = require('./_hash')
 const { requireAuth, requireAdmin, isAdminRole, isMasterRole, makeHeaders, errorResponse } = require('./_auth')
 const { sendInviteEmail } = require('./_email')
 const { logAudit, computeDiff, getUserName } = require('./_audit')
+const { normalizeCpf, isValidCpf } = require('./_cpf')
 
-const VALID_ROLES = ['Administrador de RH', 'Administrador de TI', 'Gestor', 'Administrador Master', 'Administrador de RH / Gestor', 'Beta Teste', 'Instrutor']
+const VALID_ROLES = ['Administrador de RH', 'Administrador de TI', 'Gestor', 'Administrador Master', 'Administrador de RH / Gestor', 'Beta Teste', 'Instrutor', 'Colaborador']
+
+/** Garante colunas/índices usados pelo login por CPF (idempotente). */
+async function ensureUserColumns(sql) {
+  await sql`ALTER TABLE users ALTER COLUMN email DROP NOT NULL`
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS cpf VARCHAR(11)`
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS colaborador_id INTEGER`
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS users_cpf_key ON users (cpf) WHERE cpf IS NOT NULL`
+}
 
 exports.handler = async (event) => {
   const headers = makeHeaders(event)
@@ -70,6 +79,7 @@ exports.handler = async (event) => {
       }
 
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS roles TEXT[]`
+      await ensureUserColumns(sql)
 
       if (id) {
         const rows = await sql`
@@ -82,7 +92,7 @@ exports.handler = async (event) => {
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS avaliacoes_confidenciais BOOLEAN DEFAULT false`
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS ver_confidencial BOOLEAN DEFAULT false`
       const rows = await sql`
-        SELECT id, name, email, role, roles, area, active, must_change_password, colaborador_id,
+        SELECT id, name, email, cpf, role, roles, area, active, must_change_password, colaborador_id,
                avaliacoes_confidenciais, ver_confidencial, created_at, updated_at,
                (assinatura IS NOT NULL) AS has_assinatura
         FROM users ORDER BY name ASC
@@ -93,14 +103,25 @@ exports.handler = async (event) => {
     // POST — somente administrador
     if (event.httpMethod === 'POST') {
       const adminPayload = requireAdmin(event)
-      const { name, email, role, roles, area } = JSON.parse(event.body || '{}')
+      const { name, email: rawEmail, cpf: rawCpf, password, role, roles, area, colaborador_id } = JSON.parse(event.body || '{}')
+      const email = rawEmail && String(rawEmail).trim() ? String(rawEmail).trim() : null
+      const cpf = rawCpf && normalizeCpf(rawCpf) ? normalizeCpf(rawCpf) : null
 
       if (!name || !name.trim())
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Nome é obrigatório' }) }
-      if (!email || !email.trim())
-        return { statusCode: 400, headers, body: JSON.stringify({ error: 'E-mail é obrigatório' }) }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      if (!email && !cpf)
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Informe o e-mail ou o CPF do usuário' }) }
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'E-mail inválido' }) }
+      if (cpf && !isValidCpf(cpf))
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'CPF inválido' }) }
+      // Sem e-mail não há convite: o RH define a senha temporária (troca obrigatória no 1º acesso)
+      if (!email) {
+        if (!password || password.length < 8)
+          return { statusCode: 400, headers, body: JSON.stringify({ error: 'Defina uma senha temporária de no mínimo 8 caracteres' }) }
+        if (password.length > 200)
+          return { statusCode: 400, headers, body: JSON.stringify({ error: 'Senha muito longa' }) }
+      }
       if (name.length > 200)
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Nome muito longo (máx 200 caracteres)' }) }
       if (role && !VALID_ROLES.includes(role))
@@ -110,27 +131,39 @@ exports.handler = async (event) => {
       if ((role === 'Administrador Master' || (roles && roles.includes('Administrador Master'))) && !isMasterRole(adminPayload.role))
         return { statusCode: 403, headers, body: JSON.stringify({ error: 'Apenas um Administrador Master pode conceder este perfil' }) }
 
-      const existing = await sql`SELECT id FROM users WHERE email = ${email.toLowerCase()}`
-      if (existing.length > 0)
-        return { statusCode: 409, headers, body: JSON.stringify({ error: 'E-mail já cadastrado' }) }
+      await ensureUserColumns(sql)
 
-      // Senha temporária aleatória — usuário nunca verá, receberá link de convite
-      const passwordHash = await hashPassword(crypto.randomBytes(32).toString('hex'))
+      if (email) {
+        const existing = await sql`SELECT id FROM users WHERE email = ${email.toLowerCase()}`
+        if (existing.length > 0)
+          return { statusCode: 409, headers, body: JSON.stringify({ error: 'E-mail já cadastrado' }) }
+      }
+      if (cpf) {
+        const existingCpf = await sql`SELECT id FROM users WHERE cpf = ${cpf}`
+        if (existingCpf.length > 0)
+          return { statusCode: 409, headers, body: JSON.stringify({ error: 'CPF já cadastrado' }) }
+      }
+
+      // Com e-mail: senha aleatória que ninguém vê — o usuário define a própria pelo link de convite.
+      // Só com CPF: senha temporária informada pelo RH.
+      const passwordHash = await hashPassword(email ? crypto.randomBytes(32).toString('hex') : password)
 
       const rolesArr = roles || [role || 'Gestor']
       const rows = await sql`
-        INSERT INTO users (name, email, password_hash, role, roles, area, must_change_password)
-        VALUES (${name.trim()}, ${email.toLowerCase()}, ${passwordHash}, ${role || 'Gestor'}, ${rolesArr}, ${area || null}, true)
-        RETURNING id, name, email, role, roles, area, active, must_change_password, created_at, updated_at
+        INSERT INTO users (name, email, cpf, password_hash, role, roles, area, colaborador_id, must_change_password)
+        VALUES (${name.trim()}, ${email ? email.toLowerCase() : null}, ${cpf}, ${passwordHash}, ${role || 'Gestor'}, ${rolesArr}, ${area || null}, ${colaborador_id || null}, true)
+        RETURNING id, name, email, cpf, role, roles, area, active, must_change_password, colaborador_id, created_at, updated_at
       `
 
-      // Envia link de convite por e-mail (sem senha em texto)
+      // Envia link de convite por e-mail (sem senha em texto). Usuário só com CPF não recebe convite.
       let emailSent = false
       let emailError = null
 
       try {
         const siteUrl = process.env.SITE_URL || process.env.URL
-        if (!siteUrl) {
+        if (!email) {
+          emailSent = true // nada a enviar: login por CPF + senha temporária
+        } else if (!siteUrl) {
           emailError = 'URL do site não configurada (SITE_URL)'
           console.warn('[users] convite não enviado: SITE_URL/URL ausente')
         } else if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
@@ -179,14 +212,17 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'PUT' && id) {
       const adminPayload = requireAdmin(event)
 
-      try {
-        await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS colaborador_id INTEGER`
-      } catch (e) { /* coluna já existe */ }
+      await ensureUserColumns(sql)
 
-      const { name, email, password, role, roles, area, active, colaborador_id, avaliacoes_confidenciais, ver_confidencial } = JSON.parse(event.body || '{}')
+      const { name, email: rawEmail, cpf: rawCpf, password, role, roles, area, active, colaborador_id, avaliacoes_confidenciais, ver_confidencial } = JSON.parse(event.body || '{}')
+      // E-mail/CPF vazios = "sem alteração" (não é possível limpar o identificador por aqui)
+      const email = rawEmail && String(rawEmail).trim() ? String(rawEmail).trim() : undefined
+      const cpf = rawCpf && normalizeCpf(rawCpf) ? normalizeCpf(rawCpf) : undefined
 
       if (email !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'E-mail inválido' }) }
+      if (cpf !== undefined && !isValidCpf(cpf))
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'CPF inválido' }) }
       if (role !== undefined && !VALID_ROLES.includes(role))
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Papel inválido' }) }
       if (roles !== undefined) {
@@ -204,12 +240,22 @@ exports.handler = async (event) => {
           return { statusCode: 409, headers, body: JSON.stringify({ error: 'E-mail já utilizado por outro usuário' }) }
       }
 
+      if (cpf !== undefined) {
+        const dupCpf = await sql`SELECT id FROM users WHERE cpf = ${cpf} AND id != ${id}`
+        if (dupCpf.length > 0)
+          return { statusCode: 409, headers, body: JSON.stringify({ error: 'CPF já utilizado por outro usuário' }) }
+      }
+
       const existingBefore = await sql`SELECT id, name, email, role, active FROM users WHERE id = ${id}`
       if (existingBefore.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Usuário não encontrado' }) }
+
+      // Usuário sem e-mail (login só por CPF): senha redefinida pelo RH é temporária e deve ser trocada no próximo acesso
+      const forceChange = !!password && !existingBefore[0].email && email === undefined
 
       const updates = {}
       if (name !== undefined)            updates.name = name.trim()
       if (email !== undefined)           updates.email = email.toLowerCase()
+      if (cpf !== undefined)             updates.cpf = cpf
       if (role !== undefined)            updates.role = role
       if (roles !== undefined)           updates.roles = roles
       if (area !== undefined)            updates.area = area || null
@@ -225,7 +271,9 @@ exports.handler = async (event) => {
         UPDATE users SET
           name                      = COALESCE(${updates.name ?? null}, name),
           email                     = COALESCE(${updates.email ?? null}, email),
-          role                      = COALESCE(${updates.role ?? null}, role),
+          cpf                       = COALESCE(${updates.cpf ?? null}, cpf),
+          must_change_password      = CASE WHEN ${forceChange} THEN true ELSE must_change_password END,
+          role                    = COALESCE(${updates.role ?? null}, role),
           roles                     = CASE WHEN ${roles !== undefined} THEN ${rolesVal} ELSE roles END,
           area                      = CASE WHEN ${area !== undefined} THEN ${updates.area ?? null} ELSE area END,
           active                    = COALESCE(${updates.active ?? null}, active),
@@ -235,7 +283,7 @@ exports.handler = async (event) => {
           ver_confidencial          = CASE WHEN ${ver_confidencial !== undefined} THEN ${updates.ver_confidencial ?? false} ELSE ver_confidencial END,
           updated_at                = NOW()
         WHERE id = ${id}
-        RETURNING id, name, email, role, roles, area, active, colaborador_id, avaliacoes_confidenciais, ver_confidencial, created_at, updated_at
+        RETURNING id, name, email, cpf, role, roles, area, active, colaborador_id, avaliacoes_confidenciais, ver_confidencial, created_at, updated_at
       `
       if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Usuário não encontrado' }) }
 

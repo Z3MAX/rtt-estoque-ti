@@ -35,6 +35,8 @@ exports.handler = async (event) => {
     const user = users[0]
     if (!user.active)
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'Usuário está desativado' }) }
+    if (!user.email)
+      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Este usuário não tem e-mail (login por CPF). Defina uma nova senha temporária em Editar.' }) }
 
     // Garante que a tabela de tokens existe
     await sql`

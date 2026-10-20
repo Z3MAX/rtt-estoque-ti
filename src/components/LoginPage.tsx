@@ -131,14 +131,17 @@ export default function LoginPage() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="label">E-mail</label>
+                <label className="label">E-mail ou CPF</label>
                 <input
                   className="input"
-                  type="email"
-                  placeholder="seu@email.com"
+                  type="text"
+                  inputMode="email"
+                  placeholder="seu@email.com ou 000.000.000-00"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   disabled={loading}
                 />
               </div>

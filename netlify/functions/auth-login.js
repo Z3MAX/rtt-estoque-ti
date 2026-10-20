@@ -3,6 +3,7 @@ const crypto = require('crypto')
 const { hashPassword, comparePassword } = require('./_hash')
 const { signToken, signMfaPendingToken, makeHeaders, errorResponse, makeSessionCookie } = require('./_auth')
 const { checkRateLimit, recordAttempt, clearAttempts, MAX_PER_EMAIL, MAX_PER_IP } = require('./_rate_limit')
+const { normalizeCpf, isValidCpf } = require('./_cpf')
 
 exports.handler = async (event) => {
   const headers = makeHeaders(event, 'POST, OPTIONS')
@@ -14,23 +15,37 @@ exports.handler = async (event) => {
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'DATABASE_URL not configured' }) }
   }
 
-  let email, password, deviceToken
+  let identifier, password, deviceToken
   try {
     const body = JSON.parse(event.body || '{}')
-    email = body.email
+    // O campo continua se chamando "email" no body por compatibilidade, mas aceita também um CPF
+    identifier = body.identifier ?? body.email
     password = body.password
     deviceToken = body.deviceToken || null
   } catch {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Body inválido' }) }
   }
 
-  if (!email || !password) {
-    return { statusCode: 400, headers, body: JSON.stringify({ error: 'E-mail e senha obrigatórios' }) }
+  if (!identifier || typeof identifier !== 'string' || !password) {
+    return { statusCode: 400, headers, body: JSON.stringify({ error: 'E-mail ou CPF e senha obrigatórios' }) }
   }
+
+  // Sem "@" => login por CPF (aceita com ou sem pontuação)
+  const byCpf = !identifier.includes('@')
+  const cpf = byCpf ? normalizeCpf(identifier) : null
+  const emailLower = byCpf ? null : identifier.trim().toLowerCase()
+  // Chave usada no rate limit e na limpeza de tentativas
+  const email = byCpf ? `cpf:${cpf}` : emailLower
 
   const sql = neon(process.env.DATABASE_URL)
 
   try {
+    // CPF malformado nunca existe no banco — responde igual a credencial errada (sem consultar)
+    if (byCpf && !isValidCpf(cpf)) {
+      await new Promise((r) => setTimeout(r, 400))
+      return { statusCode: 401, headers, body: JSON.stringify({ error: 'E-mail/CPF ou senha incorretos' }) }
+    }
+
     // Rate limiting: bloqueia após muitas tentativas
     const rl = await checkRateLimit(sql, event, email)
     if (rl.emailCount >= MAX_PER_EMAIL || rl.ipCount >= MAX_PER_IP) {
@@ -40,12 +55,19 @@ exports.handler = async (event) => {
 
     // Busca por e-mail (sem conferir senha no SQL para evitar timing attacks)
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INT NOT NULL DEFAULT 0`
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS cpf VARCHAR(11)`
 
-    const rows = await sql`
-      SELECT id, name, email, role, roles, area, active, must_change_password, password_hash, photo_url, token_version
-      FROM users
-      WHERE email = ${email.toLowerCase()}
-    `
+    const rows = byCpf
+      ? await sql`
+          SELECT id, name, email, role, roles, area, active, must_change_password, password_hash, photo_url, token_version
+          FROM users
+          WHERE cpf = ${cpf}
+        `
+      : await sql`
+          SELECT id, name, email, role, roles, area, active, must_change_password, password_hash, photo_url, token_version
+          FROM users
+          WHERE email = ${emailLower}
+        `
 
     // Delay fixo para prevenir enumeração de usuários via timing
     await new Promise((r) => setTimeout(r, 400))
@@ -94,6 +116,25 @@ exports.handler = async (event) => {
     }
 
     await clearAttempts(sql, email)
+
+    // Usuário sem e-mail (login por CPF): o código MFA é enviado por e-mail, então não há como
+    // exigi-lo. Entra direto; a troca da senha temporária é forçada por mustChangePassword.
+    // TODO: exigir MFA via SMS/WhatsApp quando esse canal existir.
+    if (!user.email) {
+      const token = signToken(tokenPayload)
+      return {
+        statusCode: 200,
+        headers: { ...headers, 'Set-Cookie': makeSessionCookie(token) },
+        body: JSON.stringify({
+          token,
+          user: {
+            id: user.id, name: user.name, email: null, role: user.role,
+            roles: user.roles || [user.role], area: user.area || null,
+            mustChangePassword: user.must_change_password ?? false, photo_url: user.photo_url || null,
+          },
+        }),
+      }
+    }
 
     // Check if device is already trusted (skip MFA)
     if (deviceToken) {

@@ -7,7 +7,8 @@ import ConfirmDialog from '../ui/ConfirmDialog'
 interface AppUser {
   id: number
   name: string
-  email: string
+  email: string | null
+  cpf?: string | null
   role: string
   roles?: string[]
   area?: string | null
@@ -20,15 +21,25 @@ interface AppUser {
   created_at: string
 }
 
-const ROLES = ['Administrador Master', 'Administrador de RH', 'Administrador de RH / Gestor', 'Gestor', 'Beta Teste']
+const ROLES = ['Administrador Master', 'Administrador de RH', 'Administrador de RH / Gestor', 'Gestor', 'Colaborador', 'Beta Teste']
 const SECONDARY_ROLES = ['Instrutor']
+
+/** Formata dígitos como CPF (000.000.000-00) enquanto o usuário digita. */
+function formatCpf(value: string) {
+  const d = value.replace(/\D/g, '').slice(0, 11)
+  return d
+    .replace(/^(\d{3})(\d)/, '$1.$2')
+    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1-$2')
+}
 
 const ROLE_STYLE: Record<string, string> = {
   'Administrador Master':      'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 border-violet-200 dark:border-violet-800',
   'Administrador de RH':       'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 border-primary-200 dark:border-primary-800',
   'Administrador de RH / Gestor': 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800',
   'Gestor':                    'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800',
-  'Beta Teste':                'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-800',
+  'Colaborador':               'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 border-teal-200 dark:border-teal-800',
+  'Beta Teste':               'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-800',
   'Instrutor':                 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800',
   // backward compat
   'Administrador de TI':       'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 border-primary-200 dark:border-primary-800',
@@ -59,6 +70,7 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
   const isEdit = !!user
   const [name, setName]         = useState(user?.name ?? '')
   const [email, setEmail]       = useState(user?.email ?? '')
+  const [cpf, setCpf]           = useState(formatCpf(user?.cpf ?? ''))
   const [password, setPassword] = useState('')
   const [role, setRole]         = useState(user?.role ?? 'Gestor')
   const [secondaryRoles, setSecondaryRoles] = useState<string[]>(
@@ -104,19 +116,33 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!name.trim() || !email.trim()) { setError('Nome e e-mail são obrigatórios'); return }
+    const cpfDigits = cpf.replace(/\D/g, '')
+    if (!name.trim()) { setError('Nome é obrigatório'); return }
+    if (!email.trim() && !cpfDigits) { setError('Informe o e-mail ou o CPF'); return }
+    if (cpfDigits && cpfDigits.length !== 11) { setError('CPF deve ter 11 dígitos'); return }
+    if (!isEdit && !email.trim() && password.length < 8) { setError('Defina uma senha temporária de no mínimo 8 caracteres'); return }
     if ((role === 'Gestor' || role === 'Administrador de RH / Gestor') && !area.trim()) { setError('Departamento é obrigatório para Gestores'); return }
 
     try {
       setLoading(true); setError(''); setEmailWarning(null)
       const allRoles = [role, ...secondaryRoles.filter(r => r !== role)]
       if (isEdit) {
-        const payload: Record<string, unknown> = { name, email, role, roles: allRoles, area: area.trim() || null, colaborador_id: colaboradorId ?? null, avaliacoes_confidenciais: avaliacoesConfidenciais, ver_confidencial: verConfidencial }
+        const payload: Record<string, unknown> = { name, role, roles: allRoles, area: area.trim() || null, colaborador_id: colaboradorId ?? null, avaliacoes_confidenciais: avaliacoesConfidenciais, ver_confidencial: verConfidencial }
+        if (email.trim()) payload.email = email.trim()
+        if (cpfDigits) payload.cpf = cpfDigits
         if (password) payload.password = password
         await api.users.update(user!.id, payload)
         onSaved()
       } else {
-        const result = await api.users.create({ name, email, role, roles: allRoles, area: area.trim() || null }) as { emailSent?: boolean; emailError?: string }
+        const result = await api.users.create({
+          name,
+          email: email.trim() || undefined,
+          cpf: cpfDigits || undefined,
+          // Senha temporária só vale para quem não tem e-mail (sem convite por e-mail)
+          password: email.trim() ? undefined : password,
+          role, roles: allRoles, area: area.trim() || null,
+          colaborador_id: role === 'Colaborador' ? colaboradorId ?? undefined : undefined,
+        }) as { emailSent?: boolean; emailError?: string }
         // Se a conta foi criada mas o e-mail não foi enviado, avisa sem fechar o modal
         if (result.emailSent === false) {
           setEmailWarning(result.emailError || 'E-mail de convite não pôde ser enviado')
@@ -152,12 +178,32 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
             <input className="input" placeholder="Ex: João Silva" value={name} onChange={(e) => setName(e.target.value)} disabled={loading} />
           </div>
           <div>
-            <label className="label">E-mail</label>
+            <label className="label">E-mail <span className="text-slate-400 font-normal">(opcional se tiver CPF)</span></label>
             <input className="input" type="email" placeholder="joao@rttshop.com.br" value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading} />
           </div>
-          {isEdit && (
+          <div>
+            <label className="label">CPF <span className="text-slate-400 font-normal">(opcional se tiver e-mail)</span></label>
+            <input
+              className="input"
+              inputMode="numeric"
+              placeholder="000.000.000-00"
+              value={cpf}
+              onChange={(e) => setCpf(formatCpf(e.target.value))}
+              disabled={loading}
+            />
+            {!isEdit && (
+              <p className="text-xs text-slate-400 mt-1">
+                {email.trim()
+                  ? 'Com e-mail, o usuário recebe um convite para criar a própria senha e pode entrar por e-mail ou CPF.'
+                  : 'Sem e-mail, o usuário entra com CPF + a senha temporária abaixo e é obrigado a trocá-la no primeiro acesso.'}
+              </p>
+            )}
+          </div>
+          {(isEdit || !email.trim()) && (
             <div>
-              <label className="label">Nova senha (deixe em branco para manter)</label>
+              <label className="label">
+                {isEdit ? 'Nova senha (deixe em branco para manter)' : <>Senha temporária <span className="text-red-500 ml-0.5">*</span></>}
+              </label>
               <div className="relative">
                 <input
                   className="input pr-10"
@@ -249,7 +295,7 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
             )}
           </div>
 
-          {isEdit && (
+          {(isEdit || role === 'Colaborador') && (
             <div>
               <label className="label">Colaborador vinculado</label>
               <select
@@ -708,12 +754,17 @@ export default function UsersPage() {
 
   const filtered = users.filter((u) => {
     const s = search.toLowerCase()
-    return u.name.toLowerCase().includes(s) || u.email.toLowerCase().includes(s) || u.role.toLowerCase().includes(s)
+    const digits = s.replace(/\D/g, '')
+    return u.name.toLowerCase().includes(s)
+      || (u.email ?? '').toLowerCase().includes(s)
+      || (!!digits && (u.cpf ?? '').includes(digits))
+      || u.role.toLowerCase().includes(s)
   })
 
   const admins  = filtered.filter((u) => u.role === 'Administrador de RH' || u.role === 'Administrador de TI' || u.role === 'Administrador de RH / Gestor')
   const gestores = filtered.filter((u) => u.role === 'Gestor')
-  const outros  = filtered.filter((u) => u.role !== 'Administrador de RH' && u.role !== 'Administrador de TI' && u.role !== 'Gestor' && u.role !== 'Administrador de RH / Gestor')
+  const colaboradores = filtered.filter((u) => u.role === 'Colaborador')
+  const outros  = filtered.filter((u) => u.role !== 'Administrador de RH' && u.role !== 'Administrador de TI' && u.role !== 'Gestor' && u.role !== 'Colaborador' && u.role !== 'Administrador de RH / Gestor')
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -851,6 +902,7 @@ export default function UsersPage() {
       {!loading && [
         { title: 'Administradores de RH', icon: ShieldCheck, list: admins,   iconColor: 'text-primary-600 dark:text-primary-400', bgColor: 'bg-primary-100 dark:bg-primary-900/30', selectable: false },
         { title: 'Gestores',              icon: Wrench,      list: gestores, iconColor: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-100 dark:bg-emerald-900/30', selectable: true  },
+        { title: 'Colaboradores',         icon: Users,       list: colaboradores, iconColor: 'text-teal-600 dark:text-teal-400', bgColor: 'bg-teal-100 dark:bg-teal-900/30', selectable: false },
         { title: 'Outros',                icon: Users,       list: outros,   iconColor: 'text-slate-500 dark:text-slate-400',    bgColor: 'bg-slate-100 dark:bg-slate-700',          selectable: false },
       ].map(({ title, icon: Icon, list, iconColor, bgColor, selectable }) => {
         const allSel = selectable && list.length > 0 && list.every(u => selectedGestores.has(u.id))
@@ -909,7 +961,7 @@ export default function UsersPage() {
                       )}
                       {u.must_change_password && u.active && (
                         <span className="inline-flex items-center gap-1 text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-md font-medium">
-                          <Mail size={10} /> Convite pendente
+                          <Mail size={10} /> {u.email ? 'Convite pendente' : 'Senha temporária'}
                         </span>
                       )}
                       {(u.roles ?? []).includes('Instrutor') && u.active && (
@@ -923,7 +975,9 @@ export default function UsersPage() {
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">{u.email}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                      {[u.email, u.cpf ? `CPF ${formatCpf(u.cpf)}` : null].filter(Boolean).join(' · ')}
+                    </p>
                     {u.area && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Área: <span className="font-medium text-slate-600 dark:text-slate-300">{u.area}</span></p>}
                   </div>
 
@@ -943,7 +997,7 @@ export default function UsersPage() {
                   {userIsAdmin && (
                     <div className="flex items-center gap-1 shrink-0">
                       {/* Reenviar convite — só aparece para usuários com primeiro acesso pendente */}
-                      {u.must_change_password && u.active && (
+                      {u.must_change_password && u.active && u.email && (
                         <button
                           onClick={() => resendInvite(u)}
                           disabled={resendingId === u.id}

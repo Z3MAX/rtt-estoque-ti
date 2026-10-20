@@ -24,6 +24,34 @@ function clearSessionCookie() {
   return `osiris_token=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`
 }
 
+/**
+ * Funções que o perfil "Colaborador" pode chamar (somente Intranet).
+ * Lista de permissão: qualquer outra função autenticada responde 403 para esse perfil,
+ * inclusive as que forem criadas no futuro, até serem adicionadas aqui explicitamente.
+ */
+const COLABORADOR_ALLOWED_FUNCTIONS = new Set([
+  'auth-me', 'first-password', 'profile',
+  'comunicados', 'aniversariantes', 'modulo-config', 'humor-feedback', 'pdi', 'assinatura',
+  'cursos', 'curso-atribuicao', 'curso-avaliacao', 'curso-avaliacoes', 'curso-requisitos',
+  'treinamento-progresso', 'treinamento-materiais', 'treinamentos-presenciais', 'panda-video-lookup',
+  'pesquisas', 'pesquisa-respostas',
+])
+
+/**
+ * Nome da function invocada: o segmento logo após `/.netlify/functions/` (ou `/api/`).
+ * Não usar o último segmento — o Netlify aceita sufixos de caminho
+ * (`/functions/colaboradores/auth-me` executa `colaboradores`).
+ */
+function functionNameFromEvent(event) {
+  let path = String((event && event.path) || '')
+  try {
+    if (event && event.rawUrl) path = new URL(event.rawUrl).pathname
+  } catch { /* usa event.path */ }
+  const parts = path.split('/').filter(Boolean)
+  const i = parts.findIndex((p) => p === 'functions' || p === 'api')
+  return i >= 0 ? (parts[i + 1] || '') : ''
+}
+
 /** Verifica JWT no header Authorization: Bearer <token> OU no cookie httpOnly. Retorna o payload. */
 function requireAuth(event) {
   const headers = event.headers || {}
@@ -39,6 +67,9 @@ function requireAuth(event) {
     const payload = jwt.verify(token, getSecret())
     if (payload.mfaPending) {
       throw Object.assign(new Error('Autenticação de dois fatores pendente'), { statusCode: 401 })
+    }
+    if (payload.role === 'Colaborador' && !COLABORADOR_ALLOWED_FUNCTIONS.has(functionNameFromEvent(event))) {
+      throw Object.assign(new Error('Acesso negado'), { statusCode: 403 })
     }
     return payload
   } catch (err) {
