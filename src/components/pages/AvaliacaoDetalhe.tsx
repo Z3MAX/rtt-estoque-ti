@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, RefreshCw, ChevronRight, Pencil, CheckCircle2, ClipboardCheck, AlertCircle, Target, TrendingUp, Star } from 'lucide-react'
+import { ArrowLeft, RefreshCw, ChevronRight, Pencil, CheckCircle2, ClipboardCheck, AlertCircle, Target, TrendingUp, Star, Lock, ArrowRight } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth, isAdmin } from '../../lib/auth'
 import type { CicloAvaliacao, Colaborador } from '../../lib/types'
@@ -61,6 +61,10 @@ const TIPO_LABELS: Record<string, string> = {
   rh: 'Avaliação RH',
 }
 
+type Respostas = Record<string, { rating?: number; nota?: number; observation?: string; observacao?: string }>
+type TipoComp = 'desempenho' | 'potencial' | 'lideranca'
+type CompDef = { id: string; nome: string; icon: string; bg: string }
+
 function formatDate(iso?: string) {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -78,9 +82,12 @@ function getQuadrante(potencial: string, desempenho: string): string {
   return row + col
 }
 
+const ratingOf = (r: Respostas | null | undefined, id: string) => r?.[id]?.nota ?? r?.[id]?.rating
+const obsOf    = (r: Respostas | null | undefined, id: string) => r?.[id]?.observacao ?? r?.[id]?.observation
+
 // ─── Score bar ────────────────────────────────────────────────────────────────
 
-function ScoreBar({ rating, tipo }: { rating: number; tipo: 'desempenho' | 'potencial' | 'lideranca' }) {
+function ScoreBar({ rating, tipo }: { rating: number; tipo: TipoComp }) {
   const colors = {
     desempenho: ['bg-primary-500', 'bg-primary-400', 'bg-primary-300', 'bg-primary-200', 'bg-primary-100'],
     potencial:  ['bg-slate-700', 'bg-slate-500', 'bg-slate-400', 'bg-slate-300', 'bg-slate-200'],
@@ -97,13 +104,19 @@ function ScoreBar({ rating, tipo }: { rating: number; tipo: 'desempenho' | 'pote
 
 // ─── Competency row (read-only, for detail view) ──────────────────────────────
 
-function CompRow({ comp, rating, observation, tipo }: {
-  comp: { id: string; nome: string; icon: string; bg: string }
+function CompRow({ comp, rating, observation, tipo, gestorRating, rhComment }: {
+  comp: CompDef
   rating?: number
   observation?: string
-  tipo: 'desempenho' | 'potencial' | 'lideranca'
+  tipo: TipoComp
+  /** Consolidado: nota original do gestor, para sinalizar o que o RH ajustou. */
+  gestorRating?: number
+  /** Consolidado: comentário do RH (só chega para quem pode ver). */
+  rhComment?: string
 }) {
   const rated = rating != null && rating > 0
+  const ajustada = rated && gestorRating != null && gestorRating > 0 && gestorRating !== rating
+  const separar = !!rhComment
   return (
     <div className="flex items-start gap-4 py-3 border-b border-slate-50 dark:border-slate-700/50 last:border-0">
       <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0" style={{ background: comp.bg }}>
@@ -119,7 +132,21 @@ function CompRow({ comp, rating, observation, tipo }: {
           )}
         </div>
         {rated && <ScoreBar rating={rating} tipo={tipo} />}
-        {observation && <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed italic">"{observation}"</p>}
+        {ajustada && (
+          <p className="inline-flex items-center gap-1 mt-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md px-1.5 py-0.5">
+            Gestor: {gestorRating} <ArrowRight size={10} /> Calibrado: {rating}
+          </p>
+        )}
+        {observation && (
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed italic">
+            {separar && <span className="not-italic font-semibold">Gestor: </span>}"{observation}"
+          </p>
+        )}
+        {rhComment && (
+          <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 leading-relaxed italic">
+            <span className="not-italic font-semibold">RH: </span>"{rhComment}"
+          </p>
+        )}
       </div>
     </div>
   )
@@ -127,21 +154,23 @@ function CompRow({ comp, rating, observation, tipo }: {
 
 // ─── Calibration modal ────────────────────────────────────────────────────────
 
-interface CompEdit { id: string; nome: string; icon: string; bg: string }
-
 function CompCalibracaoRow({
-  comp, tipo, rating, observation,
-  onRate, onObs,
+  comp, tipo, gestorRating, gestorObs, rating, comment,
+  onRate, onComment,
 }: {
-  comp: CompEdit
-  tipo: 'desempenho' | 'potencial' | 'lideranca'
+  comp: CompDef
+  tipo: TipoComp
+  gestorRating: number
+  gestorObs: string
   rating: number
-  observation: string
+  comment: string
   onRate: (v: number) => void
-  onObs: (v: string) => void
+  onComment: (v: string) => void
 }) {
+  // Notas 1 e 5 exigem justificativa — vale a do gestor ou a do RH
   const requiresObs = rating === 1 || rating === 5
-  const obsEmpty = requiresObs && !observation.trim()
+  const obsEmpty = requiresObs && !gestorObs.trim() && !comment.trim()
+  const ajustada = gestorRating > 0 && rating > 0 && rating !== gestorRating
 
   const ratingColors: Record<string, string> = {
     desempenho: 'bg-primary-600 border-primary-600 text-white',
@@ -160,42 +189,64 @@ function CompCalibracaoRow({
           <span className="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">{LABELS_NOTA[rating]}</span>
         )}
       </div>
-      {/* Rating buttons */}
-      <div className="grid grid-cols-5 gap-1.5">
-        {[1,2,3,4,5].map(v => (
-          <button
-            key={v}
-            type="button"
-            onClick={() => onRate(v)}
-            className={`rounded-lg border-2 py-2 text-center text-sm font-bold transition-all
-              ${rating === v
-                ? ratingColors[tipo]
-                : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 hover:border-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-              }`}
-          >
-            {v}
-          </button>
-        ))}
+
+      {/* O que o gestor avaliou — somente leitura */}
+      <div className="rounded-lg bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-700 px-3 py-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-0.5">Avaliação do gestor</p>
+        <p className="text-xs text-slate-600 dark:text-slate-300">
+          Nota <span className="font-bold">{gestorRating > 0 ? gestorRating : '—'}</span>
+          {gestorObs.trim()
+            ? <span className="italic text-slate-500 dark:text-slate-400"> · "{gestorObs}"</span>
+            : <span className="text-slate-400"> · sem observação</span>}
+        </p>
       </div>
-      {/* Observation */}
+
+      {/* Nota final (calibrada) */}
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">
+          Nota calibrada {ajustada && <span className="text-amber-600 dark:text-amber-400 normal-case">· ajustada pelo RH</span>}
+        </p>
+        <div className="grid grid-cols-5 gap-1.5">
+          {[1,2,3,4,5].map(v => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => onRate(v)}
+              className={`rounded-lg border-2 py-2 text-center text-sm font-bold transition-all
+                ${rating === v
+                  ? ratingColors[tipo]
+                  : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 hover:border-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                }`}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {requiresObs && (
         <p className="text-xs text-red-500 dark:text-red-400 flex items-center gap-1">
-          <AlertCircle size={11} /> Justificativa obrigatória para notas 1 e 5
+          <AlertCircle size={11} /> {obsEmpty ? 'Justificativa obrigatória para notas 1 e 5 (o gestor não escreveu uma).' : 'Notas 1 e 5 exigem justificativa — já registrada.'}
         </p>
       )}
-      <textarea
-        value={observation}
-        onChange={e => onObs(e.target.value)}
-        placeholder={requiresObs ? 'Justificativa obrigatória...' : 'Observações ou ajustes do RH (opcional)...'}
-        rows={2}
-        className={`w-full text-xs rounded-xl px-3 py-2 resize-y outline-none font-sans transition-all
-          bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300
-          placeholder-slate-400 dark:placeholder-slate-500
-          ${obsEmpty
-            ? 'border-2 border-dashed border-red-400 dark:border-red-600'
-            : 'border border-slate-200 dark:border-slate-600 focus:border-primary-400 focus:ring-1 focus:ring-primary-100'
-          }`}
-      />
+
+      {/* Comentário do RH — fica separado do que o gestor escreveu */}
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400 mb-1">Comentário do RH</p>
+        <textarea
+          value={comment}
+          onChange={e => onComment(e.target.value)}
+          placeholder={obsEmpty ? 'Justificativa obrigatória...' : 'Comentário do RH sobre esta competência (opcional)...'}
+          rows={2}
+          className={`w-full text-xs rounded-xl px-3 py-2 resize-y outline-none font-sans transition-all
+            bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300
+            placeholder-slate-400 dark:placeholder-slate-500
+            ${obsEmpty
+              ? 'border-2 border-dashed border-red-400 dark:border-red-600'
+              : 'border border-slate-200 dark:border-slate-600 focus:border-primary-400 focus:ring-1 focus:ring-primary-100'
+            }`}
+        />
+      </div>
     </div>
   )
 }
@@ -205,30 +256,24 @@ function CalibracaoModal({ avaliacao, onClose, onConcluido }: {
   onClose: () => void
   onConcluido: (updated: CicloAvaliacao) => void
 }) {
-  const [ratings, setRatings] = useState<Record<string, number>>({})
-  const [observations, setObservations] = useState<Record<string, string>>({})
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
+  // O que o gestor avaliou (não é alterado pela calibração)
+  const respostasGestor = (avaliacao.respostas as unknown as Respostas) || {}
+  const gestorRating = (id: string) => ratingOf(respostasGestor, id) ?? 0
+  const gestorObs    = (id: string) => obsOf(respostasGestor, id) ?? ''
 
-  // Detecta quais competências existem nas respostas originais (não usa tipo)
-  const respostasOriginais = (avaliacao.respostas as unknown as Record<string, { nota?: number; rating?: number; observacao?: string; observation?: string }>) || {}
-  const getOrigRating = (id: string) => respostasOriginais[id]?.nota ?? respostasOriginais[id]?.rating ?? 0
-  const temLideranca = COMP_LIDERANCA.some(c => getOrigRating(c.id) > 0)
+  const temLideranca = COMP_LIDERANCA.some(c => gestorRating(c.id) > 0)
   const compDesempenho = COMP_DESEMPENHO
   const compLideranca = temLideranca ? COMP_LIDERANCA : []
   const todasComps = [...compDesempenho, ...COMP_POTENCIAL, ...compLideranca]
 
-  useEffect(() => {
-    const resps = respostasOriginais
-    const r: Record<string, number> = {}
-    const o: Record<string, string> = {}
-    for (const [k, v] of Object.entries(resps)) {
-      r[k] = v.nota ?? v.rating ?? 0
-      o[k] = v.observacao ?? v.observation ?? ''
-    }
-    setRatings(r)
-    setObservations(o)
-  }, [])
+  // Começa com as notas do gestor; o RH ajusta apenas onde discordar
+  const [ratings, setRatings] = useState<Record<string, number>>(
+    () => Object.fromEntries(todasComps.map(c => [c.id, gestorRating(c.id)]))
+  )
+  const [comments, setComments] = useState<Record<string, string>>({})
+  const [parecer, setParecer] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   // Live recalculation — liderança entra apenas no Potencial, não no Desempenho
   const somaDesemp    = compDesempenho.reduce((s, c) => s + (ratings[c.id] ?? 0), 0)
@@ -243,31 +288,30 @@ function CalibracaoModal({ avaliacao, onClose, onConcluido }: {
 
   const obsOk = todasComps.every(c => {
     const r = ratings[c.id]
-    if (r === 1 || r === 5) return (observations[c.id] ?? '').trim().length > 0
+    if (r === 1 || r === 5) return gestorObs(c.id).trim().length > 0 || (comments[c.id] ?? '').trim().length > 0
     return true
   })
   const allRated = todasComps.every(c => (ratings[c.id] ?? 0) > 0)
   const canConcluir = allRated && obsOk
+  const ajustes = todasComps.filter(c => gestorRating(c.id) > 0 && ratings[c.id] !== gestorRating(c.id)).length
 
   async function handleConcluir() {
     if (!canConcluir) return
     setSaving(true); setError('')
     try {
-      const respostas: Record<string, { nota: number; observacao?: string }> = {}
-      for (const c of todasComps) {
-        respostas[c.id] = { nota: ratings[c.id], observacao: observations[c.id] || undefined }
-      }
-      // 1. Update scores and respostas
-      await api.avaliacoes.update(avaliacao.id, {
+      const notas: Record<string, { nota: number }> = {}
+      for (const c of todasComps) notas[c.id] = { nota: ratings[c.id] }
+      // Uma única chamada: o servidor guarda a avaliação original do gestor, aplica a nota
+      // calibrada e registra os comentários do RH em separado.
+      const updated = await api.avaliacoes.update(avaliacao.id, {
+        calibrar: true,
+        calibracao: { respostas: notas, comentarios: comments, parecer },
         score_desempenho: parseFloat(avgDesempenho.toFixed(2)),
         score_potencial:  parseFloat(avgPotencial.toFixed(2)),
         nivel_desempenho: nivelDesemp,
         nivel_potencial:  nivelPot,
         quadrante,
-        respostas,
-      } as never)
-      // 2. Mark as concluido
-      const updated = await api.avaliacoes.update(avaliacao.id, { calibrar: true } as never) as CicloAvaliacao
+      } as never) as CicloAvaliacao
       onConcluido(updated)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao concluir calibração')
@@ -275,6 +319,16 @@ function CalibracaoModal({ avaliacao, onClose, onConcluido }: {
       setSaving(false)
     }
   }
+
+  const rowProps = (c: CompDef) => ({
+    comp: c,
+    gestorRating: gestorRating(c.id),
+    gestorObs: gestorObs(c.id),
+    rating: ratings[c.id] ?? 0,
+    comment: comments[c.id] ?? '',
+    onRate: (v: number) => setRatings(r => ({ ...r, [c.id]: v })),
+    onComment: (v: string) => setComments(o => ({ ...o, [c.id]: v })),
+  })
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-50 dark:bg-slate-900 overflow-hidden">
@@ -285,7 +339,7 @@ function CalibracaoModal({ avaliacao, onClose, onConcluido }: {
         </button>
         <div className="flex-1 min-w-0">
           <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Calibração — {avaliacao.colaborador_nome}</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Revise e ajuste as notas antes de concluir a calibração</p>
+          <p className="text-xs text-slate-400 mt-0.5">A avaliação do gestor é preservada. Seus comentários ficam na aba “Calibração RH”.</p>
         </div>
         {/* Live quadrante preview */}
         {qInfo && (
@@ -318,13 +372,7 @@ function CalibracaoModal({ avaliacao, onClose, onConcluido }: {
           <div className="flex items-center gap-2 py-2 px-4 rounded-xl bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300">
             <Target size={15} /><p className="text-sm font-bold">Eixo X — Desempenho</p>
           </div>
-          {compDesempenho.map(c => (
-            <CompCalibracaoRow key={c.id} comp={c} tipo="desempenho"
-              rating={ratings[c.id] ?? 0} observation={observations[c.id] ?? ''}
-              onRate={v => setRatings(r => ({ ...r, [c.id]: v }))}
-              onObs={v => setObservations(o => ({ ...o, [c.id]: v }))}
-            />
-          ))}
+          {compDesempenho.map(c => <CompCalibracaoRow key={c.id} tipo="desempenho" {...rowProps(c)} />)}
         </div>
 
         {/* Potencial */}
@@ -332,13 +380,7 @@ function CalibracaoModal({ avaliacao, onClose, onConcluido }: {
           <div className="flex items-center gap-2 py-2 px-4 rounded-xl bg-slate-100 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300">
             <TrendingUp size={15} /><p className="text-sm font-bold">Eixo Y — Potencial</p>
           </div>
-          {COMP_POTENCIAL.map(c => (
-            <CompCalibracaoRow key={c.id} comp={c} tipo="potencial"
-              rating={ratings[c.id] ?? 0} observation={observations[c.id] ?? ''}
-              onRate={v => setRatings(r => ({ ...r, [c.id]: v }))}
-              onObs={v => setObservations(o => ({ ...o, [c.id]: v }))}
-            />
-          ))}
+          {COMP_POTENCIAL.map(c => <CompCalibracaoRow key={c.id} tipo="potencial" {...rowProps(c)} />)}
         </div>
 
         {/* Liderança */}
@@ -347,15 +389,23 @@ function CalibracaoModal({ avaliacao, onClose, onConcluido }: {
             <div className="flex items-center gap-2 py-2 px-4 rounded-xl bg-lime-50 dark:bg-lime-900/20 text-lime-700 dark:text-lime-300">
               <Star size={15} /><p className="text-sm font-bold">Competências de Liderança</p>
             </div>
-            {COMP_LIDERANCA.map(c => (
-              <CompCalibracaoRow key={c.id} comp={c} tipo="lideranca"
-                rating={ratings[c.id] ?? 0} observation={observations[c.id] ?? ''}
-                onRate={v => setRatings(r => ({ ...r, [c.id]: v }))}
-                onObs={v => setObservations(o => ({ ...o, [c.id]: v }))}
-              />
-            ))}
+            {COMP_LIDERANCA.map(c => <CompCalibracaoRow key={c.id} tipo="lideranca" {...rowProps(c)} />)}
           </div>
         )}
+
+        {/* Parecer geral do RH */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 py-2 px-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300">
+            <Lock size={15} /><p className="text-sm font-bold">Parecer geral do RH</p>
+          </div>
+          <textarea
+            value={parecer}
+            onChange={e => setParecer(e.target.value)}
+            placeholder="Resumo da calibração: o que foi discutido e o motivo dos ajustes (opcional)..."
+            rows={4}
+            className="w-full text-sm rounded-xl px-3 py-2 resize-y outline-none font-sans bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 placeholder-slate-400 border border-slate-200 dark:border-slate-600 focus:border-primary-400 focus:ring-1 focus:ring-primary-100"
+          />
+        </div>
 
         {/* Padding bottom */}
         <div className="h-4" />
@@ -373,6 +423,14 @@ function CalibracaoModal({ avaliacao, onClose, onConcluido }: {
             {todasComps.filter(c => !(ratings[c.id] > 0)).length} competência(s) sem nota — avalie todas para concluir.
           </p>
         )}
+        {allRated && !obsOk && (
+          <p className="text-xs text-red-500 dark:text-red-400 mb-3">Há notas 1 ou 5 sem justificativa.</p>
+        )}
+        {allRated && obsOk && (
+          <p className="text-xs text-slate-400 mb-3">
+            {ajustes === 0 ? 'Nenhuma nota foi alterada em relação ao gestor.' : `${ajustes} nota(s) ajustada(s) em relação ao gestor.`}
+          </p>
+        )}
         <div className="flex gap-3">
           <button onClick={onClose} disabled={saving} className="btn-secondary flex-1">Cancelar</button>
           <button
@@ -388,7 +446,203 @@ function CalibracaoModal({ avaliacao, onClose, onConcluido }: {
   )
 }
 
+// ─── Result view (9-Box + competências) — reutilizada pelas abas ──────────────
+
+interface ResultView {
+  respostas: Respostas
+  score_desempenho?: number | null
+  score_potencial?: number | null
+  quadrante?: string | null
+}
+
+function ResultadoView({ view, tipoAvaliacao, gestorRespostas, rhComentarios }: {
+  view: ResultView
+  tipoAvaliacao: string
+  /** Aba Consolidado: respostas originais do gestor, para destacar ajustes. */
+  gestorRespostas?: Respostas | null
+  /** Aba Consolidado: comentários do RH por competência. */
+  rhComentarios?: Record<string, string>
+}) {
+  const getRating = (id: string) => ratingOf(view.respostas, id)
+  const getObs    = (id: string) => obsOf(view.respostas, id)
+  const qInfo = QUADRANTE_INFO[view.quadrante ?? '']
+  const temLideranca = tipoAvaliacao === 'lideranca' && COMP_LIDERANCA.some(c => getRating(c.id))
+
+  const rowFor = (c: CompDef, tipo: TipoComp) => (
+    <CompRow
+      key={c.id} comp={c} tipo={tipo}
+      rating={getRating(c.id)} observation={getObs(c.id)}
+      gestorRating={gestorRespostas ? ratingOf(gestorRespostas, c.id) : undefined}
+      rhComment={rhComentarios?.[c.id]}
+    />
+  )
+
+  return (
+    <div className="space-y-6">
+      {/* 9-Box */}
+      {view.quadrante && (
+        <div className="card p-5">
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Posição no 9-Box</h2>
+          <div className="flex gap-6 items-start flex-wrap">
+            <div className="grid grid-cols-3 gap-1.5" style={{ width: 180 }}>
+              {NINE_BOX.map(row =>
+                row.map(cell => (
+                  <div key={cell} className={`h-14 rounded-lg flex items-center justify-center text-xs font-black transition-all ${cell === view.quadrante ? `${NINE_BOX_BG[cell]} text-white scale-110 shadow-lg ring-2 ring-white dark:ring-slate-900` : 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500'}`}>
+                    {cell}
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              {qInfo && (
+                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-semibold mb-3 ${qInfo.bg} ${qInfo.border} ${qInfo.text}`}>
+                  {view.quadrante} · {qInfo.label}
+                </div>
+              )}
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-3">
+                  <span className="text-slate-400 w-24 shrink-0">Desempenho</span>
+                  <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary-500 rounded-full" style={{ width: `${((view.score_desempenho ?? 0) / 5) * 100}%` }} />
+                  </div>
+                  <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 w-8 text-right">{Number(view.score_desempenho ?? 0).toFixed(1)}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-slate-400 w-24 shrink-0">Potencial</span>
+                  <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-slate-600 dark:bg-slate-400 rounded-full" style={{ width: `${((view.score_potencial ?? 0) / 5) * 100}%` }} />
+                  </div>
+                  <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 w-8 text-right">{Number(view.score_potencial ?? 0).toFixed(1)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Desempenho */}
+      {COMP_DESEMPENHO.some(c => getRating(c.id)) && (
+        <div className="card p-5">
+          <h2 className="text-sm font-semibold text-primary-600 dark:text-primary-400 mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-primary-500 shrink-0" /> Competências de Desempenho
+          </h2>
+          {COMP_DESEMPENHO.map(c => rowFor(c, 'desempenho'))}
+        </div>
+      )}
+
+      {/* Potencial */}
+      {COMP_POTENCIAL.some(c => getRating(c.id)) && (
+        <div className="card p-5">
+          <h2 className="text-sm font-semibold text-slate-600 dark:text-slate-400 mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-slate-600 dark:bg-slate-400 shrink-0" /> Competências de Potencial
+          </h2>
+          {COMP_POTENCIAL.map(c => rowFor(c, 'potencial'))}
+        </div>
+      )}
+
+      {/* Liderança */}
+      {temLideranca && (
+        <div className="card p-5">
+          <h2 className="text-sm font-semibold text-lime-700 dark:text-lime-500 mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-lime-600 shrink-0" /> Competências de Liderança
+          </h2>
+          {COMP_LIDERANCA.map(c => rowFor(c, 'lideranca'))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Aba "Calibração RH": só os comentários do RH ─────────────────────────────
+
+function CalibracaoRHTab({ avaliacao, podeCalibrar, onCalibrar }: {
+  avaliacao: CicloAvaliacao
+  podeCalibrar: boolean
+  onCalibrar: () => void
+}) {
+  const cal = avaliacao.calibracao
+  if (!cal) {
+    return (
+      <div className="card p-10 flex flex-col items-center gap-3 text-center">
+        <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
+          <ClipboardCheck size={22} className="text-amber-500" />
+        </div>
+        <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Esta avaliação ainda não foi calibrada</p>
+        <p className="text-xs text-slate-400 max-w-sm">Os comentários e o parecer do RH aparecem aqui depois da calibração, separados do que o gestor avaliou.</p>
+        {podeCalibrar && (
+          <button onClick={onCalibrar} className="btn-primary gap-2 mt-1"><ClipboardCheck size={14} /> Realizar calibração</button>
+        )}
+      </div>
+    )
+  }
+
+  const gestor = avaliacao.gestor_original?.respostas as Respostas | undefined
+  const final  = avaliacao.respostas as unknown as Respostas | undefined
+  const todas: Array<CompDef & { tipo: TipoComp }> = [
+    ...COMP_DESEMPENHO.map(c => ({ ...c, tipo: 'desempenho' as const })),
+    ...COMP_POTENCIAL.map(c => ({ ...c, tipo: 'potencial' as const })),
+    ...COMP_LIDERANCA.map(c => ({ ...c, tipo: 'lideranca' as const })),
+  ].filter(c => ratingOf(final, c.id))
+
+  const comComentario = todas.filter(c => cal.comentarios?.[c.id])
+  const semComentario = todas.filter(c => !cal.comentarios?.[c.id])
+  const ajustadas = todas.filter(c => {
+    const g = ratingOf(gestor, c.id), f = ratingOf(final, c.id)
+    return g != null && f != null && g !== f
+  })
+
+  return (
+    <div className="space-y-6">
+      <div className="card p-5 border-l-4 border-l-amber-400">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <h2 className="text-sm font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-2"><Lock size={14} /> Parecer geral do RH</h2>
+          <span className="text-xs text-slate-400">
+            Calibrado por {cal.calibrado_por_nome || '—'} · {formatDate(cal.calibrado_em)}
+          </span>
+        </div>
+        {cal.parecer
+          ? <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{cal.parecer}</p>
+          : <p className="text-sm text-slate-400 italic">Nenhum parecer geral registrado.</p>}
+        <p className="text-xs text-slate-400 mt-3">
+          {ajustadas.length === 0 ? 'Nenhuma nota foi alterada em relação ao gestor.' : `${ajustadas.length} nota(s) ajustada(s) em relação ao gestor.`}
+        </p>
+      </div>
+
+      <div className="card p-5">
+        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Comentários do RH por competência</h2>
+        <p className="text-xs text-slate-400 mb-3">Visível somente para o RH. O gestor não vê esta aba.</p>
+        {comComentario.length === 0 && <p className="text-sm text-slate-400 italic py-2">Nenhum comentário por competência.</p>}
+        {comComentario.map(c => {
+          const g = ratingOf(gestor, c.id), f = ratingOf(final, c.id)
+          const mudou = g != null && f != null && g !== f
+          return (
+            <div key={c.id} className="flex items-start gap-4 py-3 border-b border-slate-50 dark:border-slate-700/50 last:border-0">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0" style={{ background: c.bg }}>{c.icon}</div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-3 mb-1">
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{c.nome}</p>
+                  <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 shrink-0 inline-flex items-center gap-1">
+                    {mudou ? <>Gestor {g} <ArrowRight size={10} /> RH {f}</> : <>Nota {f}</>}
+                  </span>
+                </div>
+                <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed whitespace-pre-wrap">{cal.comentarios[c.id]}</p>
+              </div>
+            </div>
+          )
+        })}
+        {semComentario.length > 0 && (
+          <p className="text-xs text-slate-400 mt-3">
+            Sem comentário do RH: {semComentario.map(c => c.nome).join(', ')}.
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
+
+type Aba = 'consolidado' | 'gestor' | 'rh'
 
 export default function AvaliacaoDetalhe() {
   const { id } = useParams<{ id: string }>()
@@ -401,6 +655,7 @@ export default function AvaliacaoDetalhe() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showCalibracao, setShowCalibracao] = useState(searchParams.get('calibrar') === '1')
+  const [aba, setAba] = useState<Aba | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -430,12 +685,41 @@ export default function AvaliacaoDetalhe() {
     <div className="p-6 text-center text-slate-500">{error || 'Avaliação não encontrada'}</div>
   )
 
-  const respostas = (avaliacao.respostas as unknown as Record<string, { rating?: number; nota?: number; observation?: string; observacao?: string }>) || {}
-  const getRating = (id: string) => respostas[id]?.nota ?? respostas[id]?.rating
-  const getObs    = (id: string) => respostas[id]?.observacao ?? respostas[id]?.observation
+  const respostasFinais = (avaliacao.respostas as unknown as Respostas) || {}
+  const original = avaliacao.gestor_original
+  // Calibrada com o novo fluxo: temos a avaliação original do gestor guardada
+  const calibrada = avaliacao.status === 'concluido' && !!original
+  // Só o RH recebe os comentários (a API remove "calibracao" para os demais)
+  const veRH = !!avaliacao.calibracao
+  const pendenteAdmin = avaliacao.status === 'pendente' && userIsAdmin
 
-  const qInfo = QUADRANTE_INFO[avaliacao.quadrante ?? '']
-  const temLideranca = avaliacao.tipo === 'lideranca' && COMP_LIDERANCA.some(c => getRating(c.id))
+  const abas: Array<{ id: Aba; label: string }> = calibrada
+    ? [
+        { id: 'consolidado', label: 'Consolidado' },
+        { id: 'gestor', label: 'Avaliação do gestor' },
+        ...(veRH ? [{ id: 'rh' as const, label: 'Calibração RH' }] : []),
+      ]
+    : pendenteAdmin
+      ? [{ id: 'gestor', label: 'Avaliação do gestor' }, { id: 'rh', label: 'Calibração RH' }]
+      : []
+
+  const abaAtiva: Aba = aba && abas.some(a => a.id === aba) ? aba : (calibrada ? 'consolidado' : 'gestor')
+
+  const viewFinal: ResultView = {
+    respostas: respostasFinais,
+    score_desempenho: avaliacao.score_desempenho,
+    score_potencial: avaliacao.score_potencial,
+    quadrante: avaliacao.quadrante,
+  }
+  const viewGestor: ResultView = calibrada
+    ? {
+        respostas: (original?.respostas as Respostas) || {},
+        score_desempenho: original?.score_desempenho,
+        score_potencial: original?.score_potencial,
+        quadrante: original?.quadrante,
+      }
+    : viewFinal
+
   const periodo = `${PERIODOS[avaliacao.periodo_inicial] || avaliacao.periodo_inicial}${avaliacao.periodo_final && avaliacao.periodo_final !== avaliacao.periodo_inicial ? ` → ${PERIODOS[avaliacao.periodo_final] || avaliacao.periodo_final}` : ''}`
 
   return (
@@ -444,7 +728,7 @@ export default function AvaliacaoDetalhe() {
         <CalibracaoModal
           avaliacao={avaliacao}
           onClose={() => setShowCalibracao(false)}
-          onConcluido={(updated) => { setAvaliacao(updated); setShowCalibracao(false) }}
+          onConcluido={(updated) => { setAvaliacao(updated); setShowCalibracao(false); setAba('consolidado') }}
         />
       )}
 
@@ -509,113 +793,58 @@ export default function AvaliacaoDetalhe() {
                 </div>
               </div>
             </div>
-
-            {avaliacao.quadrante && qInfo && (
-              <div className={`px-4 py-2 rounded-xl border ${qInfo.bg} ${qInfo.border} text-center`}>
-                <p className={`text-2xl font-black ${qInfo.text}`}>{avaliacao.quadrante}</p>
-                <p className={`text-xs font-medium mt-0.5 ${qInfo.text}`}>{qInfo.label}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Score pills */}
-          <div className="flex flex-wrap gap-4 mt-5 pt-4 border-t border-slate-100 dark:border-slate-700">
-            {avaliacao.score_desempenho != null && (
-              <div>
-                <p className="text-xs text-slate-400 mb-1">Desempenho</p>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-2xl font-black text-primary-600">{Number(avaliacao.score_desempenho).toFixed(1)}</span>
-                  <span className="text-xs text-slate-400">/5 · {avaliacao.nivel_desempenho}</span>
-                </div>
-              </div>
-            )}
-            {avaliacao.score_potencial != null && (
-              <div>
-                <p className="text-xs text-slate-400 mb-1">Potencial</p>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-2xl font-black text-slate-700 dark:text-slate-200">{Number(avaliacao.score_potencial).toFixed(1)}</span>
-                  <span className="text-xs text-slate-400">/5 · {avaliacao.nivel_potencial}</span>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
-        {/* 9-Box */}
-        {avaliacao.quadrante && (
-          <div className="card p-5">
-            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Posição no 9-Box</h2>
-            <div className="flex gap-6 items-start flex-wrap">
-              <div className="grid grid-cols-3 gap-1.5" style={{ width: 180 }}>
-                {NINE_BOX.map(row =>
-                  row.map(cell => (
-                    <div key={cell} className={`h-14 rounded-lg flex items-center justify-center text-xs font-black transition-all ${cell === avaliacao.quadrante ? `${NINE_BOX_BG[cell]} text-white scale-110 shadow-lg ring-2 ring-white dark:ring-slate-900` : 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500'}`}>
-                      {cell}
-                    </div>
-                  ))
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                {qInfo && (
-                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-semibold mb-3 ${qInfo.bg} ${qInfo.border} ${qInfo.text}`}>
-                    {avaliacao.quadrante} · {qInfo.label}
-                  </div>
-                )}
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-3">
-                    <span className="text-slate-400 w-24 shrink-0">Desempenho</span>
-                    <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                      <div className="h-full bg-primary-500 rounded-full" style={{ width: `${((avaliacao.score_desempenho ?? 0) / 5) * 100}%` }} />
-                    </div>
-                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 w-8 text-right">{Number(avaliacao.score_desempenho ?? 0).toFixed(1)}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-slate-400 w-24 shrink-0">Potencial</span>
-                    <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                      <div className="h-full bg-slate-600 dark:bg-slate-400 rounded-full" style={{ width: `${((avaliacao.score_potencial ?? 0) / 5) * 100}%` }} />
-                    </div>
-                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 w-8 text-right">{Number(avaliacao.score_potencial ?? 0).toFixed(1)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Desempenho */}
-        {COMP_DESEMPENHO.some(c => getRating(c.id)) && (
-          <div className="card p-5">
-            <h2 className="text-sm font-semibold text-primary-600 dark:text-primary-400 mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-primary-500 shrink-0" /> Competências de Desempenho
-            </h2>
-            {COMP_DESEMPENHO.map(c => (
-              <CompRow key={c.id} comp={c} rating={getRating(c.id)} observation={getObs(c.id)} tipo="desempenho" />
+        {/* Abas */}
+        {abas.length > 0 && (
+          <div className="flex gap-1 border-b border-slate-200 dark:border-slate-700 overflow-x-auto" role="tablist">
+            {abas.map(a => (
+              <button
+                key={a.id}
+                role="tab"
+                aria-selected={abaAtiva === a.id}
+                onClick={() => setAba(a.id)}
+                className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
+                  abaAtiva === a.id
+                    ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                }`}
+              >
+                {a.id === 'rh' && <Lock size={12} />}
+                {a.label}
+              </button>
             ))}
           </div>
         )}
 
-        {/* Potencial */}
-        {COMP_POTENCIAL.some(c => getRating(c.id)) && (
-          <div className="card p-5">
-            <h2 className="text-sm font-semibold text-slate-600 dark:text-slate-400 mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-slate-600 dark:bg-slate-400 shrink-0" /> Competências de Potencial
-            </h2>
-            {COMP_POTENCIAL.map(c => (
-              <CompRow key={c.id} comp={c} rating={getRating(c.id)} observation={getObs(c.id)} tipo="potencial" />
-            ))}
-          </div>
+        {abaAtiva === 'rh' && abas.length > 0 && (
+          <CalibracaoRHTab avaliacao={avaliacao} podeCalibrar={pendenteAdmin} onCalibrar={() => setShowCalibracao(true)} />
         )}
 
-        {/* Liderança */}
-        {temLideranca && (
-          <div className="card p-5">
-            <h2 className="text-sm font-semibold text-lime-700 dark:text-lime-500 mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-lime-600 shrink-0" /> Competências de Liderança
-            </h2>
-            {COMP_LIDERANCA.map(c => (
-              <CompRow key={c.id} comp={c} rating={getRating(c.id)} observation={getObs(c.id)} tipo="lideranca" />
-            ))}
-          </div>
+        {abaAtiva === 'consolidado' && abas.length > 0 && (
+          <>
+            <p className="text-xs text-slate-400 -mt-2">
+              Resultado final após a calibração. As notas ajustadas pelo RH aparecem sinalizadas{veRH ? ' e os comentários do RH ficam ao lado da observação do gestor' : ''}.
+            </p>
+            <ResultadoView
+              view={viewFinal}
+              tipoAvaliacao={avaliacao.tipo}
+              gestorRespostas={original?.respostas as Respostas | undefined}
+              rhComentarios={avaliacao.calibracao?.comentarios}
+            />
+          </>
+        )}
+
+        {(abaAtiva === 'gestor' || abas.length === 0) && (
+          <>
+            {calibrada && (
+              <p className="text-xs text-slate-400 -mt-2">
+                Avaliação original enviada pelo gestor, exatamente como foi preenchida (antes da calibração).
+              </p>
+            )}
+            <ResultadoView view={viewGestor} tipoAvaliacao={avaliacao.tipo} />
+          </>
         )}
       </div>
     </>

@@ -27,12 +27,23 @@ exports.handler = async (event) => {
     const isRHAdmin  = isRHAdminRole(authPayload.role)
 
     await sql`ALTER TABLE ciclos_avaliacao ADD COLUMN IF NOT EXISTS confidencial BOOLEAN DEFAULT false`
+    // gestor_original: cópia da avaliação do gestor (notas, scores, quadrante) tirada no momento da calibração.
+    // calibracao: comentários e parecer do RH, em separado do que o gestor escreveu. Só RH enxerga.
+    await sql`ALTER TABLE ciclos_avaliacao ADD COLUMN IF NOT EXISTS gestor_original JSONB`
+    await sql`ALTER TABLE ciclos_avaliacao ADD COLUMN IF NOT EXISTS calibracao JSONB`
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS avaliacoes_confidenciais BOOLEAN DEFAULT false`
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS ver_confidencial BOOLEAN DEFAULT false`
 
     // Verifica se o usuário logado tem permissão para ver avaliações confidenciais
     const userPermsRow = await sql`SELECT ver_confidencial FROM users WHERE id = ${authPayload.userId} LIMIT 1`
     const podeVerConfidencial = userPermsRow[0]?.ver_confidencial ?? false
+
+    // Comentários e parecer do RH na calibração só são visíveis para o RH (nunca para o gestor)
+    const sanitize = (row) => {
+      if (isRHAdmin) return row
+      const { calibracao, ...rest } = row
+      return rest
+    }
 
     if (event.httpMethod === 'GET') {
       if (!isAdminRole(authPayload.role) && !isGestor) {
@@ -47,7 +58,7 @@ exports.handler = async (event) => {
             AND (ca.confidencial = false OR ${podeVerConfidencial} OR ca.avaliador_id = ${authPayload.userId})
         `
         if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Não encontrado' }) }
-        return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
+        return { statusCode: 200, headers, body: JSON.stringify(sanitize(rows[0])) }
       }
 
       const colaboradorId = params.colaborador_id ? parseInt(params.colaborador_id) : null
@@ -70,7 +81,7 @@ exports.handler = async (event) => {
           ORDER BY ca.created_at DESC
         `
       }
-      return { statusCode: 200, headers, body: JSON.stringify(rows) }
+      return { statusCode: 200, headers, body: JSON.stringify(rows.map(sanitize)) }
     }
 
     if (event.httpMethod === 'POST') {
@@ -155,15 +166,94 @@ exports.handler = async (event) => {
       const {
         avaliador_nome, tipo, periodo_inicial, periodo_final, nivel_cargo,
         score_desempenho, score_potencial, nivel_desempenho, nivel_potencial,
-        quadrante, respostas, status, calibrar, confidencial,
+        quadrante, respostas, status, calibrar, calibracao, confidencial,
       } = body
 
       // Calibração: Admin RH conclui avaliação enviada por Gestor
       if (calibrar) {
-        const current = await sql`SELECT status, colaborador_nome, colaborador_id FROM ciclos_avaliacao WHERE id = ${id}`
+        const current = await sql`
+          SELECT status, colaborador_nome, colaborador_id, respostas,
+                 score_desempenho, score_potencial, nivel_desempenho, nivel_potencial, quadrante
+          FROM ciclos_avaliacao WHERE id = ${id}
+        `
         if (current.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Não encontrado' }) }
         if (current[0].status !== 'pendente')
           return { statusCode: 400, headers, body: JSON.stringify({ error: 'Avaliação não está aguardando calibração' }) }
+
+        const userName = await getUserName(sql, authPayload.userId)
+
+        // Nova calibração: preserva o que o gestor avaliou e guarda os comentários do RH separados.
+        // Sem o payload "calibracao" mantém o comportamento antigo (apenas conclui).
+        if (calibracao && typeof calibracao === 'object') {
+          const original = current[0].respostas || {}
+          const notas = calibracao.respostas && typeof calibracao.respostas === 'object' ? calibracao.respostas : {}
+          const comentarios = calibracao.comentarios && typeof calibracao.comentarios === 'object' ? calibracao.comentarios : {}
+
+          const finalRespostas = { ...original }
+          for (const [compId, v] of Object.entries(notas)) {
+            const nota = Number(v?.nota)
+            if (!Number.isInteger(nota) || nota < 1 || nota > 5)
+              return { statusCode: 400, headers, body: JSON.stringify({ error: `Nota inválida para "${compId}"` }) }
+            const obsGestor = String(original[compId]?.observacao ?? original[compId]?.observation ?? '').trim()
+            const comentarioRH = String(comentarios[compId] ?? '').trim()
+            // Notas 1 e 5 exigem justificativa — do gestor ou do RH
+            if ((nota === 1 || nota === 5) && !obsGestor && !comentarioRH)
+              return { statusCode: 400, headers, body: JSON.stringify({ error: `Justificativa obrigatória para nota ${nota} em "${compId}"` }) }
+            // Mantém a observação do gestor intacta; só a nota final muda
+            finalRespostas[compId] = { ...(original[compId] || {}), nota }
+          }
+
+          const cleanComentarios = {}
+          for (const [compId, text] of Object.entries(comentarios)) {
+            const t = String(text ?? '').trim()
+            if (t) cleanComentarios[compId] = t.slice(0, 4000)
+          }
+
+          const snapshot = {
+            respostas: original,
+            score_desempenho: current[0].score_desempenho,
+            score_potencial:  current[0].score_potencial,
+            nivel_desempenho: current[0].nivel_desempenho,
+            nivel_potencial:  current[0].nivel_potencial,
+            quadrante:        current[0].quadrante,
+          }
+          const registro = {
+            comentarios: cleanComentarios,
+            parecer: String(calibracao.parecer ?? '').trim().slice(0, 4000),
+            calibrado_por_id: authPayload.userId,
+            calibrado_por_nome: userName,
+            calibrado_em: new Date().toISOString(),
+          }
+
+          const rows = await sql`
+            UPDATE ciclos_avaliacao
+            SET gestor_original  = COALESCE(gestor_original, ${JSON.stringify(snapshot)}::jsonb),
+                respostas        = ${JSON.stringify(finalRespostas)}::jsonb,
+                score_desempenho = COALESCE(${score_desempenho ?? null}, score_desempenho),
+                score_potencial  = COALESCE(${score_potencial ?? null}, score_potencial),
+                nivel_desempenho = COALESCE(${nivel_desempenho ?? null}, nivel_desempenho),
+                nivel_potencial  = COALESCE(${nivel_potencial ?? null}, nivel_potencial),
+                quadrante        = COALESCE(${quadrante ?? null}, quadrante),
+                calibracao       = ${JSON.stringify(registro)}::jsonb,
+                status           = 'concluido',
+                updated_at       = NOW()
+            WHERE id = ${id} AND status = 'pendente'
+            RETURNING *
+          `
+          if (rows.length === 0)
+            return { statusCode: 409, headers, body: JSON.stringify({ error: 'Avaliação já foi calibrada por outra pessoa' }) }
+          await logAudit(sql, {
+            entityType: 'avaliacao',
+            entityId: rows[0].id,
+            entityName: rows[0].colaborador_nome || `Colaborador #${rows[0].colaborador_id}`,
+            action: 'calibrated',
+            changes: null,
+            userId: authPayload.userId,
+            userName,
+          })
+          return { statusCode: 200, headers, body: JSON.stringify(sanitize(rows[0])) }
+        }
+
         const rows = await sql`
           UPDATE ciclos_avaliacao
           SET status     = 'concluido',
@@ -171,7 +261,6 @@ exports.handler = async (event) => {
           WHERE id = ${id}
           RETURNING *
         `
-        const userName = await getUserName(sql, authPayload.userId)
         await logAudit(sql, {
           entityType: 'avaliacao',
           entityId: rows[0].id,
@@ -181,7 +270,7 @@ exports.handler = async (event) => {
           userId: authPayload.userId,
           userName,
         })
-        return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
+        return { statusCode: 200, headers, body: JSON.stringify(sanitize(rows[0])) }
       }
 
       const rows = await sql`
@@ -214,7 +303,7 @@ exports.handler = async (event) => {
         userId: authPayload.userId,
         userName,
       })
-      return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
+      return { statusCode: 200, headers, body: JSON.stringify(sanitize(rows[0])) }
     }
 
     if (event.httpMethod === 'DELETE') {

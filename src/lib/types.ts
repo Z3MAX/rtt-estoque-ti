@@ -71,8 +71,30 @@ export interface CicloAvaliacao {
   respostas?: Record<string, RespostaCompetencia>
   status: StatusAvaliacao
   confidencial?: boolean
+  /** Avaliação original do gestor, preservada na calibração (ausente em avaliações calibradas antes desse recurso). */
+  gestor_original?: AvaliacaoGestorOriginal | null
+  /** Comentários do RH na calibração. A API só envia para o RH. */
+  calibracao?: CalibracaoRH | null
   created_at: string
   updated_at: string
+}
+
+export interface AvaliacaoGestorOriginal {
+  respostas?: Record<string, RespostaCompetencia> | null
+  score_desempenho?: number | null
+  score_potencial?: number | null
+  nivel_desempenho?: string | null
+  nivel_potencial?: string | null
+  quadrante?: string | null
+}
+
+export interface CalibracaoRH {
+  /** Comentário do RH por competência (id da competência → texto). */
+  comentarios: Record<string, string>
+  parecer: string
+  calibrado_por_id?: number
+  calibrado_por_nome?: string
+  calibrado_em?: string
 }
 
 export interface DashboardAvaliacoes {
