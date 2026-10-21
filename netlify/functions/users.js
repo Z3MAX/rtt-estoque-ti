@@ -6,11 +6,16 @@ const { sendInviteEmail } = require('./_email')
 const { logAudit, computeDiff, getUserName } = require('./_audit')
 const { normalizeCpf, isValidCpf } = require('./_cpf')
 const { normalizePhone } = require('./_phone')
+const { ensureOnce } = require('./_schema')
 
 const VALID_ROLES = ['Administrador de RH', 'Administrador de TI', 'Gestor', 'Administrador Master', 'Administrador de RH / Gestor', 'Beta Teste', 'Instrutor', 'Colaborador']
 
 /** Garante colunas/índices usados pelo login por CPF (idempotente). */
 async function ensureUserColumns(sql) {
+  return ensureOnce('users-cols', () => migrateUserColumns(sql))
+}
+
+async function migrateUserColumns(sql) {
   await sql`ALTER TABLE users ALTER COLUMN email DROP NOT NULL`
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS cpf VARCHAR(11)`
   // Telefone (E.164) para o MFA por SMS/WhatsApp de quem entra só com CPF — envio ainda não habilitado

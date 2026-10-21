@@ -4,6 +4,7 @@ const { hashPassword, comparePassword } = require('./_hash')
 const { signToken, signMfaPendingToken, makeHeaders, errorResponse, makeSessionCookie } = require('./_auth')
 const { checkRateLimit, recordAttempt, clearAttempts, MAX_PER_EMAIL, MAX_PER_IP } = require('./_rate_limit')
 const { normalizeCpf, isValidCpf } = require('./_cpf')
+const { ensureOnce } = require('./_schema')
 
 exports.handler = async (event) => {
   const headers = makeHeaders(event, 'POST, OPTIONS')
@@ -54,8 +55,10 @@ exports.handler = async (event) => {
     }
 
     // Busca por e-mail (sem conferir senha no SQL para evitar timing attacks)
-    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INT NOT NULL DEFAULT 0`
-    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS cpf VARCHAR(11)`
+    await ensureOnce('users-login-cols', async () => {
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INT NOT NULL DEFAULT 0`
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS cpf VARCHAR(11)`
+    })
 
     const rows = byCpf
       ? await sql`

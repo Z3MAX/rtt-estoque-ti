@@ -15,7 +15,7 @@ export default function ChangePasswordPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!password)              { setError('Digite a nova senha'); return }
-    if (password.length < 6)   { setError('A senha deve ter no mínimo 6 caracteres'); return }
+    if (password.length < 8)   { setError('A senha deve ter no mínimo 8 caracteres'); return }
     if (password !== confirm)  { setError('As senhas não coincidem'); return }
 
     try {
@@ -43,8 +43,7 @@ export default function ChangePasswordPage() {
 
   const passwordStrength = (pwd: string) => {
     if (!pwd) return null
-    if (pwd.length < 6) return { level: 1, label: 'Muito fraca', color: 'bg-red-500' }
-    if (pwd.length < 8) return { level: 2, label: 'Fraca', color: 'bg-orange-400' }
+    if (pwd.length < 8) return { level: 1, label: 'Muito fraca', color: 'bg-red-500' }
     const score = [/[A-Z]/.test(pwd), /[0-9]/.test(pwd), /[^a-zA-Z0-9]/.test(pwd)].filter(Boolean).length
     if (score === 0) return { level: 2, label: 'Fraca', color: 'bg-orange-400' }
     if (score === 1) return { level: 3, label: 'Média', color: 'bg-yellow-400' }

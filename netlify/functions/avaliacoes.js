@@ -1,6 +1,7 @@
 const { neon } = require('@neondatabase/serverless')
 const { requireAuth, isAdminRole, makeHeaders, errorResponse } = require('./_auth')
 const { logAudit, getUserName } = require('./_audit')
+const { ensureOnce } = require('./_schema')
 
 // RH admins e Master podem ver avaliações confidenciais; TI não pode
 function isRHAdminRole(role) {
@@ -26,6 +27,7 @@ exports.handler = async (event) => {
     const gestorName = authPayload.name || null
     const isRHAdmin  = isRHAdminRole(authPayload.role)
 
+    await ensureOnce('avaliacoes-cols', async () => {
     await sql`ALTER TABLE ciclos_avaliacao ADD COLUMN IF NOT EXISTS confidencial BOOLEAN DEFAULT false`
     // gestor_original: cópia da avaliação do gestor (notas, scores, quadrante) tirada no momento da calibração.
     // calibracao: comentários e parecer do RH, em separado do que o gestor escreveu. Só RH enxerga.
@@ -33,6 +35,7 @@ exports.handler = async (event) => {
     await sql`ALTER TABLE ciclos_avaliacao ADD COLUMN IF NOT EXISTS calibracao JSONB`
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS avaliacoes_confidenciais BOOLEAN DEFAULT false`
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS ver_confidencial BOOLEAN DEFAULT false`
+    })
 
     // Verifica se o usuário logado tem permissão para ver avaliações confidenciais
     const userPermsRow = await sql`SELECT ver_confidencial FROM users WHERE id = ${authPayload.userId} LIMIT 1`

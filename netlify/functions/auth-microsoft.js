@@ -1,6 +1,7 @@
 const { neon } = require('@neondatabase/serverless')
 const { createRemoteJWKSet, jwtVerify } = require('jose')
 const { signToken, signMfaPendingToken, makeHeaders, errorResponse, makeSessionCookie } = require('./_auth')
+const { ensureOnce } = require('./_schema')
 
 const TENANT_ID = process.env.MS_TENANT_ID
 const CLIENT_ID = process.env.MS_CLIENT_ID
@@ -58,8 +59,10 @@ exports.handler = async (event) => {
 
     const sql = neon(process.env.DATABASE_URL)
 
+    await ensureOnce('users-token-version', () => sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INT NOT NULL DEFAULT 0`)
+
     const rows = await sql`
-      SELECT id, name, email, role, roles, area, active, must_change_password, photo_url
+      SELECT id, name, email, role, roles, area, active, must_change_password, photo_url, token_version
       FROM users
       WHERE LOWER(TRIM(email)) = ${msEmail}
     `
@@ -96,6 +99,8 @@ exports.handler = async (event) => {
       roles: user.roles || [user.role],
       area: user.area || null,
       mustChangePassword: user.must_change_password ?? false,
+      // Sem isso a sessão SSO nunca é invalidada por redefinição de senha (auth-me só valida se o campo existir)
+      tokenVersion: user.token_version ?? 0,
     }
 
     const userObj = {

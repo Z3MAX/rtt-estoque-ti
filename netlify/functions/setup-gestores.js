@@ -44,7 +44,7 @@ exports.handler = async (event) => {
     // Usuários existentes indexados por nome (lowercase)
     const existingUsers = await sql`SELECT id, email, name FROM users`
     const existingByName  = new Map(existingUsers.map(u => [u.name.toLowerCase(), u]))
-    const existingEmails  = new Set(existingUsers.map(u => u.email.toLowerCase()))
+    const existingEmails  = new Set(existingUsers.map(u => (u.email || '').toLowerCase()).filter(Boolean))
 
     const created      = []
     const emailUpdated = []
@@ -58,7 +58,7 @@ exports.handler = async (event) => {
 
       if (existing) {
         // Gestor já existe — atualiza email se for diferente
-        if (existing.email.toLowerCase() !== emailReal) {
+        if ((existing.email || '').toLowerCase() !== emailReal) {
           await sql`UPDATE users SET email = ${emailReal} WHERE id = ${existing.id}`
           emailUpdated.push({ nome: g.nome, email_anterior: existing.email, email_novo: emailReal })
         } else {

@@ -1,6 +1,7 @@
 const { neon } = require('@neondatabase/serverless')
 const { requireAuth, makeHeaders, errorResponse } = require('./_auth')
 const { logAudit, computeDiff, getUserName } = require('./_audit')
+const { ensureOnce } = require('./_schema')
 
 /** "AAAA-MM-DD" válido (ano 1900-2100) ou null. Evita data inválida derrubar o lote inteiro no cast ::date. */
 function normalizeIsoDate(v) {
@@ -37,11 +38,13 @@ exports.handler = async (event) => {
     const gestorEmail = authPayload.email || null
 
     // Add new columns if table predates them
-    await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS data_nascimento DATE`
-    await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS data_admissao DATE`
-    await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS photo_url TEXT`
-    await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS bio TEXT`
-    await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS gestor_email TEXT`
+    await ensureOnce('colaboradores-cols', async () => {
+      await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS data_nascimento DATE`
+      await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS data_admissao DATE`
+      await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS photo_url TEXT`
+      await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS bio TEXT`
+      await sql`ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS gestor_email TEXT`
+    })
 
     if (event.httpMethod === 'GET') {
       if (id) {
@@ -63,7 +66,7 @@ exports.handler = async (event) => {
              ORDER BY ca5.created_at DESC LIMIT 1) AS score_potencial
           FROM colaboradores c
           WHERE c.id = ${id}
-            AND (${!isGestor} OR (LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})) AND (c.gestor_email IS NULL OR LOWER(TRIM(c.gestor_email)) = LOWER(TRIM(${gestorEmail})))))
+            AND (${!isGestor} OR (LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})) AND (c.gestor_email IS NULL OR ${!gestorEmail} OR LOWER(TRIM(c.gestor_email)) = LOWER(TRIM(${gestorEmail})))))
         `
         if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Colaborador não encontrado' }) }
         return { statusCode: 200, headers, body: JSON.stringify(rows[0]) }
@@ -90,7 +93,7 @@ exports.handler = async (event) => {
              ORDER BY ca5.created_at DESC LIMIT 1) AS score_potencial
           FROM colaboradores c
           WHERE c.ativo = true
-            AND (${!isGestor} OR (LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})) AND (c.gestor_email IS NULL OR LOWER(TRIM(c.gestor_email)) = LOWER(TRIM(${gestorEmail})))))
+            AND (${!isGestor} OR (LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})) AND (c.gestor_email IS NULL OR ${!gestorEmail} OR LOWER(TRIM(c.gestor_email)) = LOWER(TRIM(${gestorEmail})))))
             AND (
               LOWER(c.nome)        LIKE ${'%' + search + '%'} OR
               LOWER(c.cargo)       LIKE ${'%' + search + '%'} OR
@@ -118,7 +121,7 @@ exports.handler = async (event) => {
              ORDER BY ca5.created_at DESC LIMIT 1) AS score_potencial
           FROM colaboradores c
           WHERE c.ativo = true
-            AND (${!isGestor} OR (LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})) AND (c.gestor_email IS NULL OR LOWER(TRIM(c.gestor_email)) = LOWER(TRIM(${gestorEmail})))))
+            AND (${!isGestor} OR (LOWER(TRIM(c.gestor_nome)) = LOWER(TRIM(${gestorName})) AND (c.gestor_email IS NULL OR ${!gestorEmail} OR LOWER(TRIM(c.gestor_email)) = LOWER(TRIM(${gestorEmail})))))
           ORDER BY c.nome ASC
         `
       }
