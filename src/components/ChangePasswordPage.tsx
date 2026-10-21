@@ -3,7 +3,7 @@ import { KeyRound, Eye, EyeOff, CheckCircle2, LogOut, ShieldCheck } from 'lucide
 import { useAuth } from '../lib/auth'
 
 export default function ChangePasswordPage() {
-  const { user, token, logout, updateUser } = useAuth()
+  const { user, token, logout, loginWithToken } = useAuth()
 
   const [password, setPassword] = useState('')
   const [confirm, setConfirm]   = useState('')
@@ -32,8 +32,9 @@ export default function ChangePasswordPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erro ao salvar senha')
 
-      // Remove the flag from the user session — now they have full access
-      updateUser({ mustChangePassword: false })
+      // O servidor devolve uma sessão nova (sem a marca de senha temporária); o cookie já foi
+      // trocado. Sincroniza o estado local para liberar o acesso completo.
+      loginWithToken(data.token, data.user)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar senha')
     } finally {

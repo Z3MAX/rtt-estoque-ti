@@ -44,6 +44,13 @@ const COLABORADOR_ALLOWED_FUNCTIONS = new Set([
  * Não usar o último segmento — o Netlify aceita sufixos de caminho
  * (`/functions/colaboradores/auth-me` executa `colaboradores`).
  */
+/**
+ * Com senha temporária (mustChangePassword) a única coisa permitida é trocar a senha
+ * (first-password) e recarregar a própria sessão (auth-me). Sem isso, a troca obrigatória
+ * existiria só na tela e quem tem a senha temporária poderia usar a API direto.
+ */
+const MUST_CHANGE_ALLOWED_FUNCTIONS = new Set(['first-password', 'auth-me'])
+
 function functionNameFromEvent(event) {
   let path = String((event && event.path) || '')
   try {
@@ -70,7 +77,11 @@ function requireAuth(event) {
     if (payload.mfaPending) {
       throw Object.assign(new Error('Autenticação de dois fatores pendente'), { statusCode: 401 })
     }
-    if (payload.role === 'Colaborador' && !COLABORADOR_ALLOWED_FUNCTIONS.has(functionNameFromEvent(event))) {
+    const fn = functionNameFromEvent(event)
+    if (payload.mustChangePassword === true && !MUST_CHANGE_ALLOWED_FUNCTIONS.has(fn)) {
+      throw Object.assign(new Error('Troque a senha temporária antes de continuar'), { statusCode: 403 })
+    }
+    if (payload.role === 'Colaborador' && !COLABORADOR_ALLOWED_FUNCTIONS.has(fn)) {
       throw Object.assign(new Error('Acesso negado'), { statusCode: 403 })
     }
     return payload
