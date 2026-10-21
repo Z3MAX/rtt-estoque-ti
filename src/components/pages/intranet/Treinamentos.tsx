@@ -1947,12 +1947,12 @@ function RHView({ todosCursos }: { todosCursos: Treinamento[] }) {
     <div className="space-y-5">
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit">
+      <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit max-w-full overflow-x-auto">
         {TABS.map(t => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               tab === t.id
                 ? 'bg-white dark:bg-slate-700 shadow text-slate-800 dark:text-slate-100'
                 : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
@@ -3503,18 +3503,18 @@ const [loading, setLoading] = useState(true)
             {view === 'instrutor' ? 'Crie e gerencie os cursos que você ministra' : view === 'gestao' ? 'Acompanhe o progresso, defina requisitos e extraia relatórios' : view === 'presenciais' ? 'Listas de presença com QR Code para treinamentos presenciais' : 'Trilhas de desenvolvimento disponíveis para você'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-xl text-sm">
+        <div className="flex items-center gap-2 max-w-full">
+          <div className="flex gap-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-xl text-sm max-w-full overflow-x-auto">
             <button
               onClick={() => setView('meus')}
-              className={`px-4 py-1.5 rounded-lg font-medium transition-colors ${view === 'meus' ? 'bg-white dark:bg-slate-800 shadow text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+              className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-lg font-medium transition-colors ${view === 'meus' ? 'bg-white dark:bg-slate-800 shadow text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
             >
               Meus cursos
             </button>
             {podeInstrutor && (
               <button
                 onClick={() => setView('instrutor')}
-                className={`px-4 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${view === 'instrutor' ? 'bg-white dark:bg-slate-800 shadow text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${view === 'instrutor' ? 'bg-white dark:bg-slate-800 shadow text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
               >
                 <FilePen size={13} />Instrutor
               </button>
@@ -3522,7 +3522,7 @@ const [loading, setLoading] = useState(true)
             {podeGerenciar && (
               <button
                 onClick={() => setView('gestao')}
-                className={`px-4 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${view === 'gestao' ? 'bg-white dark:bg-slate-800 shadow text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${view === 'gestao' ? 'bg-white dark:bg-slate-800 shadow text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
               >
                 <BarChart2 size={14} />Gestão
                 {obrigPend > 0 && (
@@ -3533,7 +3533,7 @@ const [loading, setLoading] = useState(true)
             {podeGerenciar && (
               <button
                 onClick={() => setView('presenciais')}
-                className={`px-4 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${view === 'presenciais' ? 'bg-white dark:bg-slate-800 shadow text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${view === 'presenciais' ? 'bg-white dark:bg-slate-800 shadow text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
               >
                 <UserCheck size={14} />Presenciais
               </button>

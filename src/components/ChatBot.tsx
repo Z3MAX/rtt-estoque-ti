@@ -15,7 +15,7 @@ export default function ChatBot() {
       {!open && (
         <button
           onClick={() => { setOpen(true); setMinimized(false) }}
-          className="fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full shadow-xl hover:shadow-2xl transition-all overflow-hidden border-4 border-primary-600 hover:scale-105"
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-xl hover:shadow-2xl transition-all overflow-hidden border-4 border-primary-600 hover:scale-105"
           title="Falar com o Assistente RTT"
         >
           <img src={AVATAR} alt="Assistente RTT" className="w-full h-full object-cover" />
@@ -25,8 +25,8 @@ export default function ChatBot() {
       {/* Chat window */}
       {open && (
         <div
-          className={`fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 transition-all duration-200 ${
-            minimized ? 'h-[72px] w-80' : 'w-96 h-[600px]'
+          className={`fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-40 flex flex-col rounded-2xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 transition-all duration-200 ${
+            minimized ? 'h-[72px] w-[min(20rem,calc(100vw-1.5rem))]' : 'w-[calc(100vw-1.5rem)] sm:w-96 h-[min(600px,calc(100dvh-1.5rem))]'
           }`}
         >
           {/* Header com foto */}

@@ -74,3 +74,20 @@
     @apply bg-white/15 text-white;
   }
 }
+
+/* Modais no celular: nunca maiores que a tela; o conteúdo rola por dentro,
+   para os botões Salvar/Cancelar ficarem sempre alcançáveis. */
+@media (max-width: 767px) {
+  .fixed.inset-0 > .rounded-2xl {
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+  }
+
+  /* 16px evita o zoom automático do iOS ao focar em um campo */
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

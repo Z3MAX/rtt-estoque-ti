@@ -382,7 +382,7 @@ export default function ColaboradoresPage() {
           <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Colaboradores</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{colabs.length} colaborador(es) na base</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {userIsAdmin && (
             <button onClick={handleExport} disabled={exporting} className="btn-secondary gap-2" title="Baixa a base atual (com as correções já feitas) no mesmo formato da importação">
               <Download size={15} /> {exporting ? 'Exportando...' : 'Exportar Excel'}

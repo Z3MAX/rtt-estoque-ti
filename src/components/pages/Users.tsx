@@ -769,13 +769,13 @@ export default function UsersPage() {
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Usuários</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">Gerencie contas e permissões de acesso</p>
         </div>
         {userIsAdmin && (
-          <div className="flex gap-2 shrink-0">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={async () => {
                 setImportingGestores(true)
@@ -933,7 +933,7 @@ export default function UsersPage() {
             {/* User rows */}
             <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
               {list.map((u) => (
-                <div key={u.id} className={`flex items-center gap-4 px-5 py-4 hover:bg-slate-50/70 dark:hover:bg-slate-700/30 transition-colors ${!u.active ? 'opacity-50' : ''} ${selectedGestores.has(u.id) ? 'bg-red-50/40 dark:bg-red-900/10' : ''}`}>
+                <div key={u.id} className={`flex flex-wrap sm:flex-nowrap items-center gap-x-4 gap-y-2 px-4 sm:px-5 py-4 hover:bg-slate-50/70 dark:hover:bg-slate-700/30 transition-colors ${!u.active ? 'opacity-50' : ''} ${selectedGestores.has(u.id) ? 'bg-red-50/40 dark:bg-red-900/10' : ''}`}>
                   {/* Checkbox (apenas gestores) */}
                   {userIsAdmin && selectable && (
                     <button
@@ -950,7 +950,7 @@ export default function UsersPage() {
                   </div>
 
                   {/* Info */}
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-[10rem] sm:min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{u.name}</p>
                       {u.id === currentUser?.id && (
@@ -995,7 +995,7 @@ export default function UsersPage() {
 
                   {/* Actions */}
                   {userIsAdmin && (
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0 ml-auto">
                       {/* Reenviar convite — só aparece para usuários com primeiro acesso pendente */}
                       {u.must_change_password && u.active && u.email && (
                         <button

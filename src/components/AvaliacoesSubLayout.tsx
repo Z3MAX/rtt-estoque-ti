@@ -23,10 +23,10 @@ export default function AvaliacoesSubLayout() {
   const userIsMaster = isMaster(user?.role)
 
   return (
-    <div className="flex gap-4 min-h-[calc(100vh-3.5rem-48px)]">
-      {/* Sub-sidebar */}
-      <aside className="w-52 shrink-0 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60 px-3 py-4 flex flex-col gap-0.5 self-start sticky top-[calc(3.5rem+24px)]">
-        <p className="px-3 text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Menu</p>
+    <div className="flex flex-col md:flex-row gap-4 min-h-[calc(100vh-3.5rem-48px)]">
+      {/* Sub-menu: barra horizontal rolável no celular, lateral fixa a partir de md */}
+      <aside className="md:w-52 md:shrink-0 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60 px-2 py-2 md:px-3 md:py-4 flex flex-row md:flex-col gap-1 md:gap-0.5 overflow-x-auto md:overflow-visible md:self-start md:sticky md:top-[calc(3.5rem+24px)]">
+        <p className="hidden md:block px-3 text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Menu</p>
         {navItems
           .filter(({ adminOnly, masterOnly }) => (!adminOnly || userIsAdmin) && (!masterOnly || userIsMaster))
           .map(({ to, icon: Icon, label }) => (
@@ -34,7 +34,7 @@ export default function AvaliacoesSubLayout() {
               key={to}
               to={to}
               className={({ isActive }) =>
-                `flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                `shrink-0 whitespace-nowrap flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition-all ${
                   isActive
                     ? 'bg-primary-500 text-white shadow-sm shadow-primary-500/25'
                     : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
@@ -47,7 +47,7 @@ export default function AvaliacoesSubLayout() {
                     <Icon size={15} />
                     {label}
                   </div>
-                  {isActive && <ChevronRight size={13} className="opacity-70" />}
+                  {isActive && <ChevronRight size={13} className="hidden md:block opacity-70" />}
                 </>
               )}
             </NavLink>

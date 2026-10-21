@@ -170,7 +170,7 @@ export default function IntranetLayout() {
       </header>
 
       {/* Content */}
-      <main className="flex-1 w-full px-4 py-6">
+      <main className="flex-1 w-full px-4 pt-6 pb-24 md:pb-6">
         {AVALIACOES_PATHS.some(p => location.pathname === p || location.pathname.startsWith(p + '/'))
           ? <Outlet />
           : <div className="max-w-screen-xl mx-auto"><Outlet /></div>
