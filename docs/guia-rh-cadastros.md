@@ -55,7 +55,7 @@ Para tirar alguém da lista, selecione a pessoa e use **Excluir**. Ela é **desa
 
 ## 2. Usuários (quem acessa o sistema)
 
-Menu **Usuários**. Hoje ele fica dentro do módulo de Avaliações.
+Menu **Usuários** (na barra superior da Intranet, visível para administradores).
 
 ### Criar um acesso
 Clique em **Novo Usuário** e escolha como a pessoa vai entrar:
@@ -73,7 +73,7 @@ Clique em **Novo Usuário** e escolha como a pessoa vai entrar:
 ### Perfis de acesso
 | Perfil | O que acessa |
 |---|---|
-| **Colaborador** | Apenas a Intranet: Minha Visão, Treinamentos, Comunicados e Pesquisas |
+| **Colaborador** | Apenas a Intranet: Minha Visão, Treinamentos, Comunicados, Pesquisas e **Meus feedbacks** (somente leitura) |
 | **Gestor** | Intranet e avaliação da própria equipe (exige informar o **departamento**) |
 | **Administrador de RH** | Tudo de RH, incluindo cadastros, usuários e calibração |
 | **Administrador de RH / Gestor** | Administrador de RH com visão de gestor |
@@ -92,7 +92,18 @@ Para quem vai fazer cursos pelo cargo ou pela área, escolha o **Colaborador vin
 
 ---
 
-## 3. Avisos da página inicial
+## 3. Feedbacks
+
+Menu **Carreira → Feedbacks**.
+
+- **Quem registra:** RH e gestores. Colaboradores só **consultam** os feedbacks que receberam (menu *Meus feedbacks*).
+- **Para quem:** o RH registra para qualquer colaborador. O **gestor** registra apenas para colaboradores do **mesmo setor (área) dele**.
+- **Categorias:** Geral, Positivo, Construtivo e **Referente à avaliação de desempenho**.
+- Se o gestor não consegue registrar para alguém, confira o **departamento do usuário do gestor** e a **área** do colaborador: precisam estar escritos igual (ex.: "Comercial").
+
+---
+
+## 4. Avisos da página inicial
 
 - **Aniversariantes** e **tempo de empresa** aparecem em *Minha Visão* para os próximos **30 dias**.
 - Dependem das datas preenchidas na base. Pessoas sem data não aparecem.
@@ -100,7 +111,7 @@ Para quem vai fazer cursos pelo cargo ou pela área, escolha o **Colaborador vin
 
 ---
 
-## 4. Quando acionar o TI
+## 5. Quando acionar o TI
 
 O RH resolve cadastros e acessos sozinho. Chame o TI quando:
 
@@ -108,7 +119,7 @@ O RH resolve cadastros e acessos sozinho. Chame o TI quando:
 - aparecer **erro** ao importar mesmo com a planilha no formato do modelo;
 - for preciso **mudar permissões** além dos perfis acima ou recuperar um cadastro excluído por engano.
 
-## 5. Boas práticas
+## 6. Boas práticas
 
 - Faça uma **exportação antes** de qualquer importação grande: ela serve de cópia de segurança.
 - Padronize **áreas** e **cargos**. Eles alimentam relatórios, treinamentos por cargo/área e a visibilidade do gestor.

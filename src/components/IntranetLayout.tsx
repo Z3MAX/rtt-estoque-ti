@@ -2,20 +2,20 @@ import { useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   Home, Megaphone, GraduationCap, Users, ClipboardList,
-  LogOut, ChevronDown, Menu, X, Bell, SmilePlus, BarChart3, TrendingUp,
+  LogOut, ChevronDown, Menu, X, Bell, SmilePlus, BarChart3, TrendingUp, UserCog,
 } from 'lucide-react'
-import { useAuth, isColaborador } from '../lib/auth'
+import { useAuth, isAdmin, isColaborador } from '../lib/auth'
 import ChatBot from './ChatBot'
 import Avatar from './ui/Avatar'
 import PhotoUploadModal from './ui/PhotoUploadModal'
 
 const AVALIACOES_PATHS = [
   '/dashboard', '/colaboradores', '/departamentos', '/realizar-avaliacao',
-  '/avaliacoes', '/metas', '/usuarios', '/auditoria', '/ciclo-avaliacao',
+  '/avaliacoes', '/metas', '/auditoria', '/ciclo-avaliacao',
   '/corrigir-gestor', '/monitor',
 ]
 
-const NAV = [
+const NAV: Array<{ to: string; icon: typeof Home; label: string; adminOnly: boolean; anyAdmin?: boolean }> = [
   { to: '/intranet',              icon: Home,          label: 'Minha Visão',  adminOnly: false },
   { to: '/intranet/treinamentos', icon: GraduationCap, label: 'Treinamentos', adminOnly: false },
   { to: '/intranet/comunicados',  icon: Megaphone,     label: 'Comunicados',  adminOnly: false },
@@ -24,12 +24,16 @@ const NAV = [
   { to: '/intranet/carreira',    icon: TrendingUp,    label: 'Carreira',     adminOnly: false },
   { to: '/dashboard',            icon: BarChart3,     label: 'Avaliações',   adminOnly: false },
   { to: '/intranet/feedbacks',   icon: SmilePlus,     label: 'Humor',        adminOnly: true  },
+  // Administração de usuários (qualquer perfil administrativo, inclusive TI)
+  { to: '/usuarios',             icon: UserCog,       label: 'Usuários',     adminOnly: true, anyAdmin: true },
 ]
 
 const ADMIN_NAV_ROLES = ['Administrador de RH', 'Administrador Master', 'Administrador de RH / Gestor']
 
 // Perfil Colaborador: apenas estas áreas da Intranet (mantenha em sincronia com App.tsx e _auth.js)
-const COLABORADOR_NAV = ['/intranet', '/intranet/treinamentos', '/intranet/comunicados', '/intranet/pesquisas']
+const COLABORADOR_NAV = ['/intranet', '/intranet/treinamentos', '/intranet/comunicados', '/intranet/pesquisas', '/intranet/carreira']
+// No Colaborador, "Carreira" mostra só os feedbacks recebidos
+const COLABORADOR_LABELS: Record<string, string> = { '/intranet/carreira': 'Meus feedbacks' }
 
 export default function IntranetLayout() {
   const { user, logout } = useAuth()
@@ -49,9 +53,11 @@ export default function IntranetLayout() {
     return location.pathname.startsWith(to)
   }
 
-  const visibleNav = isColaborador(user?.role)
+  const colaborador = isColaborador(user?.role)
+  const visibleNav = (colaborador
     ? NAV.filter(n => COLABORADOR_NAV.includes(n.to))
-    : NAV.filter(n => !n.adminOnly || ADMIN_NAV_ROLES.includes(user?.role ?? ''))
+    : NAV.filter(n => n.anyAdmin ? isAdmin(user?.role) : (!n.adminOnly || ADMIN_NAV_ROLES.includes(user?.role ?? '')))
+  ).map(n => (colaborador && COLABORADOR_LABELS[n.to]) ? { ...n, label: COLABORADOR_LABELS[n.to] } : n)
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col">

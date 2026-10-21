@@ -35,6 +35,8 @@ const COLABORADOR_ALLOWED_FUNCTIONS = new Set([
   'cursos', 'curso-atribuicao', 'curso-avaliacao', 'curso-avaliacoes', 'curso-requisitos',
   'treinamento-progresso', 'treinamento-materiais', 'treinamentos-presenciais', 'panda-video-lookup',
   'pesquisas', 'pesquisa-respostas',
+  // Feedbacks: o Colaborador só consulta os que recebeu (o registro é restrito a RH e gestor)
+  'carreira-feedbacks',
 ])
 
 /**

@@ -643,6 +643,8 @@ export const api = {
 
   carreiraFeedbacks: {
     list: async () => request<any[]>(`${BASE}/carreira-feedbacks`),
+    /** Nomes dos colaboradores para quem o usuário logado pode registrar feedback (RH: todos; gestor: seu setor). */
+    destinatarios: async () => request<string[]>(`${BASE}/carreira-feedbacks?action=destinatarios`),
     create: async (data: any) => request<any>(`${BASE}/carreira-feedbacks`, { method: 'POST', body: JSON.stringify(data) }),
     delete: async (id: number) => request(`${BASE}/carreira-feedbacks?id=${id}`, { method: 'DELETE' }),
   },

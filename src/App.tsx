@@ -82,6 +82,7 @@ function ProtectedRoutes() {
           <Route path="/intranet/comunicados" element={<ComunicadosPage />} />
           <Route path="/intranet/pesquisas" element={<PesquisasIntranetPage />} />
           <Route path="/intranet/pesquisas/:id/responder" element={<PesquisaResponder />} />
+          <Route path="/intranet/carreira" element={<CarreiraPage />} />
           <Route path="*" element={<Navigate to="/intranet" replace />} />
         </Route>
       </Routes>
@@ -106,6 +107,9 @@ function ProtectedRoutes() {
         <Route path="/intranet/carreira" element={<CarreiraPage />} />
         <Route path="/intranet/feedbacks" element={<FeedbacksPage />} />
 
+        {/* Usuários: administração do sistema, fora do módulo de Avaliações */}
+        <Route path="/usuarios" element={isAdmin(user?.role) ? <UsersPage /> : <Navigate to="/intranet" replace />} />
+
         {/* Avaliações — sub-layout com sidebar própria */}
         <Route element={<AvaliacoesSubLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
@@ -118,7 +122,6 @@ function ProtectedRoutes() {
           <Route path="/avaliacoes" element={isAdmin(user?.role) ? <AvaliacoesPage /> : <Navigate to="/dashboard" replace />} />
           <Route path="/avaliacoes/:id" element={<AvaliacaoDetalhe />} />
           <Route path="/monitor" element={<AuditMonitor />} />
-          <Route path="/usuarios" element={isAdmin(user?.role) ? <UsersPage /> : <Navigate to="/dashboard" replace />} />
           <Route path="/auditoria" element={isMaster(user?.role) ? <AuditoriaPage /> : <Navigate to="/dashboard" replace />} />
           <Route path="/corrigir-gestor" element={isMaster(user?.role) ? <CorrigirGestorPage /> : <Navigate to="/dashboard" replace />} />
           <Route path="/ciclo-avaliacao" element={isAdmin(user?.role) ? <CicloAvaliacaoPage /> : <Navigate to="/dashboard" replace />} />

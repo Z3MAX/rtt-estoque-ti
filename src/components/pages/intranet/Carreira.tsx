@@ -5,12 +5,14 @@ import {
   X, Save, Loader2,
 } from 'lucide-react'
 import { api } from '../../../lib/api'
-import { useAuth } from '../../../lib/auth'
+import { useAuth, isColaborador } from '../../../lib/auth'
 
 // ─── COLABORADOR AUTOCOMPLETE ──────────────────────────────────────────────
 
-function ColaboradorPicker({ value, onChange, placeholder }: {
+function ColaboradorPicker({ value, onChange, placeholder, loader }: {
   value: string; onChange: (nome: string) => void; placeholder?: string
+  /** Fonte da lista de nomes. Padrão: colaboradores visíveis ao usuário. */
+  loader?: () => Promise<string[]>
 }) {
   const [colabs, setColabs] = useState<string[]>([])
   const [loaded, setLoaded] = useState(false)
@@ -23,8 +25,10 @@ function ColaboradorPicker({ value, onChange, placeholder }: {
   async function load() {
     if (loaded) return
     try {
-      const list = await api.colaboradores.list()
-      setColabs(list.map((c: any) => c.nome as string).sort())
+      const nomes = loader
+        ? await loader()
+        : (await api.colaboradores.list()).map((c: any) => c.nome as string)
+      setColabs([...nomes].sort())
       setLoaded(true)
     } catch {}
   }
@@ -387,7 +391,16 @@ function PDITab() {
 
 // ─── FEEDBACKS TAB ─────────────────────────────────────────────────────────
 
+const TIPO_LABELS: Record<string, string> = {
+  geral:                'Geral',
+  positivo:             'Positivo',
+  construtivo:          'Construtivo',
+  peer:                 'Peer (colega)',
+  avaliacao_desempenho: 'Avaliação de desempenho',
+}
+
 const TIPO_COLORS: Record<string, string> = {
+  avaliacao_desempenho: 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400',
   geral:       'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
   positivo:    'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
   construtivo: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
@@ -403,7 +416,7 @@ function FeedbackForm({ onSave, onCancel, saving }: { onSave: (d: any) => void; 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Para *</label>
-          <ColaboradorPicker value={form.para_nome} onChange={v => f('para_nome', v)} placeholder="Buscar colaborador..." />
+          <ColaboradorPicker value={form.para_nome} onChange={v => f('para_nome', v)} placeholder="Buscar colaborador..." loader={api.carreiraFeedbacks.destinatarios} />
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Tipo</label>
@@ -412,7 +425,7 @@ function FeedbackForm({ onSave, onCancel, saving }: { onSave: (d: any) => void; 
             <option value="geral">Geral</option>
             <option value="positivo">Positivo</option>
             <option value="construtivo">Construtivo</option>
-            <option value="peer">Peer (colega)</option>
+            <option value="avaliacao_desempenho">Referente à avaliação de desempenho</option>
           </select>
         </div>
         <div>
@@ -456,6 +469,9 @@ function FeedbacksTab() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  // Só RH e gestor registram; o colaborador apenas consulta os feedbacks que recebeu
+  const canCreate = canWrite(user?.role)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -465,8 +481,9 @@ function FeedbacksTab() {
   useEffect(() => { load() }, [load])
 
   async function handleSave(data: any) {
-    setSaving(true)
+    setSaving(true); setSaveError('')
     try { await api.carreiraFeedbacks.create(data); setShowForm(false); await load() }
+    catch (err) { setSaveError(err instanceof Error ? err.message : 'Não foi possível salvar o feedback') }
     finally { setSaving(false) }
   }
 
@@ -482,17 +499,25 @@ function FeedbacksTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-slate-500 dark:text-slate-400">{items.length} feedback{items.length !== 1 ? 's' : ''}</p>
-        {!showForm && (
-          <button onClick={() => setShowForm(true)}
+        {canCreate && !showForm && (
+          <button onClick={() => { setSaveError(''); setShowForm(true) }}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition-colors">
             <Plus size={13} /> Novo Feedback
           </button>
         )}
       </div>
 
-      {showForm && (
+      {canCreate && showForm && (
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm">
           <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">Novo Feedback</h3>
+          {user?.role === 'Gestor' && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 -mt-2 mb-3">Você pode registrar feedback para colaboradores do seu setor{user.area ? ` (${user.area})` : ''}.</p>
+          )}
+          {saveError && (
+            <div className="flex items-center gap-2 p-3 mb-3 bg-red-50 dark:bg-red-900/20 rounded-xl text-red-600 dark:text-red-400 text-sm">
+              <AlertCircle size={14} /> {saveError}
+            </div>
+          )}
           <FeedbackForm onSave={handleSave} onCancel={() => setShowForm(false)} saving={saving} />
         </div>
       )}
@@ -500,7 +525,7 @@ function FeedbacksTab() {
       {loading ? (
         <div className="flex justify-center py-10"><Loader2 className="animate-spin text-slate-400" size={24} /></div>
       ) : items.length === 0 ? (
-        <div className="text-center py-12 text-slate-400 text-sm">Nenhum feedback registrado</div>
+        <div className="text-center py-12 text-slate-400 text-sm">{canCreate ? 'Nenhum feedback registrado' : 'Você ainda não recebeu feedbacks'}</div>
       ) : (
         <div className="space-y-3">
           {items.map(fb => {
@@ -514,7 +539,7 @@ function FeedbacksTab() {
                       <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{fb.de_nome}</span>
                       <span className="text-xs text-slate-400">→</span>
                       <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{fb.para_nome}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${tipoCls}`}>{fb.tipo}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${tipoCls}`}>{TIPO_LABELS[fb.tipo] ?? fb.tipo}</span>
                     </div>
                     <p className="text-sm text-slate-700 dark:text-slate-300 mt-1">{fb.conteudo}</p>
                     {fb.pontos_fortes && <p className="text-xs text-green-600 dark:text-green-400 mt-1">✓ {fb.pontos_fortes}</p>}
@@ -716,8 +741,22 @@ const TABS: { key: Tab; label: string; icon: typeof TrendingUp }[] = [
 ]
 
 export default function CarreiraPage() {
+  const { user } = useAuth()
   const [tab, setTab] = useState<Tab>('pdi')
   const Active = TABS.find(t => t.key === tab)!
+
+  // Colaborador: apenas os feedbacks que recebeu (PDI e 1:1 ficam para validação com o RH)
+  if (isColaborador(user?.role)) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Meus feedbacks</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Feedbacks registrados para você</p>
+        </div>
+        <FeedbacksTab />
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
