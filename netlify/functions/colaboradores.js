@@ -2,6 +2,16 @@ const { neon } = require('@neondatabase/serverless')
 const { requireAuth, makeHeaders, errorResponse } = require('./_auth')
 const { logAudit, computeDiff, getUserName } = require('./_audit')
 
+/** "AAAA-MM-DD" válido (ano 1900-2100) ou null. Evita data inválida derrubar o lote inteiro no cast ::date. */
+function normalizeIsoDate(v) {
+  const m = typeof v === 'string' ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(v.trim()) : null
+  if (!m) return null
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])]
+  if (y < 1900 || y > 2100) return null
+  const dt = new Date(Date.UTC(y, mo - 1, d))
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d ? v.trim() : null
+}
+
 exports.handler = async (event) => {
   const headers = makeHeaders(event)
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers, body: '' }
@@ -142,6 +152,8 @@ exports.handler = async (event) => {
           const emails       = chunk.map(c => c.email        || null)
           const gestores     = chunk.map(c => c.gestor_nome  || null)
           const gestorEmails = chunk.map(c => c.gestor_email || null)
+          const nascimentos  = chunk.map(c => normalizeIsoDate(c.data_nascimento))
+          const admissoes    = chunk.map(c => normalizeIsoDate(c.data_admissao))
 
           const result = await sql`
             WITH input AS (
@@ -152,8 +164,10 @@ exports.handler = async (event) => {
                 ${areas}::text[],
                 ${emails}::text[],
                 ${gestores}::text[],
-                ${gestorEmails}::text[]
-              ) AS t(nome, cargo, nivel, area, email, gestor_nome, gestor_email)
+                ${gestorEmails}::text[],
+                ${nascimentos}::date[],
+                ${admissoes}::date[]
+              ) AS t(nome, cargo, nivel, area, email, gestor_nome, gestor_email, data_nascimento, data_admissao)
             ),
             upd AS (
               UPDATE colaboradores c
@@ -163,6 +177,8 @@ exports.handler = async (event) => {
                   email        = COALESCE(i.email,        c.email),
                   gestor_nome  = COALESCE(i.gestor_nome,  c.gestor_nome),
                   gestor_email = COALESCE(i.gestor_email, c.gestor_email),
+                  data_nascimento = COALESCE(i.data_nascimento, c.data_nascimento),
+                  data_admissao   = COALESCE(i.data_admissao,   c.data_admissao),
                   ativo        = true,
                   updated_at   = NOW()
               FROM input i
@@ -184,8 +200,8 @@ exports.handler = async (event) => {
               )
             ),
             ins AS (
-              INSERT INTO colaboradores (nome, cargo, nivel, area, email, gestor_nome, gestor_email)
-              SELECT i.nome, i.cargo, i.nivel, i.area, i.email, i.gestor_nome, i.gestor_email
+              INSERT INTO colaboradores (nome, cargo, nivel, area, email, gestor_nome, gestor_email, data_nascimento, data_admissao)
+              SELECT i.nome, i.cargo, i.nivel, i.area, i.email, i.gestor_nome, i.gestor_email, i.data_nascimento, i.data_admissao
               FROM input i
               WHERE NOT EXISTS (
                 SELECT 1 FROM colaboradores c WHERE LOWER(TRIM(c.nome)) = LOWER(TRIM(i.nome))

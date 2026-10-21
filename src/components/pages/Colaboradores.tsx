@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Plus, Upload, X, ChevronRight, UserX, RefreshCw, AlertCircle, Trash2 } from 'lucide-react'
-import * as XLSX from 'xlsx'
+import { Search, Plus, Upload, Download, FileSpreadsheet, X, ChevronRight, UserX, RefreshCw, AlertCircle, Trash2 } from 'lucide-react'
+import { lerPlanilha, baixarModelo, exportarColaboradores, isoParaBR, type ResultadoLeitura } from '../../lib/colaboradoresPlanilha'
 import { api } from '../../lib/api'
 import { useAuth, isAdmin } from '../../lib/auth'
 import type { Colaborador, NivelCargo } from '../../lib/types'
@@ -42,6 +42,8 @@ function ColabModal({ initial, onSave, onClose }: ColabModalProps) {
     email: initial?.email ?? '',
     gestor_nome: initial?.gestor_nome ?? '',
     gestor_email: initial?.gestor_email ?? '',
+    data_nascimento: initial?.data_nascimento?.slice(0, 10) ?? '',
+    data_admissao: initial?.data_admissao?.slice(0, 10) ?? '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -54,7 +56,12 @@ function ColabModal({ initial, onSave, onClose }: ColabModalProps) {
     if (!form.nome.trim()) { setError('Nome é obrigatório'); return }
     setSaving(true)
     try {
-      await onSave({ ...form, nivel: form.nivel as NivelCargo || undefined })
+      await onSave({
+        ...form,
+        nivel: form.nivel as NivelCargo || undefined,
+        data_nascimento: form.data_nascimento || undefined,
+        data_admissao: form.data_admissao || undefined,
+      })
       onClose()
     } catch (err) {
       setError((err as Error).message)
@@ -114,6 +121,14 @@ function ColabModal({ initial, onSave, onClose }: ColabModalProps) {
               <label className="label">E-mail do gestor</label>
               <input className="input" type="email" value={form.gestor_email} onChange={set('gestor_email')} placeholder="gestor@rtt.com" />
             </div>
+            <div>
+              <label className="label">Data de nascimento</label>
+              <input className="input" type="date" value={form.data_nascimento} onChange={set('data_nascimento')} />
+            </div>
+            <div>
+              <label className="label">Data de admissão</label>
+              <input className="input" type="date" value={form.data_admissao} onChange={set('data_admissao')} />
+            </div>
           </div>
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancelar</button>
@@ -129,40 +144,14 @@ function ColabModal({ initial, onSave, onClose }: ColabModalProps) {
 
 // ─── Import Modal ─────────────────────────────────────────────────────────────
 
-function normalizeKey(k: string): string {
-  return k.trim().toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]/g, '')
-}
-
-const COLUMN_MAP: Record<string, keyof Colaborador> = {
-  // Nome
-  nome: 'nome', name: 'nome',
-  // Cargo / Função — inclui padrão "Desc_ Função" do RH
-  cargo: 'cargo', funcao: 'cargo', funcão: 'cargo', position: 'cargo',
-  descfuncao: 'cargo', descricaofuncao: 'cargo', descricaodafuncao: 'cargo',
-  // Nível
-  nivel: 'nivel', nível: 'nivel', level: 'nivel',
-  // Área / Departamento — inclui padrão "Desc_ Centro de Custo" do RH
-  area: 'area', área: 'area', departamento: 'area', department: 'area',
-  desccentrodecusto: 'area', descricaocentrodecusto: 'area', centrodecusto: 'area',
-  // E-mail
-  email: 'email',
-  // Gestor — inclui padrão "Gestor Imediato" do RH
-  gestor: 'gestor_nome', gestornome: 'gestor_nome', manager: 'gestor_nome', gerente: 'gestor_nome',
-  gestorimediato: 'gestor_nome', gestordireto: 'gestor_nome',
-  // E-mail do gestor
-  gestoremail: 'gestor_email', emailgestor: 'gestor_email', manageremail: 'gestor_email',
-  emaildogestor: 'gestor_email', emailgerente: 'gestor_email',
-}
-
 interface ImportModalProps { onImport: (data: Partial<Colaborador>[]) => Promise<void>; onClose: () => void }
 
 function ImportModal({ onImport, onClose }: ImportModalProps) {
-  const [rows, setRows] = useState<Partial<Colaborador>[]>([])
+  const [leitura, setLeitura] = useState<ResultadoLeitura | null>(null)
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+  const rows = leitura?.colaboradores ?? []
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -170,27 +159,16 @@ function ImportModal({ onImport, onClose }: ImportModalProps) {
     const reader = new FileReader()
     reader.onload = (ev) => {
       try {
-        const wb = XLSX.read(ev.target?.result, { type: 'binary' })
-        const ws = wb.Sheets[wb.SheetNames[0]]
-        const raw = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: '' })
-        const parsed = raw.map(row => {
-          const obj: Partial<Colaborador> = {}
-          for (const [k, v] of Object.entries(row)) {
-            const mapped = COLUMN_MAP[normalizeKey(k)]
-            if (!mapped) continue
-            // aceita string ou número (ex: serial de data ignorado pois não está no map)
-            const strVal = typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : ''
-            if (strVal) (obj as Record<string, string>)[mapped] = strVal
-          }
-          return obj
-        }).filter(r => r.nome)
-        setRows(parsed)
-        setError(parsed.length === 0 ? 'Nenhum colaborador encontrado. Verifique se há uma coluna "Nome".' : '')
+        const resultado = lerPlanilha(ev.target?.result as ArrayBuffer, 'array')
+        setLeitura(resultado)
+        setError(resultado.colaboradores.length === 0 ? 'Nenhum colaborador encontrado. Verifique se há uma coluna "Nome".' : '')
       } catch {
+        setLeitura(null)
         setError('Erro ao ler o arquivo. Verifique se é um Excel válido.')
       }
     }
-    reader.readAsBinaryString(file)
+    reader.readAsArrayBuffer(file)
+    e.target.value = '' // permite escolher o mesmo arquivo de novo após corrigi-lo
   }
 
   const handleImport = async () => {
@@ -207,7 +185,7 @@ function ImportModal({ onImport, onClose }: ImportModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-2xl animate-slide-up">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-3xl animate-slide-up max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700">
           <h2 className="font-semibold text-slate-900 dark:text-slate-100 text-sm">Importar colaboradores via Excel</h2>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"><X size={16} /></button>
@@ -216,13 +194,21 @@ function ImportModal({ onImport, onClose }: ImportModalProps) {
           <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-600 p-6 text-center">
             <Upload size={28} className="mx-auto text-slate-400 mb-2" />
             <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
-              Selecione um arquivo <strong>.xlsx</strong> do sistema de RH ou com colunas:<br />
-              <em>Nome</em>, <em>Desc_ Função</em>, <em>Desc_ Centro de Custo</em>, <em>Gestor Imediato</em>
+              Selecione um arquivo <strong>.xlsx</strong> com as colunas do modelo:<br />
+              <em>Nome</em>, <em>Cargo</em>, <em>Nível</em>, <em>Área</em>, <em>E-mail</em>, <em>Gestor Imediato</em>, <em>Data de Nascimento</em>, <em>Data de Admissão</em>
             </p>
             <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleFile} className="hidden" />
-            <button type="button" onClick={() => fileRef.current?.click()} className="btn-secondary text-xs">
-              Escolher arquivo
-            </button>
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              <button type="button" onClick={() => fileRef.current?.click()} className="btn-secondary text-xs">
+                Escolher arquivo
+              </button>
+              <button type="button" onClick={baixarModelo} className="btn-secondary text-xs gap-1.5">
+                <FileSpreadsheet size={13} /> Baixar modelo
+              </button>
+            </div>
+            <p className="text-xs text-slate-400 mt-3">
+              Quem já existe (pelo nome) é atualizado; quem não existe é criado. Células em branco não apagam dados.
+            </p>
           </div>
 
           {error && (
@@ -231,13 +217,27 @@ function ImportModal({ onImport, onClose }: ImportModalProps) {
             </div>
           )}
 
+          {leitura && rows.length > 0 && (leitura.datasIgnoradas > 0 || leitura.niveisIgnorados > 0 || leitura.colunasIgnoradas.length > 0) && (
+            <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl text-amber-800 dark:text-amber-300 text-xs space-y-1">
+              {leitura.datasIgnoradas > 0 && (
+                <p><strong>{leitura.datasIgnoradas}</strong> data(s) inválida(s) foram ignoradas. Use o formato dd/mm/aaaa (ex.: 25/03/1990).</p>
+              )}
+              {leitura.niveisIgnorados > 0 && (
+                <p><strong>{leitura.niveisIgnorados}</strong> nível(is) não reconhecido(s) foram ignorados. Consulte a aba “Instruções” do modelo.</p>
+              )}
+              {leitura.colunasIgnoradas.length > 0 && (
+                <p>Colunas não reconhecidas (ignoradas): {leitura.colunasIgnoradas.join(', ')}.</p>
+              )}
+            </div>
+          )}
+
           {rows.length > 0 && (
             <div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">{rows.length} colaborador(es) identificados — prévia:</p>
-              <div className="max-h-52 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700">
+              <div className="max-h-52 overflow-auto rounded-xl border border-slate-200 dark:border-slate-700">
                 <table className="w-full text-xs">
                   <thead className="bg-slate-50 dark:bg-slate-900/50">
-                    <tr>{['Nome','Cargo','Nível','Área','Gestor'].map(h => <th key={h} className="px-3 py-2 text-left font-medium text-slate-500">{h}</th>)}</tr>
+                    <tr>{['Nome','Cargo','Nível','Área','Gestor','Nascimento','Admissão'].map(h => <th key={h} className="px-3 py-2 text-left font-medium text-slate-500 whitespace-nowrap">{h}</th>)}</tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                     {rows.slice(0, 20).map((r, i) => (
@@ -247,6 +247,8 @@ function ImportModal({ onImport, onClose }: ImportModalProps) {
                         <td className="px-3 py-2 text-slate-500">{r.nivel ? NIVEL_LABELS[r.nivel as NivelCargo] || r.nivel : '—'}</td>
                         <td className="px-3 py-2 text-slate-500">{r.area || '—'}</td>
                         <td className="px-3 py-2 text-slate-500">{r.gestor_nome || '—'}</td>
+                        <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{isoParaBR(r.data_nascimento) || '—'}</td>
+                        <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{isoParaBR(r.data_admissao) || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -281,6 +283,7 @@ export default function ColaboradoresPage() {
   const [showAdd, setShowAdd] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [toast, setToast] = useState('')
+  const [exporting, setExporting] = useState(false)
 
   // Seleção
   const [selected, setSelected] = useState<Set<number>>(new Set())
@@ -329,6 +332,20 @@ export default function ColaboradoresPage() {
     showToast(parts.length ? parts.join(', ') : 'Nenhuma alteração')
   }
 
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      // Sempre a base completa, mesmo com busca ativa na tela
+      const todos = await api.colaboradores.list() as Colaborador[]
+      exportarColaboradores(todos)
+      showToast(`${todos.length} colaborador(es) exportado(s)`)
+    } catch {
+      showToast('Não foi possível exportar. Tente novamente.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const handleDeleteSingle = async () => {
     if (!deleteTarget) return
     setDeleting(true)
@@ -366,6 +383,11 @@ export default function ColaboradoresPage() {
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{colabs.length} colaborador(es) na base</p>
         </div>
         <div className="flex gap-2">
+          {userIsAdmin && (
+            <button onClick={handleExport} disabled={exporting} className="btn-secondary gap-2" title="Baixa a base atual (com as correções já feitas) no mesmo formato da importação">
+              <Download size={15} /> {exporting ? 'Exportando...' : 'Exportar Excel'}
+            </button>
+          )}
           <button onClick={() => setShowImport(true)} className="btn-secondary gap-2">
             <Upload size={15} /> Importar Excel
           </button>
