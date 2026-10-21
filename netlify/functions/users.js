@@ -5,6 +5,7 @@ const { requireAuth, requireAdmin, isAdminRole, isMasterRole, makeHeaders, error
 const { sendInviteEmail } = require('./_email')
 const { logAudit, computeDiff, getUserName } = require('./_audit')
 const { normalizeCpf, isValidCpf } = require('./_cpf')
+const { normalizePhone } = require('./_phone')
 
 const VALID_ROLES = ['Administrador de RH', 'Administrador de TI', 'Gestor', 'Administrador Master', 'Administrador de RH / Gestor', 'Beta Teste', 'Instrutor', 'Colaborador']
 
@@ -12,6 +13,8 @@ const VALID_ROLES = ['Administrador de RH', 'Administrador de TI', 'Gestor', 'Ad
 async function ensureUserColumns(sql) {
   await sql`ALTER TABLE users ALTER COLUMN email DROP NOT NULL`
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS cpf VARCHAR(11)`
+  // Telefone (E.164) para o MFA por SMS/WhatsApp de quem entra só com CPF — envio ainda não habilitado
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20)`
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS colaborador_id INTEGER`
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS users_cpf_key ON users (cpf) WHERE cpf IS NOT NULL`
 }
@@ -92,7 +95,7 @@ exports.handler = async (event) => {
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS avaliacoes_confidenciais BOOLEAN DEFAULT false`
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS ver_confidencial BOOLEAN DEFAULT false`
       const rows = await sql`
-        SELECT id, name, email, cpf, role, roles, area, active, must_change_password, colaborador_id,
+        SELECT id, name, email, cpf, phone, role, roles, area, active, must_change_password, colaborador_id,
                avaliacoes_confidenciais, ver_confidencial, created_at, updated_at,
                (assinatura IS NOT NULL) AS has_assinatura
         FROM users ORDER BY name ASC
@@ -103,9 +106,11 @@ exports.handler = async (event) => {
     // POST — somente administrador
     if (event.httpMethod === 'POST') {
       const adminPayload = requireAdmin(event)
-      const { name, email: rawEmail, cpf: rawCpf, password, role, roles, area, colaborador_id } = JSON.parse(event.body || '{}')
+      const { name, email: rawEmail, cpf: rawCpf, phone: rawPhone, password, role, roles, area, colaborador_id } = JSON.parse(event.body || '{}')
       const email = rawEmail && String(rawEmail).trim() ? String(rawEmail).trim() : null
       const cpf = rawCpf && normalizeCpf(rawCpf) ? normalizeCpf(rawCpf) : null
+      const phoneInformado = !!(rawPhone && String(rawPhone).trim())
+      const phone = phoneInformado ? normalizePhone(rawPhone) : null
 
       if (!name || !name.trim())
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Nome é obrigatório' }) }
@@ -115,6 +120,11 @@ exports.handler = async (event) => {
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'E-mail inválido' }) }
       if (cpf && !isValidCpf(cpf))
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'CPF inválido' }) }
+      if (phoneInformado && !phone)
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Telefone inválido. Informe DDD + número (ex.: (11) 91234-5678)' }) }
+      // Quem entra só com CPF não tem e-mail para o MFA: o telefone é obrigatório (MFA por SMS/WhatsApp)
+      if (!email && !phone)
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Informe o telefone do usuário (necessário para quem entra só com CPF)' }) }
       // Sem e-mail não há convite: o RH define a senha temporária (troca obrigatória no 1º acesso)
       if (!email) {
         if (!password || password.length < 8)
@@ -150,9 +160,9 @@ exports.handler = async (event) => {
 
       const rolesArr = roles || [role || 'Gestor']
       const rows = await sql`
-        INSERT INTO users (name, email, cpf, password_hash, role, roles, area, colaborador_id, must_change_password)
-        VALUES (${name.trim()}, ${email ? email.toLowerCase() : null}, ${cpf}, ${passwordHash}, ${role || 'Gestor'}, ${rolesArr}, ${area || null}, ${colaborador_id || null}, true)
-        RETURNING id, name, email, cpf, role, roles, area, active, must_change_password, colaborador_id, created_at, updated_at
+        INSERT INTO users (name, email, cpf, phone, password_hash, role, roles, area, colaborador_id, must_change_password)
+        VALUES (${name.trim()}, ${email ? email.toLowerCase() : null}, ${cpf}, ${phone}, ${passwordHash}, ${role || 'Gestor'}, ${rolesArr}, ${area || null}, ${colaborador_id || null}, true)
+        RETURNING id, name, email, cpf, phone, role, roles, area, active, must_change_password, colaborador_id, created_at, updated_at
       `
 
       // Envia link de convite por e-mail (sem senha em texto). Usuário só com CPF não recebe convite.
@@ -214,15 +224,19 @@ exports.handler = async (event) => {
 
       await ensureUserColumns(sql)
 
-      const { name, email: rawEmail, cpf: rawCpf, password, role, roles, area, active, colaborador_id, avaliacoes_confidenciais, ver_confidencial } = JSON.parse(event.body || '{}')
+      const { name, email: rawEmail, cpf: rawCpf, phone: rawPhone, password, role, roles, area, active, colaborador_id, avaliacoes_confidenciais, ver_confidencial } = JSON.parse(event.body || '{}')
       // E-mail/CPF vazios = "sem alteração" (não é possível limpar o identificador por aqui)
       const email = rawEmail && String(rawEmail).trim() ? String(rawEmail).trim() : undefined
       const cpf = rawCpf && normalizeCpf(rawCpf) ? normalizeCpf(rawCpf) : undefined
+      const phoneInformado = !!(rawPhone && String(rawPhone).trim())
+      const phone = phoneInformado ? normalizePhone(rawPhone) : undefined
 
       if (email !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'E-mail inválido' }) }
       if (cpf !== undefined && !isValidCpf(cpf))
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'CPF inválido' }) }
+      if (phoneInformado && !phone)
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Telefone inválido. Informe DDD + número (ex.: (11) 91234-5678)' }) }
       if (role !== undefined && !VALID_ROLES.includes(role))
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Papel inválido' }) }
       if (roles !== undefined) {
@@ -256,6 +270,7 @@ exports.handler = async (event) => {
       if (name !== undefined)            updates.name = name.trim()
       if (email !== undefined)           updates.email = email.toLowerCase()
       if (cpf !== undefined)             updates.cpf = cpf
+      if (phone !== undefined)           updates.phone = phone
       if (role !== undefined)            updates.role = role
       if (roles !== undefined)           updates.roles = roles
       if (area !== undefined)            updates.area = area || null
@@ -272,6 +287,7 @@ exports.handler = async (event) => {
           name                      = COALESCE(${updates.name ?? null}, name),
           email                     = COALESCE(${updates.email ?? null}, email),
           cpf                       = COALESCE(${updates.cpf ?? null}, cpf),
+          phone                     = COALESCE(${updates.phone ?? null}, phone),
           must_change_password      = CASE WHEN ${forceChange} THEN true ELSE must_change_password END,
           role                    = COALESCE(${updates.role ?? null}, role),
           roles                     = CASE WHEN ${roles !== undefined} THEN ${rolesVal} ELSE roles END,
@@ -283,7 +299,7 @@ exports.handler = async (event) => {
           ver_confidencial          = CASE WHEN ${ver_confidencial !== undefined} THEN ${updates.ver_confidencial ?? false} ELSE ver_confidencial END,
           updated_at                = NOW()
         WHERE id = ${id}
-        RETURNING id, name, email, cpf, role, roles, area, active, colaborador_id, avaliacoes_confidenciais, ver_confidencial, created_at, updated_at
+        RETURNING id, name, email, cpf, phone, role, roles, area, active, colaborador_id, avaliacoes_confidenciais, ver_confidencial, created_at, updated_at
       `
       if (rows.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Usuário não encontrado' }) }
 

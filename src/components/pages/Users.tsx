@@ -9,6 +9,7 @@ interface AppUser {
   name: string
   email: string | null
   cpf?: string | null
+  phone?: string | null
   role: string
   roles?: string[]
   area?: string | null
@@ -23,6 +24,17 @@ interface AppUser {
 
 const ROLES = ['Administrador Master', 'Administrador de RH', 'Administrador de RH / Gestor', 'Gestor', 'Colaborador', 'Beta Teste']
 const SECONDARY_ROLES = ['Instrutor']
+
+/** Formata como telefone brasileiro: (11) 91234-5678. Aceita valor com ou sem +55. */
+function formatPhone(value: string) {
+  let d = value.replace(/D/g, '')
+  if (d.length > 11 && d.startsWith('55')) d = d.slice(2)
+  d = d.slice(0, 11)
+  if (d.length <= 2) return d
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
+}
 
 /** Formata dígitos como CPF (000.000.000-00) enquanto o usuário digita. */
 function formatCpf(value: string) {
@@ -71,6 +83,7 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
   const [name, setName]         = useState(user?.name ?? '')
   const [email, setEmail]       = useState(user?.email ?? '')
   const [cpf, setCpf]           = useState(formatCpf(user?.cpf ?? ''))
+  const [phone, setPhone]       = useState(formatPhone(user?.phone ?? ''))
   const [password, setPassword] = useState('')
   const [role, setRole]         = useState(user?.role ?? 'Gestor')
   const [secondaryRoles, setSecondaryRoles] = useState<string[]>(
@@ -120,6 +133,10 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
     if (!name.trim()) { setError('Nome é obrigatório'); return }
     if (!email.trim() && !cpfDigits) { setError('Informe o e-mail ou o CPF'); return }
     if (cpfDigits && cpfDigits.length !== 11) { setError('CPF deve ter 11 dígitos'); return }
+    const phoneDigits = phone.replace(/D/g, '')
+    if (phoneDigits && phoneDigits.length < 10) { setError('Telefone incompleto. Informe DDD + número'); return }
+    // Sem e-mail não há onde receber o código de verificação: o telefone é obrigatório na criação
+    if (!isEdit && !email.trim() && !phoneDigits) { setError('Informe o telefone (necessário para quem entra só com CPF)'); return }
     if (!isEdit && !email.trim() && password.length < 8) { setError('Defina uma senha temporária de no mínimo 8 caracteres'); return }
     if ((role === 'Gestor' || role === 'Administrador de RH / Gestor') && !area.trim()) { setError('Departamento é obrigatório para Gestores'); return }
 
@@ -130,6 +147,7 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
         const payload: Record<string, unknown> = { name, role, roles: allRoles, area: area.trim() || null, colaborador_id: colaboradorId ?? null, avaliacoes_confidenciais: avaliacoesConfidenciais, ver_confidencial: verConfidencial }
         if (email.trim()) payload.email = email.trim()
         if (cpfDigits) payload.cpf = cpfDigits
+        if (phoneDigits) payload.phone = phoneDigits
         if (password) payload.password = password
         await api.users.update(user!.id, payload)
         onSaved()
@@ -138,6 +156,7 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
           name,
           email: email.trim() || undefined,
           cpf: cpfDigits || undefined,
+          phone: phoneDigits || undefined,
           // Senha temporária só vale para quem não tem e-mail (sem convite por e-mail)
           password: email.trim() ? undefined : password,
           role, roles: allRoles, area: area.trim() || null,
@@ -197,6 +216,26 @@ function UserModal({ user, onClose, onSaved, currentUserRole, knownAreas = [] }:
                   ? 'Com e-mail, o usuário recebe um convite para criar a própria senha e pode entrar por e-mail ou CPF.'
                   : 'Sem e-mail, o usuário entra com CPF + a senha temporária abaixo e é obrigado a trocá-la no primeiro acesso.'}
               </p>
+            )}
+          </div>
+          <div>
+            <label className="label">
+              Telefone (WhatsApp/SMS){' '}
+              {!isEdit && !email.trim()
+                ? <span className="text-red-500 ml-0.5">*</span>
+                : <span className="text-slate-400 font-normal">(opcional com e-mail)</span>}
+            </label>
+            <input
+              className="input"
+              type="tel"
+              inputMode="tel"
+              placeholder="(11) 91234-5678"
+              value={phone}
+              onChange={(e) => setPhone(formatPhone(e.target.value))}
+              disabled={loading}
+            />
+            {!isEdit && !email.trim() && (
+              <p className="text-xs text-slate-400 mt-1">Usado para a verificação em duas etapas de quem entra só com CPF. O envio do código ainda não está ativo.</p>
             )}
           </div>
           {(isEdit || !email.trim()) && (
@@ -976,7 +1015,7 @@ export default function UsersPage() {
                       )}
                     </div>
                     <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                      {[u.email, u.cpf ? `CPF ${formatCpf(u.cpf)}` : null].filter(Boolean).join(' · ')}
+                      {[u.email, u.cpf ? `CPF ${formatCpf(u.cpf)}` : null, u.phone ? `Tel ${formatPhone(u.phone)}` : null].filter(Boolean).join(' · ')}
                     </p>
                     {u.area && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Área: <span className="font-medium text-slate-600 dark:text-slate-300">{u.area}</span></p>}
                   </div>

@@ -119,7 +119,9 @@ exports.handler = async (event) => {
 
     // Usuário sem e-mail (login por CPF): o código MFA é enviado por e-mail, então não há como
     // exigi-lo. Entra direto; a troca da senha temporária é forçada por mustChangePassword.
-    // TODO: exigir MFA via SMS/WhatsApp quando esse canal existir.
+    // DECISÃO: MFA desligado para quem entra só com CPF até o provedor de SMS/WhatsApp ser
+    // escolhido (custo). O telefone (users.phone, E.164) já é coletado no cadastro; quando o
+    // envio existir, é aqui que o login deve emitir o token "mfa_required" para o telefone.
     if (!user.email) {
       const token = signToken(tokenPayload)
       return {

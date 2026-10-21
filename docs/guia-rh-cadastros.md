@@ -65,10 +65,11 @@ Clique em **Novo Usuário** e escolha como a pessoa vai entrar:
 - Ela entra com e-mail e senha e confirma um **código enviado por e-mail** (MFA).
 - Se o convite não chegar, use o botão de **reenviar convite** (ícone de envio) na lista.
 
-**Só com CPF** — preencha o CPF, deixe o e-mail em branco e **defina uma senha temporária** (mínimo de 8 caracteres).
+**Só com CPF** — preencha o CPF, deixe o e-mail em branco, informe o **telefone** e **defina uma senha temporária** (mínimo de 8 caracteres).
+- O **telefone é obrigatório** (DDD + número, ex.: `(11) 91234-5678`). Ele será usado para enviar o código de verificação por SMS/WhatsApp.
 - Passe o CPF e a senha temporária à pessoa pessoalmente ou por um canal seguro.
 - No primeiro acesso o sistema **obriga a trocar** a senha.
-- Não há código por e-mail para esses usuários por enquanto.
+- ⚠️ **Por enquanto não há código de verificação** para quem entra só com CPF: o envio por SMS/WhatsApp ainda será ativado. Até lá, a proteção é a senha, o bloqueio por tentativas e o acesso restrito à Intranet. Prefira cadastrar **com e-mail** quando a pessoa tiver um.
 
 ### Perfis de acesso
 | Perfil | O que acessa |
@@ -89,6 +90,7 @@ Para quem vai fazer cursos pelo cargo ou pela área, escolha o **Colaborador vin
 | Bloquear o acesso de alguém | Interruptor **Desativar** na lista |
 | Mudar o perfil | **Editar** → Perfil de acesso |
 | Adicionar CPF a quem só tem e-mail (ou o contrário) | **Editar** e preencher o campo |
+| Atualizar o telefone de um usuário | **Editar** → Telefone |
 
 ---
 
