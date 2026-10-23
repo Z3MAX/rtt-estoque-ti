@@ -1,5 +1,5 @@
-import { useRef } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect, useRef } from 'react'
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { AuthProvider, useAuth, isAdmin, isMaster, isColaborador } from './lib/auth'
 import { ThemeProvider, ForceLightMode } from './lib/theme'
 import LoginPage from './components/LoginPage'
@@ -37,19 +37,32 @@ import FeedbacksPage from './components/pages/intranet/Feedbacks'
 import CarreiraPage from './components/pages/intranet/Carreira'
 import MetasPage from './components/pages/Metas'
 
+// Telas "de seção": se o login aconteceu em uma delas, o usuário vai para Minha Visão.
+// Qualquer outro endereço (ex.: /avaliacoes/12, /intranet/pesquisas/3/responder, ou com ?parametros)
+// é um link específico — por exemplo vindo de e-mail — e é preservado.
+const SECTION_PATHS = new Set([
+  '/', '/intranet', '/intranet/treinamentos', '/intranet/comunicados', '/intranet/pesquisas',
+  '/intranet/carreira', '/intranet/pdi', '/intranet/equipe', '/intranet/feedbacks',
+  '/dashboard', '/colaboradores', '/departamentos', '/realizar-avaliacao', '/avaliacoes',
+  '/metas', '/usuarios', '/ciclo-avaliacao', '/monitor', '/auditoria', '/corrigir-gestor',
+])
+
 function ProtectedRoutes() {
   const { user, loading } = useAuth()
+  const navigate = useNavigate()
+  const { pathname, search } = useLocation()
 
-  // Preserve deep link (e.g. from email) across login redirect
-  const deepLinkRef = useRef<string | null>(null)
-  const initedRef = useRef(false)
-  if (!initedRef.current) {
-    initedRef.current = true
-    if (!sessionStorage.getItem('rtt_deep_link_done') && window.location.pathname !== '/') {
-      deepLinkRef.current = window.location.pathname + window.location.search
+  // Depois de um login (a tela de login foi exibida e agora há usuário), abre em Minha Visão.
+  // Quem só teve a sessão restaurada pelo cookie (sem passar pelo login) fica onde estava.
+  const sawLoginScreen = useRef(false)
+  if (!loading && !user) sawLoginScreen.current = true
+  useEffect(() => {
+    if (!user || !sawLoginScreen.current) return
+    sawLoginScreen.current = false
+    if (!search && SECTION_PATHS.has(pathname) && pathname !== '/intranet') {
+      navigate('/intranet', { replace: true })
     }
-    sessionStorage.setItem('rtt_deep_link_done', '1')
-  }
+  }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return (
