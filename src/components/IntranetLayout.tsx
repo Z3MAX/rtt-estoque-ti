@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   Home, Megaphone, GraduationCap, Users, ClipboardList,
@@ -42,6 +42,25 @@ export default function IntranetLayout() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [photoModal, setPhotoModal] = useState(false)
+  const userMenuRef = useRef<HTMLDivElement>(null)
+
+  // Menu do usuário: fecha ao clicar/tocar fora, ao apertar Esc e ao mudar de tela
+  useEffect(() => {
+    if (!userMenuOpen) return
+    const onPointerDown = (e: MouseEvent | TouchEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) setUserMenuOpen(false)
+    }
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') setUserMenuOpen(false) }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('touchstart', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('touchstart', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [userMenuOpen])
+  useEffect(() => { setUserMenuOpen(false) }, [location.pathname])
 
   const isActive = (to: string) => {
     if (to === '/dashboard') {
@@ -96,7 +115,7 @@ export default function IntranetLayout() {
             </button>
 
             {/* User menu */}
-            <div className="relative">
+            <div className="relative" ref={userMenuRef}>
               <button
                 onClick={() => setUserMenuOpen(v => !v)}
                 className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
