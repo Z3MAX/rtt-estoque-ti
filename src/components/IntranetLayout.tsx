@@ -78,6 +78,12 @@ export default function IntranetLayout() {
     : NAV.filter(n => n.anyAdmin ? isAdmin(user?.role) : (!n.adminOnly || ADMIN_NAV_ROLES.includes(user?.role ?? '')))
   ).map(n => (colaborador && COLABORADOR_LABELS[n.to]) ? { ...n, label: COLABORADOR_LABELS[n.to] } : n)
 
+  // O menu horizontal só cabe quando há espaço: com muitos itens (perfis administrativos) ele precisa
+  // de ~1170px e estourava a página em tablets e notebooks pequenos. Abaixo desse ponto usa o hambúrguer.
+  const muitosItens = visibleNav.length > 5
+  const navInlineCls = muitosItens ? 'hidden xl:flex' : 'hidden lg:flex'
+  const burgerCls    = muitosItens ? 'xl:hidden' : 'lg:hidden'
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col">
       {/* Top Navbar */}
@@ -90,7 +96,7 @@ export default function IntranetLayout() {
           </div>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-0.5 flex-1">
+          <nav className={`${navInlineCls} items-center gap-0.5 flex-1`}>
             {visibleNav.map(({ to, icon: Icon, label }) => (
               <button
                 key={to}
@@ -155,7 +161,7 @@ export default function IntranetLayout() {
             {/* Mobile menu */}
             <button
               onClick={() => setMobileOpen(v => !v)}
-              className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+              className={`${burgerCls} w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700`}
             >
               {mobileOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
@@ -164,7 +170,7 @@ export default function IntranetLayout() {
 
         {/* Mobile nav drawer */}
         {mobileOpen && (
-          <div className="md:hidden border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 flex flex-col gap-1">
+          <div className={`${burgerCls} border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 flex flex-col gap-1`}>
             {visibleNav.map(({ to, icon: Icon, label }) => (
               <button
                 key={to}

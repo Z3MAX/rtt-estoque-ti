@@ -54,8 +54,9 @@ export default function AvaliacoesSubLayout() {
           ))}
       </aside>
 
-      {/* Content */}
-      <div className="flex-1 min-w-0">
+      {/* Content. As páginas trazem p-6 próprio; no celular isso soma com o espaçamento do layout
+          e rouba ~80px de largura, então só o restauramos a partir de md. */}
+      <div className="flex-1 min-w-0 [&>div.p-6]:p-0 md:[&>div.p-6]:p-6">
         <Outlet />
       </div>
     </div>

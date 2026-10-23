@@ -493,7 +493,7 @@ function ResultadoView({ view, tipoAvaliacao, gestorRespostas, rhComentarios }: 
                 ))
               )}
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-[13rem]">
               {qInfo && (
                 <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-semibold mb-3 ${qInfo.bg} ${qInfo.border} ${qInfo.text}`}>
                   {view.quadrante} · {qInfo.label}

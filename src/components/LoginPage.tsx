@@ -118,9 +118,14 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
 
           {/* Mobile logo */}
-          <div className="flex items-center gap-3 mb-8 lg:hidden">
+          <div className="mb-8 lg:hidden">
             <img src="/rema-logo-rtt.png" alt="Rema Tip Top" className="h-8 w-auto object-contain select-none"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+            {/* No celular o painel lateral some; o título e a descrição ficam aqui */}
+            <h1 className="mt-5 text-2xl font-bold text-slate-900">Intranet <span className="text-primary-600">RTT</span></h1>
+            <p className="mt-1 text-sm text-slate-500 leading-relaxed">
+              Comunicados, treinamentos, pesquisas e carreira da Rema Tip Top, tudo em um só lugar.
+            </p>
           </div>
 
           <div className="card p-8">
@@ -135,7 +140,7 @@ export default function LoginPage() {
                 <input
                   className="input"
                   type="text"
-                  placeholder="seu@email.com ou 000.000.000-00"
+                  placeholder="seu@email.com ou CPF"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="username"
@@ -160,7 +165,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowPass((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-slate-600 transition-colors"
                     tabIndex={-1}
                   >
                     {showPass ? <EyeOff size={16} /> : <Eye size={16} />}

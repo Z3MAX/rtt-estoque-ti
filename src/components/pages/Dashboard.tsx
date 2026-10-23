@@ -43,12 +43,13 @@ function KpiCard({ label, value, sub, icon: Icon, colorClass }: {
   icon: React.ElementType; colorClass: string
 }) {
   return (
-    <div className="card p-5 flex items-start gap-4">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${colorClass}`}>
+    // No celular o ícone fica acima do texto: em 2 colunas, lado a lado não sobra largura para o rótulo
+    <div className="card p-3 sm:p-5 flex flex-col sm:flex-row items-start gap-2 sm:gap-4">
+      <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 ${colorClass}`}>
         <Icon size={20} className="text-white" />
       </div>
-      <div className="min-w-0">
-        <p className="text-slate-500 dark:text-slate-400 text-xs font-medium uppercase tracking-wide">{label}</p>
+      <div className="min-w-0 w-full">
+        <p className="text-slate-500 dark:text-slate-400 text-xs font-medium uppercase tracking-wide break-words">{label}</p>
         <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-0.5">{value}</p>
         {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
       </div>
@@ -106,7 +107,7 @@ export default function Dashboard() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 xl:grid-cols-5 gap-3 sm:gap-4">
         <KpiCard label="Colaboradores" value={data?.total_colaboradores ?? 0} icon={Users} colorClass="bg-primary-500" sub="ativos na base" />
         <KpiCard label="Avaliações concluídas" value={data?.avaliacoes_concluidas ?? 0} icon={CheckCircle2} colorClass="bg-emerald-500" sub={`de ${data?.total_avaliacoes ?? 0} registradas`} />
         <KpiCard label="Avaliados pelo Gestor" value={data?.colaboradores_avaliados_gestor ?? data?.colaboradores_avaliados ?? 0} icon={TrendingUp} colorClass="bg-blue-500" sub={`${taxaAvaliacao}% da base`} />
@@ -171,7 +172,7 @@ export default function Dashboard() {
         <div className="card overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-700">
             <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Avaliações Recentes</h2>
-            <Link to="/colaboradores" className="text-xs text-primary-600 dark:text-primary-400 font-medium flex items-center gap-1 hover:underline">
+            <Link to="/colaboradores" className="text-xs text-primary-600 dark:text-primary-400 font-medium flex items-center gap-1 hover:underline py-2 -my-2">
               Ver todos <ChevronRight size={12} />
             </Link>
           </div>

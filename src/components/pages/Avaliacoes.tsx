@@ -470,7 +470,7 @@ export default function AvaliacoesPage() {
                   <th className="px-4 py-3 w-10">
                     <button
                       onClick={toggleAll}
-                      className="text-slate-400 hover:text-primary-500 transition-colors"
+                      className="p-2 -m-2 text-slate-400 hover:text-primary-500 transition-colors"
                       title={allSelected ? 'Desselecionar todos' : 'Selecionar todos'}
                     >
                       {allSelected

@@ -71,17 +71,17 @@ export default function DepartamentosPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
         {[
           { label: 'Departamentos', value: departamentos.length, icon: Building2, color: 'text-primary-600 dark:text-primary-400', bg: 'bg-primary-50 dark:bg-primary-900/20' },
           { label: 'Gestores',      value: totalGestores,        icon: UserCircle, color: 'text-violet-600 dark:text-violet-400',  bg: 'bg-violet-50 dark:bg-violet-900/20' },
           { label: 'Avaliados',     value: `${totalAvaliados} / ${totalColabs}`, icon: Users, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
         ].map(({ label, value, icon: Icon, color, bg }) => (
-          <div key={label} className="card p-4 flex items-center gap-4">
-            <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center shrink-0`}>
+          <div key={label} className="card p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+            <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl ${bg} flex items-center justify-center shrink-0`}>
               <Icon size={18} className={color} />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xl font-bold text-slate-900 dark:text-slate-100">{value}</p>
               <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
             </div>

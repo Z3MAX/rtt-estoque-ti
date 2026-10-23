@@ -860,7 +860,7 @@ export default function NovaAvaliacao() {
       )}
 
       {/* CTA */}
-      <div className="card p-4 flex items-center justify-between gap-4">
+      <div className="card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
           {!canGenerate && (
             <p className="text-xs text-slate-400">
@@ -874,11 +874,11 @@ export default function NovaAvaliacao() {
             </p>
           )}
         </div>
-        <div className="flex gap-2 shrink-0">
-          <button type="button" onClick={() => navigate(`/colaboradores/${colab.id}`)} className="btn-secondary">
+        <div className="flex flex-wrap gap-2 sm:shrink-0">
+          <button type="button" onClick={() => navigate(`/colaboradores/${colab.id}`)} className="btn-secondary flex-1 sm:flex-none justify-center">
             Cancelar
           </button>
-          <button type="button" onClick={handleGenerate} disabled={!canGenerate} className="btn-primary disabled:opacity-40">
+          <button type="button" onClick={handleGenerate} disabled={!canGenerate} className="btn-primary disabled:opacity-40 flex-1 sm:flex-none justify-center">
             Ver resultado consolidado
           </button>
         </div>
