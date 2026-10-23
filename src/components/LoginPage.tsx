@@ -87,11 +87,11 @@ export default function LoginPage() {
           </div>
 
           <h1 className="text-4xl font-bold text-white leading-tight">
-            Gestão de talentos<br />
-            <span className="text-primary-400">e avaliações</span>
+            Intranet<br />
+            <span className="text-primary-400">RTT</span>
           </h1>
           <p className="text-slate-400 mt-3 text-sm leading-relaxed max-w-sm">
-            Avalie e desenvolva seu time com <span className="text-white font-medium">visibilidade total</span> sobre desempenho, potencial e evolução de cada colaborador.
+            Comunicados, treinamentos, pesquisas e desenvolvimento de carreira da Rema Tip Top, <span className="text-white font-medium">tudo em um só lugar</span>, com acesso seguro para cada perfil.
           </p>
 
         </div>
