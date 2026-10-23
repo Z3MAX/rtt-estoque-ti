@@ -66,8 +66,6 @@ const PORTAIS = [
   { nome: 'Protheus',          desc: 'Sistema ERP',                     logo: '/portais/protheus.svg',  from: 'from-blue-700',   to: 'to-blue-900',   url: 'http://balancer-rema.jelastic.saveincloud.net:13193/webapp/#' },
   { nome: 'Flash',             desc: 'Benefícios e despesas',           logo: '/portais/flash.svg',     from: 'from-pink-500', to: 'to-pink-700',   url: 'https://hros.flashapp.com.br/' },
   { nome: 'Qualyteam',         desc: 'Gestão de qualidade',             logo: '/portais/qualyteam.svg', from: 'from-green-900',  to: 'to-green-950',  url: 'https://rematiptop.qualyteam.com.br/' },
-  { nome: 'WhatsApp',          desc: 'Atendimento ao cliente',          logo: '/portais/whatsapp.png',  from: 'from-green-500',  to: 'to-green-700',  url: 'https://web.whatsapp.com' },
-  { nome: 'Meet',              desc: 'Reuniões e videoconferências',    logo: '/portais/meet.png',      from: 'from-sky-500',    to: 'to-blue-600',   url: 'https://meet.google.com' },
 ]
 
 function PortaisHub() {
