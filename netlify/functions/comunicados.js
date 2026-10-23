@@ -67,10 +67,12 @@ exports.handler = async (event) => {
             AND (
               areas IS NULL
               OR array_length(areas, 1) IS NULL
-              OR (${userArea} IS NOT NULL AND ${userArea} = ANY(areas))
-              OR (${isGestor}    AND '__gestores__'     = ANY(areas))
-              OR (${isGestorAdm} AND '__gestores_adm__' = ANY(areas))
-              OR (${isGestorOp}  AND '__gestores_op__'  = ANY(areas))
+              -- Casts explícitos: sem eles o Postgres não consegue inferir o tipo de um parâmetro que
+              -- só aparece em "IS NOT NULL" (erro 42P18) — quebrava para quem não tem área (ex.: Colaborador)
+              OR (${userArea}::text IS NOT NULL AND ${userArea}::text = ANY(areas))
+              OR (${isGestor}::boolean    AND '__gestores__'     = ANY(areas))
+              OR (${isGestorAdm}::boolean AND '__gestores_adm__' = ANY(areas))
+              OR (${isGestorOp}::boolean  AND '__gestores_op__'  = ANY(areas))
             )
             ORDER BY fixado DESC, created_at DESC
           `
